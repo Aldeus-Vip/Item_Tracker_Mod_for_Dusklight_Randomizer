@@ -364,9 +364,9 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       const special = node.entry ? trackerEntry(entry.item) : null;
       if (special?.kind === "map") {
         // Map entries are set by hand: clicking one switches that region for every check.
-        return el("button", { type: "button", className: cls + " req-toggle", textContent: label,
+        return el("button", { type: "button", className: cls + " req-toggle", role: "checkbox", ariaChecked: String(Boolean(met)),
           title: met ? "Marked reachable — click to unmark this region" : "Click to mark this region reachable",
-          onclick: () => toggleMap(special.name) });
+          onclick: () => toggleMap(special.name) }, mapCheck(met), label);
       }
       return el("span", { className: cls, title: met === false ? "Not met yet" : "", textContent: label });
     }
@@ -376,6 +376,11 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       group.append(renderReq(arg));
     });
     return group;
+  }
+
+  // Check box in front of Map entries, which are switched by hand.
+  function mapCheck(on) {
+    return el("span", { className: "req-check" + (on ? " on" : ""), ariaHidden: "true" });
   }
 
   function routesTree(routes) {
@@ -525,7 +530,9 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     route.forEach((entry, ci) => {
       if (ci) parts.append(el("span", { className: "req-op", textContent: "and" }));
       const met = search ? entryMet(entry) : null;
+      const map = trackerEntry(entry.item)?.kind === "map";
       parts.append(el("span", { className: "req-part" + (met === true ? " met" : met === false ? " unmet" : ""), title: met === false ? "Not met yet" : "" },
+        map ? mapCheck(met) : null,
         `${routeEntryLabel(entry.item)}${entry.n > 1 ? ` ×${entry.n}` : ""}`,
         el("button", { type: "button", className: "chip-x", textContent: "×", title: "Remove",
           onclick: (e) => { e.stopPropagation(); route.splice(ci, 1); redrawEditor(); } })));
