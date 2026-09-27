@@ -763,6 +763,8 @@ const locationsView = createLocationsView(views.locations, {
     settings.logic = enabled;
     await saveSettings();
   },
+  getLayoutSections: () => savedLayout.sections,
+  makeIcon: (name, itemId) => iconImg(name, "", null, itemId),
   getMapFlags: () => settings.mapReachable,
   saveMapFlags: async (regions) => {
     settings.mapReachable = regions;

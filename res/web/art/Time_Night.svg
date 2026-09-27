@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="glow" cx="45%" cy="50%" r="50%">
+      <stop offset="0.4" stop-color="#cfe0ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#8fa9e8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="moon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffbe8"/>
+      <stop offset="0.6" stop-color="#f1e6b8"/>
+      <stop offset="1" stop-color="#c9b77a"/>
+    </linearGradient>
+    <mask id="crescent">
+      <rect width="64" height="64" fill="#fff"/>
+      <circle cx="41" cy="25" r="17" fill="#000"/>
+    </mask>
+  </defs>
+  <circle cx="30" cy="32" r="30" fill="url(#glow)"/>
+  <g mask="url(#crescent)">
+    <circle cx="30" cy="34" r="20" fill="url(#moon)"/>
+    <circle cx="19" cy="38" r="3" fill="#d8c98f" opacity="0.7"/>
+    <circle cx="26" cy="47" r="2.2" fill="#d8c98f" opacity="0.6"/>
+    <circle cx="16" cy="29" r="1.6" fill="#d8c98f" opacity="0.6"/>
+  </g>
+  <path d="M50 44l1.2 3 3 1.2-3 1.2-1.2 3-1.2-3-3-1.2 3-1.2z" fill="#fff6d6"/>
+  <path d="M55 12l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="#fff6d6" opacity="0.8"/>
+</svg>

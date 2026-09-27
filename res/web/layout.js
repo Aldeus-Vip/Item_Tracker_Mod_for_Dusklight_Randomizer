@@ -280,6 +280,60 @@ export const TILES = {
   goldenBug: counted("Golden Bug", "Golden Bugs", "Bug0"),
 };
 
+// Randomizer items behind each tile, for the requirement editor's item list:
+// [item name, icon name, game item id for icons that need one].
+const GOLDEN_BUGS = ["Beetle", "Butterfly", "Stag Beetle", "Grasshopper", "Phasmid", "Pill Bug", "Mantis", "Ladybug",
+  "Snail", "Dragonfly", "Ant", "Dayfly"].flatMap((bug) => [`Male ${bug}`, `Female ${bug}`]);
+const BOMB_BAG_ITEMS = [["Bomb Bag", "Bomb_Bag", ITEM.BOMB_BAG], ["Giant Bomb Bag", "Giant_Bomb_Bag"]];
+const BOTTLE_ITEMS = [
+  ["Empty Bottle", bottleIcon("Empty Bottle"), 0x60], ["Bottle with Half Milk", bottleIcon("Half Milk"), 0x65],
+  ["Bottle with Great Fairies Tears", bottleIcon("Great Fairy's Tears"), 0x73], ["Bottle with Lantern Oil", bottleIcon("Lantern Oil"), 0x66],
+];
+export const TILE_ITEMS = {
+  slingshot: [["Slingshot", "Slingshot"]],
+  lantern: [["Lantern", "Lantern"]],
+  boomerang: [["Gale Boomerang", "Gale_Boomerang"]],
+  ironBoots: [["Iron Boots", "Iron_Boots"]],
+  bow: [["Progressive Bow", "Hero's_Bow"]],
+  hawkeye: [["Hawkeye", "Hawkeye"]],
+  clawshot: [["Progressive Clawshot", "Progressive_Clawshot0"]],
+  spinner: [["Spinner", "Spinner"]],
+  ballAndChain: [["Ball and Chain", "Ball_and_Chain"]],
+  dominionRod: [["Progressive Dominion Rod", "Progressive_Dominion_Rod0"]],
+  fishingRod: [["Progressive Fishing Rod", "Progressive_Fishing_Rod0"]],
+  horseCall: [["Horse Call", "Horse_Call"]],
+  bombBag1: BOMB_BAG_ITEMS, bombBag2: BOMB_BAG_ITEMS, bombBag3: BOMB_BAG_ITEMS,
+  bottle1: BOTTLE_ITEMS, bottle2: BOTTLE_ITEMS, bottle3: BOTTLE_ITEMS, bottle4: BOTTLE_ITEMS,
+  skyBook: [["Progressive Sky Book", "Sky_Book_Character"]],
+  aurusMemo: [["Aurus Memo", "Auru's_Memo"]],
+  asheisSketch: [["Asheis Sketch", "Ashei's_Sketch"]],
+  iliaQuest: ILIA_QUEST.map(([item, , icon]) => [item, icon]),
+  sword: [["Progressive Sword", "Progressive_Sword0"]],
+  shield: [["Ordon Shield", "Progressive_Shield0"]],
+  hylianShield: [["Hylian Shield", "Hylian_Shield"]],
+  zoraArmor: [["Zora Armor", "Zora_Armor"]],
+  magicArmor: [["Magic Armor", "Magic_Armor"]],
+  shadowCrystal: [["Shadow Crystal", "Shadow_Crystal"]],
+  faronGateKey: [["North Faron Woods Gate Key", "Small_KeyF"]],
+  coroGateKey: [["Faron Woods Coro Key", "Small_KeyC"]],
+  gateKeys: [["Gate Keys", "Small_KeyG"]],
+  bulblinCampKey: [["Gerudo Desert Bulblin Camp Key", "Small_KeyB"]],
+  fusedShadow: [["Progressive Fused Shadow", "Fused_Shadow"]],
+  mirrorShard: [["Progressive Mirror Shard", "Mirror_Shard"]],
+  wallet: [["Progressive Wallet", "Progressive_Wallet0"]],
+  hiddenSkills: [["Progressive Hidden Skill", "Hidden_Skill"]],
+  poeSoul: [["Poe Soul", "Poe_Soul"]],
+  goldenBug: GOLDEN_BUGS.map((bug) => [bug, "Bug0"]),
+};
+
+// Items no tile shows, grouped after the tracker's sections; matched by name.
+export const OTHER_ITEM_GROUPS = [
+  { title: "Dungeon Keys", match: (n) => / (Small|Big) Key$|Key Shard$|Bedroom Key$/.test(n),
+    icon: (n) => (/Big Key$/.test(n) ? "Boss_Key" : /Key Shard$/.test(n) ? "GBK0" : /Bedroom Key$/.test(n) ? "Bedroom_Key" : "Small_Key") },
+  { title: "Portals", match: (n) => / Portal$/.test(n), icon: () => null },
+  { title: "Other", match: () => true, icon: (n) => ({ "Ordon Pumpkin": "Ordon_Pumpkin", "Ordon Cheese": "Ordon_Goat_Cheese" })[n] ?? null },
+];
+
 // Default layout: sections of COLUMNS-wide rows. null = empty slot.
 export const DEFAULT_LAYOUT = {
   version: 1,

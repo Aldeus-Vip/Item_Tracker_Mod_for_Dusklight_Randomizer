@@ -5,6 +5,7 @@
 import yaml from "./vendor/js-yaml.mjs";
 import { World, Search, itemsFromState, routeSatisfied, routeEntrySatisfied, routeEntryLabel, trackerEntry, parseDisplay, atomLabel } from "./logic.js";
 import { REGION_GROUPS, FlagReader, buildLocationList, isObtained } from "./locations.js";
+import { TILE_ITEMS, OTHER_ITEM_GROUPS } from "./layout.js";
 
 const DATA_FILES = [
   "locations.yaml", "macros.yaml", "items.yaml", "settings_list.yaml", "world/Root.yaml",
@@ -20,14 +21,16 @@ const DATA_FILES = [
 
 // On/off conditions offered under "Rand Settings". The twilights are read from the game (cleared by
 // playing or by the seed); the others are the randomizer's settings.
-const RANDO_FLAGS = [
-  "Skip Prologue", "Faron Twilight Cleared", "Eldin Twilight Cleared", "Lanayru Twilight Cleared",
-  "Skip Midna's Desperate Hour", "Unlock Map Regions", "Open Door of Time", "Active Goron Mines Magnets",
-  "Lower Hyrule Castle Chandelier", "Skip Bridge Donation", "Logic Transform Anywhere",
-  "Lakebed Does Not Require Water Bombs", "Arbiters Does Not Require Bulblin Camp",
-  "Snowpeak Does Not Require Reekfish Scent", "Sacred Grove Does Not Require Skull Kid",
-  "City Does Not Require Filled Skybook",
+const RANDO_FLAG_GROUPS = [
+  { title: "Story", flags: ["Skip Prologue", "Faron Twilight Cleared", "Eldin Twilight Cleared", "Lanayru Twilight Cleared", "Skip Midna's Desperate Hour"] },
+  { title: "World", flags: ["Unlock Map Regions", "Open Door of Time", "Active Goron Mines Magnets", "Lower Hyrule Castle Chandelier", "Skip Bridge Donation", "Logic Transform Anywhere"] },
+  {
+    title: "Dungeon requirements",
+    flags: ["Lakebed Does Not Require Water Bombs", "Arbiters Does Not Require Bulblin Camp", "Snowpeak Does Not Require Reekfish Scent",
+      "Sacred Grove Does Not Require Skull Kid", "City Does Not Require Filled Skybook"],
+  },
 ];
+const RANDO_FLAGS = RANDO_FLAG_GROUPS.flatMap((g) => g.flags);
 const GAME_TWILIGHTS = { "Faron Twilight Cleared": "Faron", "Eldin Twilight Cleared": "Eldin", "Lanayru Twilight Cleared": "Lanayru" };
 
 // Condition groups of the requirement editor: [key, tab label, search placeholder].
@@ -52,16 +55,18 @@ const el = (tag, props = {}, ...children) => {
  * @param options.saveLogic     (enabled) => Promise
  * @param options.getMapFlags   () => [region], the regions marked reachable by hand
  * @param options.saveMapFlags  ([region]) => Promise
+ * @param options.getLayoutSections () => the Items tab's sections ({ title, slots: [tile id] })
+ * @param options.makeIcon      (icon name, game item id?) => <img> drawn as in the Items tab
  * @param options.setStatus     (kind, text) => void
  */
 // Below this width the region list and the check list are shown one at a time.
 const NARROW_WIDTH = 560;
 
-export function createLocationsView(root, { getOverrides, saveOverrides, getLogic, saveLogic, getMapFlags, saveMapFlags, setStatus }) {
+export function createLocationsView(root, { getOverrides, saveOverrides, getLogic, saveLogic, getMapFlags, saveMapFlags, getLayoutSections, makeIcon, setStatus }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
-  let mapRegions = [];
+  let mapGroups = []; // [{ title: province, regions }] in the order of the randomizer's world files
   let randoFlags = [];
   let excluded = new Set();
   let settingsNote = "";
@@ -132,8 +137,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
         .filter((i) => i?.Name && i.Importance !== "Junk")
         .map((i) => i.Name)
         .sort((a, b) => a.localeCompare(b));
-      mapRegions = [...new Set([...world.areas.values()].map((a) => a.region).filter((r) => r && r !== "None"))]
-        .sort((a, b) => a.localeCompare(b));
+      mapGroups = regionGroups(data);
       randoFlags = RANDO_FLAGS.filter((f) => GAME_TWILIGHTS[f] || world.settingOptions.get(f)?.includes("On"));
       retries = 0;
     } catch (err) {
@@ -145,6 +149,27 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     }
     evaluate();
     render();
+  }
+
+  // Logic regions by province: the overworld files are one province each (Ordona, Faron, Eldin,
+  // Lanayru, Gerudo Desert, Snowpeak, as the game numbers its regions), the dungeon files follow in
+  // dungeon order. Within a province, regions keep the order they first appear in its file.
+  function regionGroups(data) {
+    const seen = new Set();
+    const groups = [];
+    for (const f of DATA_FILES.filter((f) => f.startsWith("world/"))) {
+      const title = f.startsWith("world/dungeons/") ? "Dungeons" : f.replace(/^.*\//, "").replace(/\.yaml$/, "").replace(/^Root$/, "Other");
+      let group = groups.find((g) => g.title === title);
+      for (const area of data[f] ?? []) {
+        const r = area?.Region;
+        if (!r || r === "None" || seen.has(r)) continue;
+        seen.add(r);
+        if (!group) groups.push((group = { title, regions: [] }));
+        group.regions.push(r);
+      }
+    }
+    // Root holds only the start; anything there goes last.
+    return [...groups.filter((g) => g.title !== "Other"), ...groups.filter((g) => g.title === "Other")];
   }
 
   // ---- Evaluation ----
@@ -448,7 +473,13 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
   function openPopup() {
     let w = null;
     try {
-      w = window.open("", "tracker-requirement-editor", "popup,width=760,height=640");
+      // Centered on the screen.
+      const width = Math.min(820, screen.availWidth);
+      const height = Math.min(780, screen.availHeight);
+      const left = (screen.availLeft ?? 0) + Math.round((screen.availWidth - width) / 2);
+      const top = (screen.availTop ?? 0) + Math.round((screen.availHeight - height) / 2);
+      w = window.open("", "tracker-requirement-editor", `popup,width=${width},height=${height},left=${left},top=${top}`);
+      w?.moveTo(left, top); // a window reused from an earlier edit keeps its place otherwise
     } catch {}
     if (!w) return null;
     const d = w.document;
@@ -551,12 +582,44 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     return row;
   }
 
-  // Tabs of condition groups, a search box and the matching conditions.
-  function candidates(tab) {
-    if (tab === "time") return ["Day", "Night"].map((t) => ({ item: `time:${t}`, label: t, on: entryMet({ item: `time:${t}` }) }));
-    if (tab === "flag") return randoFlags.map((f) => ({ item: `flag:${f}`, label: f, on: flagOn(f) }));
-    if (tab === "map") return mapRegions.map((r) => ({ item: `map:${r}`, label: r, on: getMapFlags().includes(r) }));
-    return pickableItems.map((i) => ({ item: i, label: i }));
+  // Rows of the picker, grouped: [{ title, rows: [{ item, label, icon?, state? }] }]. icon is an
+  // icon name (tracker icons, following the icon settings) or an image path; state is whether a
+  // Time / Rand Settings / Map condition is currently on.
+  function pickerGroups(tab) {
+    if (tab === "time") {
+      return [{ title: "Time of day", rows: ["Day", "Night"].map((t) => ({ item: `time:${t}`, label: t, src: `art/Time_${t}.svg`, state: entryMet({ item: `time:${t}` }) })) }];
+    }
+    if (tab === "flag") {
+      return RANDO_FLAG_GROUPS.map((g) => ({ title: g.title, rows: g.flags.filter((f) => randoFlags.includes(f)).map((f) => ({ item: `flag:${f}`, label: f, state: flagOn(f) })) }));
+    }
+    if (tab === "map") {
+      const on = new Set(getMapFlags());
+      return mapGroups.map((g) => ({ title: g.title, rows: g.regions.map((r) => ({ item: `map:${r}`, label: r, state: on.has(r) })) }));
+    }
+    // Items: the tracker's sections in its order, then what no tile shows.
+    const pickable = new Set(pickableItems);
+    const seen = new Set();
+    const groups = [];
+    for (const section of getLayoutSections()) {
+      const rows = [];
+      for (const tile of section.slots) {
+        for (const [item, icon, itemId] of TILE_ITEMS[tile] ?? []) {
+          if (!pickable.has(item) || seen.has(item)) continue;
+          seen.add(item);
+          rows.push({ item, label: item, icon, itemId });
+        }
+      }
+      if (rows.length) groups.push({ title: section.title, rows });
+    }
+    const rest = pickableItems.filter((i) => !seen.has(i));
+    for (const g of OTHER_ITEM_GROUPS) {
+      const rows = rest.filter((i) => !seen.has(i) && g.match(i)).map((i) => {
+        seen.add(i);
+        return { item: i, label: i, icon: g.icon(i) };
+      });
+      if (rows.length) groups.push({ title: g.title, rows });
+    }
+    return groups;
   }
 
   function renderPicker() {
@@ -572,45 +635,66 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     const placeholder = ENTRY_TABS.find(([key]) => key === tab)[2];
     // The typed text survives redraws (e.g. a state update while the editor is in the panel).
     const input = el("input", { type: "search", className: "rule-search", placeholder, autocomplete: "off", spellcheck: false, value: editing.query ?? "" });
-    const count = tab === "item" ? el("input", { type: "number", min: 1, max: 99, value: 1, className: "loc-item-count", title: "Count" }) : null;
-    const list = el("div", { className: "rule-candidates" });
-    const all = candidates(tab);
-    const add = (c) => {
-      route.push({ item: c.item, n: count ? Math.max(1, Math.min(99, Number(count.value) || 1)) : 1 });
-      editing.query = "";
+    const count = tab === "item" ? el("input", { type: "number", min: 1, max: 99, value: 1, className: "loc-item-count", title: "Count added with an item" }) : null;
+    const list = el("div", { className: "rule-list" + (tab === "item" || tab === "time" ? " with-icons" : "") });
+    const groups = pickerGroups(tab);
+    // Checked rows are in the route: clicking adds or removes them.
+    const toggle = (row) => {
+      const at = route.findIndex((e) => e.item === row.item);
+      if (at >= 0) route.splice(at, 1);
+      else route.push({ item: row.item, n: count ? Math.max(1, Math.min(99, Number(count.value) || 1)) : 1 });
       redrawEditor(true);
     };
-    let shown = [];
+    let first = null;
     const draw = () => {
       const words = input.value.toLowerCase().split(/\s+/).filter(Boolean);
-      const used = new Set(route.map((e) => e.item));
       const query = words.join(" ");
-      // Best matches first: the exact name, then names starting with the text, then word starts.
+      // Enter adds the best match: the exact name, then names starting with the text, then word starts.
       const rank = (label) => {
         const l = label.toLowerCase();
         if (l === query) return 0;
         if (l.startsWith(query)) return 1;
         return words.every((w) => l.split(/[\s'-]+/).some((part) => part.startsWith(w))) ? 2 : 3;
       };
-      shown = all.filter((c) => !used.has(c.item) && words.every((w) => c.label.toLowerCase().includes(w)));
-      if (words.length) shown = shown.map((c) => [rank(c.label), c]).sort((x, y) => x[0] - y[0]).map(([, c]) => c);
-      list.replaceChildren(...shown.slice(0, 80).map((c) => el("button", {
-        type: "button", className: "rule-candidate" + (c.on === true ? " on" : c.on === false ? " off" : ""),
-        title: c.on === undefined ? "" : c.on ? "Currently on" : "Currently off",
-        onclick: () => add(c),
-      }, c.label)));
-      if (!shown.length) list.append(el("span", { className: "loc-note", textContent: "No match." }));
+      const inRoute = new Map(route.map((e) => [e.item, e]));
+      first = null;
+      let bestRank = 4;
+      const nodes = [];
+      for (const g of groups) {
+        const rows = g.rows.filter((r) => words.every((w) => r.label.toLowerCase().includes(w)));
+        if (!rows.length) continue;
+        nodes.push(el("div", { className: "rule-group", textContent: g.title }));
+        for (const r of rows) {
+          const entry = inRoute.get(r.item);
+          if (!entry && words.length && rank(r.label) < bestRank) {
+            bestRank = rank(r.label);
+            first = r;
+          }
+          const icon = r.icon !== undefined || r.src
+            ? el("span", { className: "rule-icon" }, r.src ? el("img", { src: r.src, alt: "" }) : r.icon ? makeIcon(r.icon, r.itemId) : null)
+            : null;
+          nodes.push(el("button", {
+            type: "button", role: "checkbox", ariaChecked: String(Boolean(entry)),
+            className: "rule-row" + (entry ? " checked" : ""), title: entry ? "In this route — click to remove" : "Click to add to this route",
+            onclick: () => toggle(r),
+          }, mapCheck(Boolean(entry)), icon, el("span", { className: "rule-label", textContent: entry?.n > 1 ? `${r.label} ×${entry.n}` : r.label }),
+          r.state === undefined ? null : el("span", { className: "rule-state" + (r.state ? " on" : ""), textContent: r.state ? "ON" : "OFF" })));
+        }
+      }
+      list.replaceChildren(...nodes);
+      if (!nodes.length) list.append(el("span", { className: "loc-note", textContent: "No match." }));
     };
-    input.addEventListener("input", () => { editing.query = input.value; draw(); });
+    input.addEventListener("input", () => { editing.query = input.value; draw(); list.scrollTop = 0; });
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && shown.length) {
+      if (e.key === "Enter" && first) {
         e.preventDefault();
-        add(shown[0]);
+        editing.query = "";
+        toggle(first);
       }
     });
     draw();
     box.append(el("div", { className: "rule-search-row" }, input, count), list);
-    if (tab === "map") box.append(el("p", { className: "loc-note", textContent: "Map regions are marked reachable by hand: click a Map entry in a check's requirement to switch it for every check." }));
+    if (tab === "map") box.append(el("p", { className: "loc-note", textContent: "ON/OFF: whether you marked the region reachable. Click a Map entry in a check's requirement to switch it for every check." }));
     if (tab === "time") box.append(el("p", { className: "loc-note", textContent: "Met when the game's clock shows that time (night is 19:00–6:00)." }));
     return box;
   }
