@@ -71,7 +71,9 @@ function textureUrl(ref) {
 // The default for an icon: an item number (/game-icons/), a game texture reference, or bundled
 // original art ("art/<file>").
 function gameIconUrl(name, itemId) {
-  const id = itemId !== undefined && itemId !== "" ? itemId : GAME_ICON_IDS[name];
+  let id = itemId !== undefined && itemId !== "" ? itemId : GAME_ICON_IDS[name];
+  // Item numbers read back from data attributes are strings.
+  if (typeof id === "string" && /^\d+$/.test(id)) id = Number(id);
   if (id === undefined) return null;
   if (typeof id !== "string") return `game-icons/${id}.png`;
   return id.startsWith("art/") ? id : textureUrl(id);
@@ -120,8 +122,13 @@ function fitCaptions(root) {
   for (const caption of root.querySelectorAll(".caption")) {
     caption.style.fontSize = "";
     const full = parseFloat(getComputedStyle(caption).fontSize);
+    // scrollWidth is rounded, so a text a fraction of a pixel too wide still gets an ellipsis;
+    // measure the text itself instead.
+    const range = document.createRange();
+    range.selectNodeContents(caption);
+    const fits = () => range.getBoundingClientRect().width <= caption.clientWidth - 1;
     let size = full;
-    while (caption.scrollWidth > caption.clientWidth + 0.5 && size > full * 0.55) {
+    while (!fits() && size > full * 0.55) {
       size -= 0.5;
       caption.style.fontSize = `${size}px`;
     }

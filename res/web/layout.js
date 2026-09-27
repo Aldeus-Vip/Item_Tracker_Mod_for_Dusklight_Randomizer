@@ -294,7 +294,7 @@ export const DEFAULT_LAYOUT = {
       ],
     },
     { id: "quest", title: "Quest Items", slots: ["skyBook", "aurusMemo", "asheisSketch", "iliaQuest", null, null, null] },
-    { id: "equipment", title: "Equipment", slots: ["sword", "shield", "hylianShield", "zoraArmor", "magicArmor", "shadowCrystal", null] },
+    { id: "equipment", title: "Equipment", slots: ["shadowCrystal", "sword", "shield", "hylianShield", "zoraArmor", "magicArmor", null] },
     { id: "fieldKeys", title: "Field Keys", slots: ["faronGateKey", "coroGateKey", "gateKeys", "bulblinCampKey", null, null, null] },
     { id: "collection", title: "Collection", slots: ["fusedShadow", "mirrorShard", "wallet", "hiddenSkills", "poeSoul", "goldenBug", null] },
   ],
