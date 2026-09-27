@@ -144,6 +144,8 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
         const item = l?.["Original Item"];
         if (item) itemMax.set(item, (itemMax.get(item) ?? 0) + 1);
       }
+      // Sold in two shops, but one is all anyone needs.
+      itemMax.set("Hylian Shield", 1);
       randoFlags = RANDO_FLAGS.filter((f) => GAME_TWILIGHTS[f] || world.settingOptions.get(f)?.includes("On"));
       retries = 0;
     } catch (err) {
@@ -540,7 +542,8 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     const wrap = el("div", { className: "rule-editor" });
     wrap.append(el("div", { className: "loc-detail-head" },
       el("h3", { textContent: name }),
-      el("button", { className: "tool", type: "button", textContent: "Cancel", onclick: cancelEdit })));
+      el("button", { className: "tool", type: "button", textContent: "Cancel", onclick: cancelEdit }),
+      el("button", { className: "tool primary", type: "button", textContent: "Save", onclick: () => save(editing.routes) })));
 
     // The requirement as it will look once saved, one framed row per route.
     const current = el("section", { className: "rule-frame rule-current" },
