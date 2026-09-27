@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+  <!-- Item slot frame in the spirit of the Twilight Princess item wheel (original artwork). -->
+  <!-- Rims only: the body fill (theme colors) and grain are separate layers below the icon. -->
+  <!-- Outer beige rim and dark separator -->
+  <path d="M10 2 H90 A8 8 0 0 0 98 10 V90 A8 8 0 0 0 90 98 H10 A8 8 0 0 0 2 90 V10 A8 8 0 0 0 10 2 Z"
+    fill="none" stroke="#1a190f" stroke-width="4"/>
+  <path d="M10 2 H90 A8 8 0 0 0 98 10 V90 A8 8 0 0 0 90 98 H10 A8 8 0 0 0 2 90 V10 A8 8 0 0 0 10 2 Z"
+    fill="none" stroke="#d8cf9f" stroke-width="2.2"/>
+  <!-- Inner thin line -->
+  <path d="M12 6 H88 A6 6 0 0 0 94 12 V88 A6 6 0 0 0 88 94 H12 A6 6 0 0 0 6 88 V12 A6 6 0 0 0 12 6 Z"
+    fill="none" stroke="#8d8763" stroke-width="0.9" opacity="0.8"/>
+</svg>

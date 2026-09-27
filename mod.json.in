@@ -1,0 +1,7 @@
+{
+  "id": "io.github.aldeus_vip.shadowq_tracker",
+  "name": "ShadowQ Item Tracker",
+  "version": "@PROJECT_VERSION@",
+  "author": "Aldeus-Vip",
+  "description": "Automatic item tracker for the Dusklight Randomizer. Open the tracker page in a browser or OBS Browser Source."
+}

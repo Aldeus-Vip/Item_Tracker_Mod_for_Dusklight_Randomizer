@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+  <!-- Slot body shape (concave corners), used as a CSS mask for the theme-colored fill. -->
+  <path d="M10 2 H90 A8 8 0 0 0 98 10 V90 A8 8 0 0 0 90 98 H10 A8 8 0 0 0 2 90 V10 A8 8 0 0 0 10 2 Z" fill="#fff"/>
+</svg>

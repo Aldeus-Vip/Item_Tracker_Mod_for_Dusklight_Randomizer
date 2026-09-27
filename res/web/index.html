@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShadowQ Tracker</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <nav class="tabs" role="tablist">
+      <button type="button" role="tab" data-view="items" aria-selected="true">Items</button>
+      <button type="button" role="tab" data-view="dungeons" aria-selected="false">Dungeons</button>
+      <button type="button" role="tab" data-view="locations" aria-selected="false">Locations</button>
+    </nav>
+    <div class="bar-right">
+      <button type="button" id="theme" class="tool">Theme</button>
+      <button type="button" id="edit" class="tool">Edit</button>
+      <div class="status" id="status" data-state="connecting">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="status-text">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="edit-bar" id="edit-bar" hidden>
+    <span>Click two slots (or drag one onto another) to swap them.</span>
+    <span class="edit-actions">
+      <button type="button" id="edit-reset" class="tool">Reset to default</button>
+      <button type="button" id="edit-cancel" class="tool">Cancel</button>
+      <button type="button" id="edit-confirm" class="tool primary">Confirm</button>
+    </span>
+  </div>
+
+  <div class="edit-bar" id="theme-bar" hidden>
+    <div class="theme-row">
+      <span class="label">Theme</span>
+      <button type="button" class="swatch" data-choice="twilight"><i></i>Twilight</button>
+      <button type="button" class="swatch" data-choice="midna"><i></i>Midna</button>
+      <button type="button" class="swatch" data-choice="hyrule"><i></i>Hyrule</button>
+      <button type="button" class="swatch" data-choice="shadow"><i></i>Shadow</button>
+    </div>
+    <div class="theme-row">
+      <span class="label">Background</span>
+      <label class="tool">Upload image…<input type="file" id="bg-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
+      <button type="button" id="bg-remove" class="tool">Remove</button>
+      <select id="bg-fit" aria-label="Image fit">
+        <option value="cover">Fill</option>
+        <option value="tile">Tile</option>
+      </select>
+      <label>Darken <input type="range" id="bg-dim" min="0" max="85" step="5"></label>
+    </div>
+    <span class="edit-actions"><button type="button" id="theme-close" class="tool primary">Done</button></span>
+  </div>
+
+  <div class="icon-editor" id="icon-editor" hidden></div>
+  <div class="texture-browser" id="texture-browser" hidden></div>
+
+  <main>
+    <section id="view-items" class="view" role="tabpanel"></section>
+    <section id="view-dungeons" class="view" role="tabpanel" hidden></section>
+    <section id="view-locations" class="view" role="tabpanel" hidden></section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
