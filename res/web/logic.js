@@ -457,8 +457,11 @@ export function trackerEntry(item) {
   return m ? { kind: m[1], name: m[2] } : null;
 }
 
+// A route entry is { item, n } or a nested group { or: [route, ...] } (any one of its routes).
 // ctx: { test(entry) => boolean } for tracker entries, or { all: true } to treat them as met.
-export function routeEntrySatisfied(search, { item, n = 1 }, ctx = {}) {
+export function routeEntrySatisfied(search, entry, ctx = {}) {
+  if (Array.isArray(entry.or)) return entry.or.some((r) => routeSatisfied(search, r, ctx));
+  const { item, n = 1 } = entry;
   const special = trackerEntry(item);
   if (special) return ctx.all === true || Boolean(ctx.test?.(special));
   const world = search.world;

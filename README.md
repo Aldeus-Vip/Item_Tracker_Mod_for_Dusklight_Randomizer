@@ -93,6 +93,9 @@ it opens in the panel). The window closes when you press **Save**.
 
 - The top frame shows the requirement as it will look when saved, one row per route. Every part
   of a route is needed; any one route is enough. Click a route to add to it.
+- **+ Or group** adds a part met by any one of its options, so a route can say `A and (B or C)`
+  or `(A or B) and (C or D)`. Options can hold Or groups of their own. Click an option to add to
+  it; the picker's heading shows where new conditions go.
 - Below it, pick conditions from four tabs. Each tab is a two-column list of check boxes: a checked
   row is in the selected route, and clicking a row adds or removes it. Items follow the Items tab's
   sections and order and show its icons; Map regions are grouped by province. Type in the search

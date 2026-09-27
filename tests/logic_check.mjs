@@ -57,7 +57,8 @@ if (rulesFile) {
   const { overrides } = JSON.parse(readFileSync(rulesFile, "utf8"));
   const bad = new Set();
   for (const routes of Object.values(overrides)) {
-    for (const { item } of routes.flat()) {
+    const entries = (rs) => rs.flat().flatMap((e) => (Array.isArray(e.or) ? entries(e.or) : [e]));
+    for (const { item } of entries(routes)) {
       if (world.itemNames.has(item) || trackerEntry(item)) continue;
       try {
         world.parse(item);

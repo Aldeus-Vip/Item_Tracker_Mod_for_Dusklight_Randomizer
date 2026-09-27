@@ -408,8 +408,10 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     return el("span", { className: "req-check" + (on ? " on" : ""), ariaHidden: "true" });
   }
 
+  // Routes (and nested Or groups) as a requirement tree for display.
   function routesTree(routes) {
-    const and = (r) => (r.length === 1 ? { t: "atom", entry: r[0] } : { t: "and", args: r.map((entry) => ({ t: "atom", entry })) });
+    const part = (entry) => (Array.isArray(entry.or) ? routesTree(entry.or) : { t: "atom", entry });
+    const and = (r) => (r.length === 1 ? part(r[0]) : { t: "and", args: r.map(part) });
     const nonEmpty = routes.filter((r) => r.length);
     if (nonEmpty.length < routes.length) return { t: "atom", text: "Nothing" };
     return nonEmpty.length === 1 ? and(nonEmpty[0]) : { t: "or", args: nonEmpty.map(and) };
@@ -464,7 +466,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
   // ---- Requirement editor (own window, or the panel where windows cannot open, e.g. OBS) ----
 
   function startEdit(routes) {
-    Object.assign(editing, { routes, edit: true, active: 0, tab: "item", query: "" });
+    Object.assign(editing, { routes, edit: true, target: routes[0], tab: "item", query: "" });
     popup = openPopup();
     if (popup) renderPopup();
     render();
@@ -535,13 +537,13 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     // The requirement as it will look once saved, one framed row per route.
     const current = el("section", { className: "rule-frame rule-current" },
       el("h4", { textContent: "Custom requirement" }),
-      el("p", { className: "loc-note", textContent: "Every part of a route is needed; any one route is enough. Click a route to add to it." }));
+      el("p", { className: "loc-note", textContent: "Every part of a route is needed; any one route is enough. \"+ Or group\" adds a part that is met by any one of its options, e.g. A and (B or C). Click a route or option to add to it." }));
     editing.routes.forEach((route, ri) => {
       if (ri) current.append(el("div", { className: "req-op req-op-block", textContent: "or" }));
-      current.append(renderRoute(route, ri));
+      current.append(renderAndList(route, `Route ${ri + 1}`, editing.routes.length > 1 ? () => editing.routes.splice(ri, 1) : null, "Remove route"));
     });
     current.append(el("button", { className: "tool", type: "button", textContent: "+ Route (or)",
-      onclick: () => { editing.routes.push([]); editing.active = editing.routes.length - 1; redrawEditor(true); } }));
+      onclick: () => { editing.routes.push([]); editing.target = editing.routes.at(-1); redrawEditor(true); } }));
 
     wrap.append(current, renderPicker(),
       el("div", { className: "loc-custom-actions" },
@@ -552,34 +554,82 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     return wrap;
   }
 
-  function renderRoute(route, ri) {
-    const active = ri === editing.active;
-    const row = el("div", { className: "rule-route" + (active ? " active" : ""), title: active ? "" : "Click to add to this route",
-      onclick: () => { if (editing.active !== ri) { editing.active = ri; redrawEditor(true); } } },
-    el("span", { className: "loc-route-label", textContent: `Route ${ri + 1}` }));
+  // The list the picker adds to: a route or an option of an Or group, found again after edits.
+  function targetList() {
+    if (editing.target && findPath(editing.routes, editing.target)) return editing.target;
+    editing.target = editing.routes[0];
+    return editing.target;
+  }
+
+  // Where `list` sits, e.g. "Route 1 › Or group 1 › Option 2", or null.
+  function findPath(routes, list, prefix = "Route") {
+    for (let ri = 0; ri < routes.length; ri++) {
+      const here = `${prefix} ${ri + 1}`;
+      if (routes[ri] === list) return here;
+      let g = 0;
+      for (const entry of routes[ri]) {
+        if (!Array.isArray(entry.or)) continue;
+        const found = findPath(entry.or, list, `${here} › Or group ${++g} › Option`);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  // Parts that are all needed (a route, or one option of an Or group), in one framed row.
+  function renderAndList(list, label, remove, removeLabel) {
+    const active = list === targetList();
+    const row = el("div", { className: "rule-route" + (active ? " active" : ""), title: active ? "" : "Click to add here",
+      onclick: (e) => {
+        e.stopPropagation();
+        if (editing.target !== list) { editing.target = list; redrawEditor(true); }
+      } },
+    el("span", { className: "loc-route-label", textContent: label }));
     const parts = el("div", { className: "req-and" });
-    route.forEach((entry, ci) => {
+    list.forEach((entry, ci) => {
       if (ci) parts.append(el("span", { className: "req-op", textContent: "and" }));
+      const drop = (e) => { e.stopPropagation(); list.splice(ci, 1); redrawEditor(); };
+      if (Array.isArray(entry.or)) {
+        parts.append(renderOrGroup(entry, drop));
+        return;
+      }
       const met = search ? entryMet(entry) : null;
       const map = trackerEntry(entry.item)?.kind === "map";
       parts.append(el("span", { className: "req-part" + (met === true ? " met" : met === false ? " unmet" : ""), title: met === false ? "Not met yet" : "" },
         map ? mapCheck(met) : null,
         `${routeEntryLabel(entry.item)}${entry.n > 1 ? ` ×${entry.n}` : ""}`,
-        el("button", { type: "button", className: "chip-x", textContent: "×", title: "Remove",
-          onclick: (e) => { e.stopPropagation(); route.splice(ci, 1); redrawEditor(); } })));
+        el("button", { type: "button", className: "chip-x", textContent: "×", title: "Remove", onclick: drop })));
     });
-    if (!route.length) parts.append(el("span", { className: "loc-note", textContent: "(empty: always reachable)" }));
-    row.append(parts);
-    if (editing.routes.length > 1) {
-      row.append(el("button", { type: "button", className: "tool rule-route-remove", textContent: "Remove route",
+    if (!list.length) parts.append(el("span", { className: "loc-note", textContent: "(empty: always met)" }));
+    row.append(parts, el("span", { className: "rule-route-tools" },
+      el("button", { type: "button", className: "tool rule-small", textContent: "+ Or group", title: "Add a part met by any one of its options",
         onclick: (e) => {
           e.stopPropagation();
-          editing.routes.splice(ri, 1);
-          editing.active = Math.min(editing.active, editing.routes.length - 1);
-          redrawEditor();
-        } }));
-    }
+          const group = { or: [[], []] };
+          list.push(group);
+          editing.target = group.or[0];
+          redrawEditor(true);
+        } }),
+      remove ? el("button", { type: "button", className: removeLabel === "×" ? "chip-x" : "tool rule-small", textContent: removeLabel,
+        title: removeLabel === "×" ? "Remove this option" : "",
+        onclick: (e) => { e.stopPropagation(); remove(); redrawEditor(); } }) : null));
     return row;
+  }
+
+  // A part met by any one of its options, framed inside the route.
+  function renderOrGroup(group, drop) {
+    const met = search ? entryMet(group) : null;
+    const box = el("div", { className: "rule-orgroup" + (met === true ? " met" : "") },
+      el("div", { className: "rule-orgroup-head" },
+        el("span", { textContent: "Any one of" }),
+        el("button", { type: "button", className: "chip-x", textContent: "×", title: "Remove this Or group", onclick: drop })));
+    group.or.forEach((option, oi) => {
+      if (oi) box.append(el("div", { className: "req-op", textContent: "or" }));
+      box.append(renderAndList(option, `Option ${oi + 1}`, group.or.length > 1 ? () => group.or.splice(oi, 1) : null, "×"));
+    });
+    box.append(el("button", { type: "button", className: "tool rule-small", textContent: "+ Option (or)",
+      onclick: (e) => { e.stopPropagation(); group.or.push([]); editing.target = group.or.at(-1); redrawEditor(true); } }));
+    return box;
   }
 
   // Rows of the picker, grouped: [{ title, rows: [{ item, label, icon?, state? }] }]. icon is an
@@ -624,9 +674,9 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
 
   function renderPicker() {
     const tab = editing.tab ?? "item";
-    const route = editing.routes[editing.active] ?? editing.routes[0];
+    const route = targetList();
     const box = el("section", { className: "rule-frame rule-picker" },
-      el("h4", { textContent: `Add to Route ${editing.active + 1}` }));
+      el("h4", { textContent: `Add to ${findPath(editing.routes, route)}` }));
     box.append(el("div", { className: "rule-tabs", role: "tablist" }, ...ENTRY_TABS.map(([key, label]) => el("button", {
       type: "button", role: "tab", className: "rule-tab" + (key === tab ? " selected" : ""), textContent: label,
       ariaSelected: String(key === tab),
@@ -706,7 +756,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
 
   async function save(routes) {
     const next = { ...getOverrides() };
-    if (routes) next[editing.name] = routes.map((r) => r.map(({ item, n }) => ({ item, n: n || 1 })));
+    if (routes) next[editing.name] = normalizeOverrides({ [editing.name]: routes })[editing.name] ?? [[]];
     else delete next[editing.name];
     await saveOverrides(next);
     closePopup();
@@ -751,15 +801,23 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
   };
 }
 
-// Keeps only well-formed rules: { location: [[{ item, n }]] }.
+// Keeps only well-formed rules: { location: [route] }, a route being [{ item, n } | { or: [route] }].
+// Or groups without options are dropped and one-option groups are merged into their route.
 export function normalizeOverrides(raw) {
   const out = {};
   if (!raw || typeof raw !== "object") return out;
-  for (const [loc, routes] of Object.entries(raw)) {
-    if (!Array.isArray(routes)) continue;
-    const clean = routes
-      .filter(Array.isArray)
-      .map((r) => r.filter((c) => c && typeof c.item === "string").map((c) => ({ item: c.item, n: Math.max(1, Math.min(99, Number(c.n) || 1)) })));
+  const routes = (list, depth) => list.filter(Array.isArray).map((r) => route(r, depth));
+  const route = (r, depth) => r.flatMap((c) => {
+    if (c && Array.isArray(c.or) && depth < 6) {
+      const options = routes(c.or, depth + 1);
+      if (!options.length) return [];
+      return options.length === 1 ? options[0] : [{ or: options }];
+    }
+    return c && typeof c.item === "string" ? [{ item: c.item, n: Math.max(1, Math.min(99, Number(c.n) || 1)) }] : [];
+  });
+  for (const [loc, list] of Object.entries(raw)) {
+    if (!Array.isArray(list)) continue;
+    const clean = routes(list, 0);
     if (clean.length) out[loc] = clean;
   }
   return out;

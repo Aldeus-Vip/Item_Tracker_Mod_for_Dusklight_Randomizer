@@ -696,7 +696,27 @@ button.req-toggle:hover { filter: brightness(1.25); }
 .rule-route.active { border-color: var(--gold-dim); background: rgba(255, 255, 255, 0.04); cursor: default; }
 .rule-route .req-and { flex: 1; }
 .rule-route .req-part { display: inline-flex; align-items: center; }
-.rule-route-remove { font-size: 11px; padding: 2px 8px; }
+.rule-route-tools { display: flex; flex-direction: column; gap: 4px; align-self: flex-start; }
+.rule-small { font-size: 11px; padding: 2px 8px; white-space: nowrap; }
+/* Or group inside a route: its options stacked in a frame */
+.rule-orgroup {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px 6px;
+  border: 1px dashed var(--gold-dim);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.rule-orgroup.met { border-style: solid; border-color: var(--owned); }
+.rule-orgroup-head { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 11px; font-style: italic; }
+.rule-orgroup > .rule-route { margin-bottom: 0; }
+.rule-orgroup > .rule-small { align-self: flex-start; margin-top: 2px; }
+.rule-orgroup > .req-op { padding-left: 8px; }
+.rule-orgroup .rule-route { padding: 3px 6px; }
+.rule-orgroup .rule-route-tools { flex-direction: row; align-items: center; align-self: center; }
+.rule-orgroup .rule-route:not(.active):not(:hover) > .rule-route-tools { visibility: hidden; }
 .rule-current > .tool { margin-top: 4px; }
 .rule-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
 .rule-tab {
