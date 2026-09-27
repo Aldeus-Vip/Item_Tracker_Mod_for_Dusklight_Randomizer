@@ -61,7 +61,9 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 
 ### Icon editor
 
-Every icon defaults to the game's own icon. In the editor you can choose, per icon:
+Every icon defaults to the game's own icon. When a tile can show several icons (sword levels,
+bottle contents, bomb types, quiver marks, …), a dropdown picks which one to edit; tiles that
+share an icon (all bottles, all bomb bags) share the change. For each icon you can choose:
 
 - **From the game**: the default icon.
 - **From a game texture**: any texture from the game's 2D archives, picked in a browser with

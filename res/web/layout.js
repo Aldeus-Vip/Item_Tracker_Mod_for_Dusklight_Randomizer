@@ -14,9 +14,13 @@ export const COLUMNS = 7;
 
 const count = (ctx, id) => ctx.items[id] ?? 0;
 
+// Every tile lists the icons it can show as `variants` ({ icon, label, item? }), so the icon editor
+// can change each of them. Icons are keyed by name: tiles sharing a name (e.g. the three bomb bag
+// slots) share the change.
+
 // Simple owned / not owned item.
 function simple(id, label, icon) {
-  return { render: (ctx) => ({ on: count(ctx, id) > 0, label, icon }) };
+  return { render: (ctx) => ({ on: count(ctx, id) > 0, label, icon }), variants: [{ icon, label }] };
 }
 
 // Progressive item: one label/icon per level (index 0 = level 1, also shown while not owned).
@@ -27,6 +31,7 @@ function progressive(id, labels, icons) {
       const i = Math.max(0, Math.min(n, labels.length) - 1);
       return { on: n > 0, label: labels[i], icon: icons[Math.min(i, icons.length - 1)] };
     },
+    variants: icons.map((icon, i) => ({ icon, label: labels[i] })),
   };
 }
 
@@ -37,6 +42,7 @@ function counted(id, label, icon, max) {
       const n = count(ctx, id);
       return { on: n > 0, label, icon, badge: max ? `${n}/${max}` : n > 0 ? String(n) : "" };
     },
+    variants: [{ icon, label }],
   };
 }
 
@@ -67,6 +73,11 @@ function bombBag(index) {
       if (!type) return { on: true, label: "Bomb Bag", icon: "Bomb_Bag", corner };
       return { on: true, label: type.label, icon: type.icon, item: bag.item, badge: String(bag.count), full: bag.count >= bag.max, corner };
     },
+    variants: [
+      { icon: "Bomb_Bag", label: "Bomb Bag (empty)", item: ITEM.BOMB_BAG },
+      ...Object.entries(BOMB_TYPES).map(([item, t]) => ({ icon: t.icon, label: t.label, item: Number(item) })),
+      { icon: GIANT_BOMB_BAG.icon, label: "Giant Bomb Bag (corner mark)" },
+    ],
   };
 }
 
@@ -77,57 +88,66 @@ const QUIVERS = [
   { icon: "Quiver2", text: "GIANT", title: "Giant Quiver" },
 ];
 
-// Bottle contents by item id: [label, icon]. Unknown contents keep the plain bottle icon.
+// Bottle contents by item id -> label. Each label is its own icon ("Bottle_<label>"), so every
+// kind of contents can be changed in the icon editor; the game icon comes from the item id.
 const BOTTLE_CONTENTS = {
-  0x60: ["Empty Bottle", "Bottle"],
-  0x61: ["Red Potion", "BottleRed"],
-  0x69: ["Red Potion", "BottleRed"],
-  0x62: ["Green Potion", "Bottle"],
-  0x63: ["Blue Potion", "BottleBlue"],
-  0x64: ["Milk", "BottleMilk"],
-  0x65: ["Half Milk", "BottleMilkH"],
-  0x66: ["Lantern Oil", "BottleYellow"],
-  0x68: ["Lantern Oil", "BottleYellow"],
-  0x6e: ["Lantern Oil", "BottleYellow"],
-  0x6f: ["Lantern Oil", "BottleYellow"],
-  0x9d: ["Lantern Oil", "BottleYellow"],
-  0x67: ["Water", "BottleWater"],
-  0x6a: ["Nasty Soup", "BottleNasty"],
-  0x6b: ["Hot Spring Water", "BottleWater"],
-  0x6d: ["Hot Spring Water", "BottleWater"],
-  0x6c: ["Fairy", "BottleFairy"],
-  0x73: ["Great Fairy's Tears", "BottleTears"],
-  0x74: ["Worm", "BottleWorm"],
-  0x76: ["Bee Larva", "BottleBee"],
-  0x77: ["Rare Chu Jelly", "BottleRare"],
-  0x78: ["Red Chu Jelly", "BottleRed"],
-  0x79: ["Blue Chu Jelly", "BottleBlue"],
-  0x7a: ["Green Chu Jelly", "Bottle"],
-  0x7b: ["Yellow Chu Jelly", "BottleYellow"],
-  0x7c: ["Purple Chu Jelly", "BottlePurple"],
-  0x7d: ["Simple Soup", "BottleSoup"],
-  0x7e: ["Good Soup", "BottleSoup"],
-  0x7f: ["Superb Soup", "BottleSoup"],
-  0x9f: ["Black Chu Jelly", "Bottle"],
-  0xef: ["Poe's Flame", "Bottle"],
-  0xf0: ["Poe's Flame", "Bottle"],
-  0xf1: ["Poe's Flame", "Bottle"],
-  0xf2: ["Poe's Flame", "Bottle"],
+  0x60: "Empty Bottle",
+  0x61: "Red Potion", 0x69: "Red Potion",
+  0x62: "Green Potion",
+  0x63: "Blue Potion",
+  0x64: "Milk",
+  0x65: "Half Milk",
+  0x66: "Lantern Oil", 0x68: "Lantern Oil", 0x6e: "Lantern Oil", 0x6f: "Lantern Oil", 0x9d: "Lantern Oil",
+  0x67: "Water",
+  0x6a: "Nasty Soup",
+  0x6b: "Hot Spring Water", 0x6d: "Hot Spring Water",
+  0x6c: "Fairy",
+  0x73: "Great Fairy's Tears",
+  0x74: "Worm",
+  0x76: "Bee Larva",
+  0x77: "Rare Chu Jelly",
+  0x78: "Red Chu Jelly",
+  0x79: "Blue Chu Jelly",
+  0x7a: "Green Chu Jelly",
+  0x7b: "Yellow Chu Jelly",
+  0x7c: "Purple Chu Jelly",
+  0x7d: "Simple Soup",
+  0x7e: "Good Soup",
+  0x7f: "Superb Soup",
+  0x9f: "Black Chu Jelly",
+  0xef: "Poe's Flame", 0xf0: "Poe's Flame", 0xf1: "Poe's Flame", 0xf2: "Poe's Flame",
 };
+const bottleIcon = (label) => `Bottle_${label.replace(/[^A-Za-z0-9]+/g, "_")}`;
+// One variant per kind of contents (first item id of each label).
+const BOTTLE_VARIANTS = Object.entries(BOTTLE_CONTENTS).reduce((list, [item, label]) => {
+  if (!list.some((v) => v.label === label)) list.push({ icon: bottleIcon(label), label, item: Number(item) });
+  return list;
+}, []);
 
 function bottle(index) {
   return {
     render: (ctx) => {
       const b = ctx.bottles?.[index];
-      if (!b) return { on: false, label: "Bottle", icon: "Bottle" };
-      const [label, icon] = BOTTLE_CONTENTS[b.item] ?? ["Bottle", "Bottle"];
+      if (!b) return { on: false, label: "Bottle", icon: bottleIcon("Empty Bottle"), item: ITEM.EMPTY_BOTTLE };
+      const label = BOTTLE_CONTENTS[b.item] ?? "Bottle";
+      const icon = bottleIcon(BOTTLE_CONTENTS[b.item] ?? "Empty Bottle");
       // The game shows a count only for bee larvae; for other contents the bottle's number is
       // left over (e.g. 10 after filling) and means nothing.
       const badge = b.item === ITEM.BEE_LARVA && b.count > 0 ? String(b.count) : "";
-      return { on: true, label, icon, item: b.item, badge };
+      return { on: true, label, icon, item: BOTTLE_CONTENTS[b.item] ? b.item : ITEM.EMPTY_BOTTLE, badge };
     },
+    variants: BOTTLE_VARIANTS,
   };
 }
+
+// Ilia's memory quest items, in order: [item id, label, icon].
+const ILIA_QUEST = [
+  ["Renados Letter", "Renado's Letter", "Renado's_Letter"],
+  ["Invoice", "Invoice", "Invoice"],
+  ["Wooden Statue", "Wooden Statue", "Wooden_Statue"],
+  ["Ilias Charm", "Ilia's Charm", "Ilia's_Charm"],
+];
+const ILIA_QUEST_VARIANTS = ILIA_QUEST.map(([, label, icon]) => ({ icon, label }));
 
 // ---- Tile catalogue ----
 
@@ -161,6 +181,11 @@ export const TILES = {
         corner: QUIVERS[Math.min(Math.max(level - 1, 0), 2)],
       };
     },
+    variants: [
+      { icon: "Hero's_Bow", label: "Hero's Bow" },
+      { icon: "Quiver1", label: "Big Quiver (corner mark)" },
+      { icon: "Quiver2", label: "Giant Quiver (corner mark)" },
+    ],
   },
   hawkeye: simple("Hawkeye", "Hawkeye", "Hawkeye"),
   clawshot: progressive("Progressive Clawshot", ["Clawshot", "Double Clawshots"], ["Progressive_Clawshot0", "Progressive_Clawshot1"]),
@@ -191,17 +216,13 @@ export const TILES = {
         full: chars >= 6,
       };
     },
+    variants: [{ icon: "Sky_Book_Character", label: "Ancient Sky Book" }],
   },
   aurusMemo: simple("Aurus Memo", "Auru's Memo", "Auru's_Memo"),
   asheisSketch: simple("Asheis Sketch", "Ashei's Sketch", "Ashei's_Sketch"),
   iliaQuest: {
     render: (ctx) => {
-      const steps = [
-        ["Renados Letter", "Renado's Letter", "Renado's_Letter"],
-        ["Invoice", "Invoice", "Invoice"],
-        ["Wooden Statue", "Wooden Statue", "Wooden_Statue"],
-        ["Ilias Charm", "Ilia's Charm", "Ilia's_Charm"],
-      ];
+      const steps = ILIA_QUEST;
       let current = -1;
       steps.forEach(([id], i) => {
         if (count(ctx, id) > 0) current = i;
@@ -209,6 +230,7 @@ export const TILES = {
       const [, label, icon] = steps[Math.max(current, 0)];
       return { on: current >= 0, label, icon };
     },
+    variants: ILIA_QUEST_VARIANTS,
   },
 
   // Equipment
@@ -220,6 +242,10 @@ export const TILES = {
       if (count(ctx, "Wooden Shield") > 0) return { on: true, label: "Wooden Shield", icon: "Progressive_Shield1" };
       return { on: count(ctx, "Ordon Shield") > 0, label: "Ordon Shield", icon: "Progressive_Shield0" };
     },
+    variants: [
+      { icon: "Progressive_Shield0", label: "Ordon Shield" },
+      { icon: "Progressive_Shield1", label: "Wooden Shield" },
+    ],
   },
   hylianShield: simple("Hylian Shield", "Hylian Shield", "Hylian_Shield"),
   zoraArmor: simple("Zora Armor", "Zora Armor", "Zora_Armor"),
@@ -247,6 +273,7 @@ export const TILES = {
         full: ctx.ammo && ctx.ammo.rupees >= ctx.ammo.rupeesMax,
       };
     },
+    variants: ["Wallet", "Big Wallet", "Giant Wallet"].map((label, i) => ({ icon: `Progressive_Wallet${i}`, label })),
   },
   hiddenSkills: counted("Progressive Hidden Skill", "Hidden Skills", "Hidden_Skill", 7),
   poeSoul: counted("Poe Soul", "Poe Souls", "Poe_Soul"),
@@ -321,17 +348,19 @@ export function normalizeLayout(saved) {
 export const GAME_ICON_IDS = {
   Slingshot: 0x4b, Lantern: 0x48, Gale_Boomerang: 0x40, Iron_Boots: 0x45, "Hero's_Bow": 0x43,
   Hawkeye: 0x3e, Clawshot: 0x44, Progressive_Clawshot0: 0x44, Progressive_Clawshot1: 0x47,
-  Spinner: 0x41, Ball_and_Chain: 0x42, Progressive_Dominion_Rod0: 0x4c, Progressive_Dominion_Rod1: 0x46,
+  Spinner: 0x41, Ball_and_Chain: 0x42,
+  Progressive_Dominion_Rod0: "itemicon/#87", // ST_COPY_ROD_B: the unpowered rod
+  Progressive_Dominion_Rod1: 0x46, // IM_COPY_ROD_48: the restored rod
   Progressive_Fishing_Rod0: 0x4a, Progressive_Fishing_Rod1: 0x5c, Horse_Call: 0x84,
   Bomb_Bag: 0x50, Bombs: 0x70, Water_Bombs: 0x71, Bomblings: 0x72, Giant_Bomb_Bag: 0x4f,
   Quiver1: 0x55, Quiver2: 0x56,
-  Bottle: 0x60, BottleRed: 0x61, BottleBlue: 0x63, BottleMilk: 0x64, BottleMilkH: 0x65,
-  BottleWater: 0x67, BottleNasty: 0x6a, BottleFairy: 0x6c, BottleTears: 0x73, BottleWorm: 0x74,
-  BottleBee: 0x76, BottleRare: 0x77, BottleYellow: 0x7b, BottlePurple: 0x7c, BottleSoup: 0x7d,
+  // Bottles pass their contents' item id (see bottle()).
   Sky_Book_Character: 0xe9, "Auru's_Memo": 0x90, "Ashei's_Sketch": 0x91, "Renado's_Letter": 0x80,
   Invoice: 0x81, Wooden_Statue: 0x82, "Ilia's_Charm": 0x83,
   Progressive_Sword0: 0x3f, Progressive_Sword1: 0x28, Progressive_Sword2: 0x29, Progressive_Sword3: 0x49,
-  Progressive_Shield0: 0x2b, Progressive_Shield1: 0x2a, Hylian_Shield: 0x2c,
+  Progressive_Shield0: "itemicon/#116", // TTDELUNOTATE_S3_TC: Ordon Shield
+  Progressive_Shield1: 0x2a, // NI_KINOTATE_48: Wooden Shield
+  Hylian_Shield: 0x2c,
   Zora_Armor: 0x31, Magic_Armor: 0x30,
   Progressive_Wallet0: 0x34, Progressive_Wallet1: 0x35, Progressive_Wallet2: 0x36,
   Poe_Soul: 0xe0, Bug0: 0xc0,

@@ -148,7 +148,7 @@ function buildSlot(tileId, sectionIndex, slotIndex) {
     fallback.textContent = t.label;
     frame.append(fallback);
     if (t.icon) {
-      Object.assign(frame.dataset, { icon: t.icon, iconLabel: t.label, iconItem: t.item ?? "" });
+      Object.assign(frame.dataset, { icon: t.icon, iconLabel: t.label, iconItem: t.item ?? "", tile: tileId });
       frame.classList.add("has-icon");
       const bg = iconBackground(t.icon);
       if (bg) {
@@ -511,12 +511,14 @@ async function updateIconOverride(name, change) {
   await saveSettings();
 }
 
-function openIconEditor(name, label, itemId) {
+// variants: the icons the tile can show ({ icon, label, item? }); with more than one, a dropdown
+// picks which one to edit.
+function openIconEditor(name, label, itemId, variants = []) {
   const custom = settings.iconOverrides[name] ?? {};
   const hasFile = Boolean(custom.rev);
   const gameUrl = gameIconUrl(name, itemId);
   const source = custom.source ?? "game";
-  const reopen = () => openIconEditor(name, label, itemId);
+  const reopen = () => openIconEditor(name, label, itemId, variants);
 
   const upload = h("input", { type: "file", accept: "image/png,image/jpeg,image/webp,image/gif", hidden: true });
   upload.addEventListener("change", async () => {
@@ -550,9 +552,18 @@ function openIconEditor(name, label, itemId) {
     ` ${text}`);
   const background = "background" in custom ? custom.background : GAME_ICON_BACKGROUNDS[name] ?? null;
 
+  const picker = variants.length > 1 ? h("select", {
+    className: "icon-variant",
+    "aria-label": "Icon to edit",
+    onchange: (e) => {
+      const v = variants[Number(e.target.value)];
+      openIconEditor(v.icon, v.label, v.item ?? "", variants);
+    },
+  }, ...variants.map((v, i) => h("option", { value: String(i), textContent: v.label, selected: v.icon === name }))) : null;
   iconEditor.replaceChildren(
     h("div", { className: "icon-editor-head" }, h("h3", { textContent: label }),
       h("button", { className: "tool", type: "button", textContent: "Close", onclick: () => (iconEditor.hidden = true) })),
+    picker,
     h("div", { className: "icon-previews" },
       previewBox(gameUrl, "From the game"),
       previewBox(custom.texture ? textureUrl(custom.texture) : null, "Game texture"),
@@ -651,7 +662,11 @@ for (const view of [views.items, views.dungeons]) {
     const target = e.target.closest("[data-icon]");
     if (!target) return;
     e.preventDefault();
-    openIconEditor(target.dataset.icon, target.dataset.iconLabel || target.dataset.icon, target.dataset.iconItem);
+    const variants = [...(TILES[target.dataset.tile]?.variants ?? [])];
+    if (!variants.some((v) => v.icon === target.dataset.icon)) {
+      variants.unshift({ icon: target.dataset.icon, label: target.dataset.iconLabel || target.dataset.icon, item: target.dataset.iconItem });
+    }
+    openIconEditor(target.dataset.icon, target.dataset.iconLabel || target.dataset.icon, target.dataset.iconItem, variants);
   });
 }
 

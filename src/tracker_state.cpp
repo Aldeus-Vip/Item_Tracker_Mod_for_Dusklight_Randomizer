@@ -77,8 +77,10 @@ constexpr RandomizerItem kRandomizerPortals[] = {
     {0x3B, "Gerudo Desert Portal"},
     {0xAE, "Mirror Chamber Portal"},
 };
-constexpr u8 kFirstHiddenSkill = 0xE1;  // Ending Blow .. Great Spin
-constexpr u8 kLastHiddenSkill = 0xE7;
+// Event bits the randomizer sets for each learned Hidden Skill (item_func_ENDING_BLOW ..
+// item_func_GREAT_SPIN); the skills menu reads the same bits. The item-get bits of the skill
+// item ids do not follow the skills actually learned.
+constexpr u16 kHiddenSkillEvents[] = {0x2904, 0x2908, 0x2902, 0x2901, 0x2A80, 0x2A40, 0x2A20};
 
 constexpr int kBulblinCampSaveId = 0x0A;
 constexpr int kBulblinCampKeyDoorFlag = 0x00;
@@ -315,13 +317,13 @@ void write_items(JsonWriter& w) {
         bugs += have(static_cast<u8>(i)) ? 1 : 0;
     }
     w.member("Golden Bug", bugs);
-    // Randomizer-only items (custom item ids): warp portals and hidden skills.
+    // Randomizer-only items (custom item ids): warp portals.
     for (const auto& [id, name] : kRandomizerPortals) {
         w.member(name, have(id) ? 1 : 0);
     }
     int skills = 0;
-    for (u8 id = kFirstHiddenSkill; id <= kLastHiddenSkill; ++id) {
-        skills += have(id) ? 1 : 0;
+    for (u16 event : kHiddenSkillEvents) {
+        skills += dComIfGs_isEventBit(event) ? 1 : 0;
     }
     w.member("Progressive Hidden Skill", skills);
     w.endObject();

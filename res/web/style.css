@@ -770,3 +770,13 @@ label.tool { display: inline-block; }
 .texture-cell span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .texture-cell.broken { opacity: 0.45; }
 .texture-cell.broken::before { content: "unreadable"; font-size: 10px; color: var(--bad); }
+.icon-variant {
+  width: 100%;
+  margin-top: 10px;
+  background: var(--bar-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: inherit;
+}
