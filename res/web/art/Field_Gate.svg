@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Hyrule Field gates: a metal door in a stone frame (original abstract art) -->
+  <defs>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b6a64"/><stop offset="1" stop-color="#3a3935"/></linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5d6570"/><stop offset="0.5" stop-color="#8a939e"/><stop offset="1" stop-color="#4a525c"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="#1a1c20"/>
+  <path d="M6 64 V22 a26 18 0 0 1 52 0 V64Z" fill="url(#stone)"/>
+  <g stroke="#2c2b28" stroke-width="0.8" opacity="0.7"><path d="M6 34 H14"/><path d="M50 34 H58"/><path d="M6 48 H14"/><path d="M50 48 H58"/></g>
+  <path d="M14 64 V26 a18 12 0 0 1 36 0 V64Z" fill="url(#metal)" stroke="#2a2f36" stroke-width="1.2"/>
+  <g stroke="#343a42" stroke-width="1.4"><path d="M22 20 V64"/><path d="M32 16 V64"/><path d="M42 20 V64"/><path d="M14 36 H50"/><path d="M14 52 H50"/></g>
+  <g fill="#c9ced4"><circle cx="18" cy="36" r="1"/><circle cx="46" cy="36" r="1"/><circle cx="18" cy="52" r="1"/><circle cx="46" cy="52" r="1"/><circle cx="27" cy="36" r="1"/><circle cx="37" cy="36" r="1"/><circle cx="27" cy="52" r="1"/><circle cx="37" cy="52" r="1"/></g>
+</svg>

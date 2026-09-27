@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Coro's gate: a cave entrance with a wooden door (original abstract art) -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26301c"/><stop offset="1" stop-color="#11160c"/></linearGradient>
+    <linearGradient id="rock" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6d6758"/><stop offset="1" stop-color="#3d3a31"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#bg)"/>
+  <path d="M-2 64 L4 30 L16 14 L32 8 L48 14 L60 28 L66 64Z" fill="url(#rock)"/>
+  <g stroke="#2b2923" stroke-width="0.8" fill="none" opacity="0.7"><path d="M10 26 L18 22"/><path d="M48 20 L56 30"/><path d="M6 44 L12 40"/><path d="M52 44 L58 48"/></g>
+  <path d="M18 64 V38 a14 14 0 0 1 28 0 V64Z" fill="#0b0a08"/>
+  <path d="M23 64 V40 a9 9 0 0 1 18 0 V64Z" fill="#5d3b1e" stroke="#2a1809" stroke-width="1.2"/>
+  <g stroke="#2a1809" stroke-width="0.8" opacity="0.8"><path d="M29 32 V64"/><path d="M35 32 V64"/><path d="M23 46 H41"/><path d="M23 56 H41"/></g>
+</svg>

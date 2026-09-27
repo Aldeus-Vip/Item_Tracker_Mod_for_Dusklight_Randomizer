@@ -364,6 +364,10 @@ export const GAME_ICON_IDS = {
   Zora_Armor: 0x31, Magic_Armor: 0x30,
   Progressive_Wallet0: 0x34, Progressive_Wallet1: 0x35, Progressive_Wallet2: 0x36,
   Poe_Soul: 0xe0, Bug0: 0xc0,
+  // No 2D icon in the game: original art bundled with the tracker.
+  Shadow_Crystal: "art/Shadow_Crystal.png",
+  Fused_Shadow: "art/Fused_Shadow.png",
+  Mirror_Shard: "art/Mirror_Shard.png",
   // Textures without an item: "<archive>/#<index>" in the item icon archive.
   Hidden_Skill: "itemicon/#61", // NI_ITEM_ICON_MAKIMONO
   Small_Key: 0x20, Boss_Key: 0x26, Boss_KeyHC: 0x26,
@@ -373,9 +377,14 @@ export const GAME_ICON_IDS = {
   Ordon_Pumpkin: 0xf4, Ordon_Goat_Cheese: 0xf5,
 };
 
-// Default textures drawn behind an icon (icon name -> "<archive>/<file>.bti"). Users can set or
-// clear one per icon in the icon editor.
-export const GAME_ICON_BACKGROUNDS = {};
+// Original art drawn behind a default icon: field keys show the game's small key over the place
+// they open.
+export const GAME_ICON_BACKGROUNDS = {
+  Small_KeyF: "art/Field_Faron.svg", // Faron Woods: forest and wooden door
+  Small_KeyC: "art/Field_Coro.svg", // Coro's gate: cave entrance and wooden door
+  Small_KeyG: "art/Field_Gate.svg", // Hyrule Field gates: metal door
+  Small_KeyB: "art/Field_Bulblin.svg", // Bulblin Camp: desert and camp
+};
 
 // ---- Dungeons view ----
 

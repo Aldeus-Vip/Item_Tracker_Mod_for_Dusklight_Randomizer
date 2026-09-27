@@ -68,11 +68,13 @@ function textureUrl(ref) {
   return `game-textures/${ref.slice(0, slash)}/${encodeURIComponent(ref.slice(slash + 1))}.png`;
 }
 
-// The game's default for an icon: an item number (/game-icons/) or a texture reference.
+// The default for an icon: an item number (/game-icons/), a game texture reference, or bundled
+// original art ("art/<file>").
 function gameIconUrl(name, itemId) {
   const id = itemId !== undefined && itemId !== "" ? itemId : GAME_ICON_IDS[name];
   if (id === undefined) return null;
-  return typeof id === "string" ? textureUrl(id) : `game-icons/${id}.png`;
+  if (typeof id !== "string") return `game-icons/${id}.png`;
+  return id.startsWith("art/") ? id : textureUrl(id);
 }
 
 function iconSources(name, itemId) {
@@ -82,11 +84,12 @@ function iconSources(name, itemId) {
   return [first, gameIconUrl(name, itemId)].filter(Boolean);
 }
 
-// Texture drawn behind an icon (e.g. the field behind a field key), or null.
+// Bundled art drawn behind a default icon (e.g. the field behind a field key), or null. An icon
+// changed in the icon editor is shown without it.
 function iconBackground(name) {
   const custom = settings.iconOverrides[name];
-  const ref = custom && "background" in custom ? custom.background : GAME_ICON_BACKGROUNDS[name];
-  return ref ? textureUrl(ref) : null;
+  if (custom && custom.source !== "game") return null;
+  return GAME_ICON_BACKGROUNDS[name] ?? null;
 }
 
 function iconImg(name, className, onMissing, itemId) {
@@ -110,6 +113,20 @@ function iconImg(name, className, onMissing, itemId) {
 }
 
 // ---- Items view ----
+
+// Shrinks a caption's text until the whole label fits the tile (down to 55 %), instead of cutting
+// it off. Captions are measured after they are in the document.
+function fitCaptions(root) {
+  for (const caption of root.querySelectorAll(".caption")) {
+    caption.style.fontSize = "";
+    const full = parseFloat(getComputedStyle(caption).fontSize);
+    let size = full;
+    while (caption.scrollWidth > caption.clientWidth + 0.5 && size > full * 0.55) {
+      size -= 0.5;
+      caption.style.fontSize = `${size}px`;
+    }
+  }
+}
 
 function renderTile(id) {
   const ctx = {
@@ -245,6 +262,7 @@ function renderItems() {
     frag.append(group);
   });
   views.items.replaceChildren(frag);
+  fitCaptions(views.items);
 }
 
 // ---- Edit mode: click two slots (or drag one onto another) to swap them ----
@@ -372,8 +390,6 @@ function normalizeSettings(raw) {
     if (/^[\w.'-]+$/.test(name) && o && typeof o === "object") {
       const entry = { source: ["file", "texture"].includes(o.source) ? o.source : "game", rev: Number(o.rev) || 0 };
       if (textureRef(o.texture)) entry.texture = o.texture;
-      // null = no background (overrides a default background); absent = default.
-      if (o.background === null || textureRef(o.background)) entry.background = o.background;
       out.iconOverrides[name] = entry;
     }
   }
@@ -504,7 +520,7 @@ async function updateIconOverride(name, change) {
   const current = settings.iconOverrides[name] ?? { source: "game", rev: 0 };
   const next = { ...current, ...change };
   // Drop entries that no longer differ from the default.
-  const isDefault = next.source === "game" && !next.rev && !next.texture && !("background" in next);
+  const isDefault = next.source === "game" && !next.rev && !next.texture;
   if (isDefault) delete settings.iconOverrides[name];
   else settings.iconOverrides[name] = next;
   applySettings();
@@ -550,7 +566,6 @@ function openIconEditor(name, label, itemId, variants = []) {
     h("input", { type: "radio", name: "icon-source", value, checked: source === value, disabled: !enabled,
       onchange: async () => { await updateIconOverride(name, { source: value }); reopen(); } }),
     ` ${text}`);
-  const background = "background" in custom ? custom.background : GAME_ICON_BACKGROUNDS[name] ?? null;
 
   const picker = variants.length > 1 ? h("select", {
     className: "icon-variant",
@@ -563,13 +578,13 @@ function openIconEditor(name, label, itemId, variants = []) {
   iconEditor.replaceChildren(
     h("div", { className: "icon-editor-head" }, h("h3", { textContent: label }),
       h("button", { className: "tool", type: "button", textContent: "Close", onclick: () => (iconEditor.hidden = true) })),
-    picker,
+    ...(picker ? [picker] : []),
     h("div", { className: "icon-previews" },
-      previewBox(gameUrl, "From the game"),
+      previewBox(gameUrl, "Default"),
       previewBox(custom.texture ? textureUrl(custom.texture) : null, "Game texture"),
       previewBox(hasFile ? `icons/${encodeURIComponent(name)}.png?rev=${custom.rev}` : null, "Image file")),
     h("div", { className: "icon-choices" },
-      radio("game", gameUrl ? "From the game" : "From the game (none: shown as text)", true),
+      radio("game", gameUrl ? "Default" : "Default (none: shown as text)", true),
       radio("texture", "From a game texture", Boolean(custom.texture)),
       radio("file", "From image file", hasFile)),
     h("div", { className: "icon-actions" },
@@ -577,31 +592,13 @@ function openIconEditor(name, label, itemId, variants = []) {
         onclick: () => openTextureBrowser(async (ref) => { await updateIconOverride(name, { source: "texture", texture: ref }); reopen(); }) }),
       h("label", { className: "tool" }, hasFile ? "Replace image…" : "Upload image…", upload),
       hasFile && h("button", { className: "tool", type: "button", textContent: "Delete image", onclick: deleteFile })),
-    h("div", { className: "icon-background" },
-      h("span", { className: "label", textContent: "Background" }),
-      background ? h("img", { src: textureUrl(background), alt: "", className: "icon-bg-preview" }) : h("span", { className: "loc-note", textContent: "none" }),
-      h("button", { className: "tool", type: "button", textContent: "Choose…",
-        onclick: () => openTextureBrowser(async (ref) => { await updateIconOverride(name, { background: ref }); reopen(); }) }),
-      background && h("button", { className: "tool", type: "button", textContent: "Clear",
-        onclick: async () => { await updateIconOverride(name, { background: null }); reopen(); } }),
-      "background" in custom && h("button", { className: "tool", type: "button", textContent: "Default",
-        onclick: async () => {
-          const next = { ...custom };
-          delete next.background;
-          settings.iconOverrides[name] = next;
-          await updateIconOverride(name, {});
-          reopen();
-        } })),
   );
   iconEditor.hidden = false;
 }
 
 // ---- Game texture browser ----
 
-const TEXTURE_ARCHIVES = [
-  ["itemicon", "Item icons"], ["collect", "Collection"], ["fmap", "Field map"],
-  ["dmap", "Dungeon map"], ["ring", "Item wheel"], ["main2d", "HUD"],
-];
+const TEXTURE_ARCHIVES = [["itemicon", "Item icons"], ["dmap", "Dungeon map"]];
 const textureBrowser = document.getElementById("texture-browser");
 let browserArchive = "itemicon";
 

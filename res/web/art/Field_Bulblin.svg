@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Bulblin Camp: desert dunes and a camp (original abstract art) -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a3b1c"/><stop offset="1" stop-color="#d8903f"/></linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c79a57"/><stop offset="1" stop-color="#8a6533"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#sky)"/>
+  <circle cx="50" cy="18" r="7" fill="#f3c46a" opacity="0.8"/>
+  <path d="M0 44 Q16 34 32 42 T64 38 V64 H0Z" fill="#a8783f"/>
+  <path d="M0 52 Q20 44 40 52 T64 50 V64 H0Z" fill="url(#sand)"/>
+  <g fill="#4a2c16"><path d="M8 44 L8 30 L10 27 L12 30 L12 44Z"/><path d="M13 44 L13 28 L15 25 L17 28 L17 44Z"/><path d="M47 42 L47 29 L49 26 L51 29 L51 42Z"/><path d="M52 42 L52 31 L54 28 L56 31 L56 42Z"/></g>
+  <path d="M20 46 L32 28 L44 46Z" fill="#6b4524" stroke="#3a2210" stroke-width="1"/>
+  <path d="M29 46 L32 38 L35 46Z" fill="#1f130a"/>
+  <path d="M32 28 L32 22 L37 24 L32 26" fill="#8e2a1e"/>
+</svg>

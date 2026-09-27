@@ -26,6 +26,7 @@ a Browser Source. You don't need to install any separate application.
     shows only obtained and not obtained.
 - **Icons from your game**: the mod builds item icons from your own game data while the game
   runs. The mod ships no game images.
+- **Fitted names**: long item names in the Items tab shrink to fit their tile.
 - **Customizable**: rearrange tiles, pick a theme or a background image, and change any icon.
   Every open page (browser and OBS) shows the same settings.
 
@@ -61,19 +62,28 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 
 ### Icon editor
 
-Every icon defaults to the game's own icon. When a tile can show several icons (sword levels,
+Every icon starts with its default (see the table below). When a tile can show several icons (sword levels,
 bottle contents, bomb types, quiver marks, …), a dropdown picks which one to edit; tiles that
 share an icon (all bottles, all bomb bags) share the change. For each icon you can choose:
 
-- **From the game**: the default icon.
-- **From a game texture**: any texture from the game's 2D archives, picked in a browser with
-  previews.
+- **Default**: the icon described below.
+- **From a game texture**: a texture from the game's **Item icons** or **Dungeon map** archive,
+  picked in a browser with previews.
 - **From image file**: an image you upload. The mod stores it under the icon's name.
 
-You can also put a game texture **behind** an icon, for example a field behind a field key.
+Default icons:
 
-The game has no 2D icon for the Shadow Crystal, Fused Shadow, Mirror Shard or the bosses. These
-show as text until you set an icon.
+| Icon | Default |
+|---|---|
+| Most items | Built from your game's item icons |
+| Shadow Crystal, Fused Shadow, Mirror Shard | Original art made for this mod (the game has no 2D icon for them) |
+| Field keys (Faron, Coro, Gate, Bulblin Camp) | The game's key icon on an original abstract background |
+| Bosses | None: shown as text. You can set an icon in the editor |
+
+## Credits
+
+The Shadow Crystal, Fused Shadow and Mirror Shard icons and the field key backgrounds in
+`res/web/art/` are original art made by the author for this mod. They contain no game images.
 
 ### OBS
 

@@ -13,7 +13,7 @@ the mod's panel). Only loopback clients can connect, and requests whose `Host` h
 | GET | `/state` | Current state (JSON) |
 | GET | `/events` | `text/event-stream` |
 | GET / POST / DELETE | `/icons/<name>.png` | Custom icon uploaded in the icon editor, stored as `<mod data dir>/icons/<name>.png` (PNG, JPEG, WebP or GIF, max 4 MB; 404 if absent) |
-| GET | `/game-textures/<archive>/` | JSON list of the `.bti` textures in a game archive: `itemicon`, `collect`, `fmap`, `dmap`, `ring`, `main2d` (404 before the game has loaded it) |
+| GET | `/game-textures/<archive>/` | JSON list of the `.bti` textures in a game archive: `itemicon` (item icons) or `dmap` (dungeon map) (404 before the game has loaded it) |
 | GET | `/game-textures/<archive>/<name>.png` | One texture drawn with neutral colors; `<name>` is `<file>.bti` or `#<index>` (percent-encoded) |
 | GET | `/game-icons/<n>.png` | Icon of game item number `n`, built from the game's item icon archive (404 before the archive is loaded or when the item has none) |
 | GET / POST | `/layout` | Tracker layout (`<mod data dir>/layout.json`, 404 until saved) |

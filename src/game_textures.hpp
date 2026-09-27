@@ -5,8 +5,8 @@
 namespace tracker::textures {
 
 // Textures (.bti) of the game's 2D archives, for the texture browser and for icons made from a
-// game texture. Archives are named by the keys below ("itemicon", "collect", "fmap", "dmap",
-// "main2d", "ring"). Game thread only.
+// game texture. Archives are named "itemicon" (item icons) and "dmap" (dungeon map). Game thread
+// only.
 
 // JSON array of the .bti file names in an archive, or "" for an unknown or unloaded archive.
 std::string list_json(const std::string& archive);

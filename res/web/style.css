@@ -725,9 +725,6 @@ label.tool { display: inline-block; }
 /* Texture behind an icon (e.g. the field behind a field key) */
 .frame .icon-bg { position: absolute; inset: 10%; width: 80%; height: 80%; object-fit: cover; border-radius: 3px; opacity: 0.85; }
 .slot:not(.on) .frame .icon-bg { filter: grayscale(1) brightness(0.5); opacity: 0.5; }
-.icon-background { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
-.icon-background .label { color: var(--muted); font-size: 12px; min-width: 70px; }
-.icon-bg-preview { width: 40px; height: 40px; object-fit: cover; border: 1px solid var(--line); border-radius: 4px; }
 
 /* ---- Game texture browser ---- */
 .texture-browser {

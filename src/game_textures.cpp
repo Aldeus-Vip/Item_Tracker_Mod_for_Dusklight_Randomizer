@@ -18,14 +18,10 @@ struct ArchiveInfo {
     JKRArchive* (*get)();
 };
 
-// 2D archives the game keeps mounted from the start (d_s_logo.cpp).
+// 2D archives the game keeps mounted from the start (d_s_logo.cpp): item icons and dungeon map.
 const ArchiveInfo kArchives[] = {
     {"itemicon", [] { return dComIfGp_getItemIconArchive(); }},
-    {"collect", [] { return dComIfGp_getCollectResArchive(); }},
-    {"fmap", [] { return dComIfGp_getFmapResArchive(); }},
     {"dmap", [] { return dComIfGp_getDmapResArchive(); }},
-    {"main2d", [] { return dComIfGp_getMain2DArchive(); }},
-    {"ring", [] { return dComIfGp_getRingResArchive(); }},
 };
 
 JKRArchive* find_archive(const std::string& key) {

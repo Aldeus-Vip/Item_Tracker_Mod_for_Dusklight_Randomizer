@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Faron Woods: forest and a wooden door (original abstract art) -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f3a22"/><stop offset="1" stop-color="#0d1a0f"/></linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6b4424"/><stop offset="1" stop-color="#4a2d16"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#sky)"/>
+  <g fill="#2f5a2f" opacity="0.9">
+    <path d="M6 50 L14 18 L22 50Z"/><path d="M42 50 L51 14 L60 50Z"/><path d="M-2 54 L6 30 L14 54Z"/><path d="M52 54 L60 28 L68 54Z"/>
+  </g>
+  <g fill="#1d3d1f"><rect x="12.5" y="46" width="3" height="8"/><rect x="49.5" y="46" width="3" height="8"/></g>
+  <rect y="52" width="64" height="12" fill="#243b1c"/>
+  <path d="M24 56 V32 a8 8 0 0 1 16 0 V56Z" fill="url(#wood)" stroke="#2a1809" stroke-width="1.2"/>
+  <g stroke="#2a1809" stroke-width="0.8" opacity="0.8"><path d="M29 26 V56"/><path d="M35 26 V56"/><path d="M24 38 H40"/><path d="M24 48 H40"/></g>
+</svg>
