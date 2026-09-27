@@ -330,6 +330,20 @@ void write_items(JsonWriter& w) {
 
     // Max life in heart-piece units (5 = one heart); the logic's hearts(n) uses it.
     w.member("maxLife", static_cast<int>(dComIfGs_getMaxLife()));
+
+    // Time of day (the saved clock, 15 degrees per hour); night as dKy_daynight_check: 19:00-6:00.
+    const int hour = static_cast<int>(dComIfGs_getTime() / 15.0f) % 24;
+    w.key("time").beginObject();
+    w.member("hour", hour);
+    w.member("night", hour < 6 || hour >= 19);
+    w.endObject();
+
+    // Twilight cleared per province (dark clear levels 0-2), whether played or set by the seed.
+    w.key("twilightCleared").beginObject();
+    w.member("Faron", dComIfGs_isDarkClearLV(0) ? true : false);
+    w.member("Eldin", dComIfGs_isDarkClearLV(1) ? true : false);
+    w.member("Lanayru", dComIfGs_isDarkClearLV(2) ? true : false);
+    w.endObject();
 }
 
 // Consumable state shown on top of item icons: ammo, lantern oil, rupees, and the contents of

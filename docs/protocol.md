@@ -17,7 +17,7 @@ the mod's panel). Only loopback clients can connect, and requests whose `Host` h
 | GET | `/game-textures/<archive>/<name>.png` | One texture drawn with neutral colors; `<name>` is `<file>.bti` or `#<index>` (percent-encoded) |
 | GET | `/game-icons/<n>.png` | Icon of game item number `n`, built from the game's item icon archive (404 before the archive is loaded or when the item has none) |
 | GET / POST | `/layout` | Tracker layout (`<mod data dir>/layout.json`, 404 until saved) |
-| GET / POST | `/settings` | Page settings: theme, background options and custom location rules (`settings.json`, max 2 MB) |
+| GET / POST | `/settings` | Page settings: theme, background options and custom location rules, regions marked reachable (`settings.json`, max 2 MB) |
 | GET / POST / DELETE | `/background` | Custom background image (PNG, JPEG, WebP or GIF, max 8 MB) |
 | GET | `/rando/<path>` | Randomizer data file downloaded by the mod (e.g. `world/Root.yaml`) |
 | GET | `/rando-settings.yaml` | The randomizer's current `settings.yaml` (404 if the randomizer never saved one) |
@@ -76,6 +76,8 @@ data: {"protocol":1,"inGame":true,...}
     "Progressive Hidden Skill": 0                 // randomizer hidden skills (0-7)
   },
   "maxLife": 15,          // max life in heart-piece units (5 = one heart), for hearts(n) in logic
+  "time": { "hour": 14, "night": false },   // in-game clock; night is 19:00-6:00
+  "twilightCleared": { "Faron": true, "Eldin": false, "Lanayru": false },
   "ammo": {
     "seeds": 30, "seedsMax": 50,        // slingshot
     "arrows": 0, "arrowsMax": 30,

@@ -53,7 +53,8 @@ English: [README.md](README.md)
 | 全タブ | **Theme** | Twilight / Midna / Hyrule / Shadow、または背景画像を選ぶ |
 | Locations | 地域をクリック | その地域のチェック一覧を表示。幅が狭いときは一覧に切り替わり、**‹ Back** で戻る |
 | Locations | チェックをクリック | 必要条件を表示(and は横、or は縦に並び、満たしている項目は緑の枠) |
-| Locations | **Customize** / **Edit** | そのチェックの判定を、自分のルート(アイテムやロジック式)に置き換える |
+| Locations | **Customize** / **Edit** | そのチェックの判定を、自分のルートに置き換える(下記) |
+| Locations | 必要条件の **Map** 項目をクリック | その地域の「到達可能」を ON/OFF(全チェック共通) |
 | Locations | 右クリック | チェックや地域を強調する |
 | Locations | **Logic ON/OFF** | 到達判定の ON/OFF |
 | Locations | **Rules ▾** | 自分で設定した条件を JSON で書き出し・読み込み |
@@ -81,6 +82,22 @@ English: [README.md](README.md)
 
 `res/web/art/` にある Shadow Crystal、Fused Shadow、Mirror Shard のアイコンと、フィールドのカギの背景は、
 作者がこの Mod のために作ったオリジナルのアートです。ゲームの画像は含みません。
+
+### 自分で設定する条件
+
+**Customize** を押すと、条件の編集画面が別ウィンドウで開きます(ウィンドウを開けない OBS ではパネル内)。
+**Save** を押すとウィンドウは自動で閉じます。
+
+- 上の枠:保存後と同じ見た目で、ルートごとに 1 行ずつ表示します。1 つのルートの項目はすべて必要で、
+  どれか 1 つのルートを満たせば到達可能です。ルートをクリックすると、そのルートに追加します。
+- 下の枠:4 つのタブから条件を選びます。検索欄に入力すると絞り込まれ、**Enter** で一番近い候補を追加します。
+
+| タブ | 条件 | 満たす条件 |
+|---|---|---|
+| Items | Randomizer のアイテム(個数付き) | 持っている |
+| Time | Day、Night | ゲーム内の時計がその時間帯(夜は 19:00〜6:00) |
+| Rand Settings | Faron Twilight Cleared、Open Door of Time などの ON/OFF 設定 | 設定が ON。3 つの Twilight はセーブデータからも読むので、プレイでクリアした場合も満たす |
+| Map Reachable | Randomizer のロジックの地域(Faron Woods、North Eldin など) | 手動で「到達可能」にした。チェックの必要条件にある Map 項目をクリックで切り替え |
 
 ### OBS
 

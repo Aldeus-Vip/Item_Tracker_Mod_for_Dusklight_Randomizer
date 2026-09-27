@@ -372,6 +372,7 @@ const DEFAULT_SETTINGS = {
   background: { enabled: false, fit: "cover", dim: 0.35, rev: 0 },
   logicOverrides: {}, // custom per-check requirements (Locations tab)
   logic: true, // Locations tab evaluates reachability
+  mapReachable: [], // logic regions marked reachable by hand (Map entries of custom requirements)
   // Icons changed in the icon editor: { [icon name]: { source: "file" | "game", rev } }. rev
   // changes on every upload so browsers fetch the new image.
   iconOverrides: {},
@@ -392,6 +393,9 @@ function normalizeSettings(raw) {
   }
   out.logicOverrides = normalizeOverrides(raw?.logicOverrides);
   out.logic = raw?.logic !== false;
+  out.mapReachable = Array.isArray(raw?.mapReachable)
+    ? [...new Set(raw.mapReachable.filter((r) => typeof r === "string" && r.length <= 64))].slice(0, 200)
+    : [];
   const textureRef = (v) => (typeof v === "string" && /^[a-z0-9]{1,16}\/[\w.#-]{1,64}$/.test(v) ? v : undefined);
   for (const [name, o] of Object.entries(raw?.iconOverrides ?? {})) {
     if (/^[\w.'-]+$/.test(name) && o && typeof o === "object") {
@@ -757,6 +761,11 @@ const locationsView = createLocationsView(views.locations, {
   getLogic: () => settings.logic,
   saveLogic: async (enabled) => {
     settings.logic = enabled;
+    await saveSettings();
+  },
+  getMapFlags: () => settings.mapReachable,
+  saveMapFlags: async (regions) => {
+    settings.mapReachable = regions;
     await saveSettings();
   },
   setStatus,

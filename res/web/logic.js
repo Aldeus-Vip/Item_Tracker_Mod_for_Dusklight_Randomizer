@@ -449,7 +449,18 @@ export function itemsFromState(state) {
 // An entry of a custom route is an item name with a count, or randomizer logic: an event
 // ('Can_Complete_Forest_Temple'), a macro (Can_Complete_Prologue) or a setting comparison
 // (Faron_Woods_Logic == Open). Logic entries use the results of a finished search.
-export function routeEntrySatisfied(search, { item, n = 1 }) {
+// Route entries that are not items or logic: "time:Day" / "time:Night" (the in-game clock),
+// "flag:<name>" (a randomizer setting or game state such as a cleared twilight) and "map:<region>"
+// (a region the player marked as reachable). The tracker page decides them through ctx.test.
+export function trackerEntry(item) {
+  const m = /^(time|flag|map):(.+)$/.exec(item);
+  return m ? { kind: m[1], name: m[2] } : null;
+}
+
+// ctx: { test(entry) => boolean } for tracker entries, or { all: true } to treat them as met.
+export function routeEntrySatisfied(search, { item, n = 1 }, ctx = {}) {
+  const special = trackerEntry(item);
+  if (special) return ctx.all === true || Boolean(ctx.test?.(special));
   const world = search.world;
   if (world.itemNames.has(item)) return search.has(item, n || 1);
   world.routeExprs ??= new Map();
@@ -463,12 +474,14 @@ export function routeEntrySatisfied(search, { item, n = 1 }) {
   return search.eval(world.routeExprs.get(item), FT.ALL);
 }
 
-export function routeSatisfied(search, route) {
-  return route.every((entry) => routeEntrySatisfied(search, entry));
+export function routeSatisfied(search, route, ctx = {}) {
+  return route.every((entry) => routeEntrySatisfied(search, entry, ctx));
 }
 
 // Display name of a route entry: logic entries without quotes and underscores.
 export function routeEntryLabel(item) {
+  const special = trackerEntry(item);
+  if (special) return special.kind === "time" ? `Time: ${special.name}` : special.kind === "map" ? `Map: ${special.name}` : special.name;
   return item.replaceAll("'", "").replaceAll("_", " ");
 }
 

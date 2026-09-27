@@ -55,7 +55,8 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Any tab | **Theme** | Choose Twilight, Midna, Hyrule or Shadow, or upload a background image |
 | Locations | Click a region | Show its checks. In a narrow window the region list and the check list are shown one at a time; use **‹ Back** to return |
 | Locations | Click a check | Show its requirement: parts joined by "and" side by side, alternatives stacked, met parts outlined |
-| Locations | **Customize** / **Edit** | Replace the randomizer logic for that check with your own routes (items or logic expressions) |
+| Locations | **Customize** / **Edit** | Replace the randomizer logic for that check with your own routes (see below) |
+| Locations | Click a **Map** entry in a requirement | Mark that region reachable, or unmark it, for every check |
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
 | Locations | **Rules ▾** | Export or import your custom requirements as JSON |
@@ -84,6 +85,23 @@ Default icons:
 
 The Shadow Crystal, Fused Shadow and Mirror Shard icons and the field key backgrounds in
 `res/web/art/` are original art made by the author for this mod. They contain no game images.
+
+### Custom requirements
+
+**Customize** opens the requirement editor in its own window (in OBS, where windows can't open,
+it opens in the panel). The window closes when you press **Save**.
+
+- The top frame shows the requirement as it will look when saved, one row per route. Every part
+  of a route is needed; any one route is enough. Click a route to add to it.
+- Below it, pick conditions from four tabs. Type in the search box to filter; **Enter** adds the
+  best match.
+
+| Tab | Conditions | Met when |
+|---|---|---|
+| Items | Randomizer items, with a count | You have them |
+| Time | Day, Night | The game's clock shows that time (night is 19:00–6:00) |
+| Rand Settings | On/off settings such as Faron Twilight Cleared or Open Door of Time | The setting is on. The three twilights are also read from your save, so a twilight you cleared counts |
+| Map Reachable | Regions of the randomizer logic (Faron Woods, North Eldin, …) | You marked the region reachable. Click a Map entry in a check's requirement to switch it |
 
 ### OBS
 

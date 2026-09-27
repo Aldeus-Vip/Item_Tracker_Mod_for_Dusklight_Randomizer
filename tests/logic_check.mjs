@@ -7,7 +7,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import yaml from "../res/web/vendor/js-yaml.mjs";
-import { World, Search, routeSatisfied } from "../res/web/logic.js";
+import { World, Search, routeSatisfied, trackerEntry } from "../res/web/logic.js";
 
 const dataDir = process.argv[2];
 const load = (p) => yaml.load(readFileSync(join(dataDir, p), "utf8"));
@@ -58,7 +58,7 @@ if (rulesFile) {
   const bad = new Set();
   for (const routes of Object.values(overrides)) {
     for (const { item } of routes.flat()) {
-      if (world.itemNames.has(item)) continue;
+      if (world.itemNames.has(item) || trackerEntry(item)) continue;
       try {
         world.parse(item);
       } catch {
@@ -66,7 +66,7 @@ if (rulesFile) {
       }
     }
   }
-  const unmet = Object.entries(overrides).filter(([, routes]) => !routes.some((r) => routeSatisfied(everything.s, r)));
+  const unmet = Object.entries(overrides).filter(([, routes]) => !routes.some((r) => routeSatisfied(everything.s, r, { all: true })));
   console.log(`rules: ${Object.keys(overrides).length} checks, ${bad.size} invalid entries, ${unmet.length} unmet with all items`);
   for (const [loc] of unmet.slice(0, 15)) console.log("  unmet:", loc);
   if (bad.size) failures.push(`invalid rule entries: ${[...bad].join(", ")}`);
