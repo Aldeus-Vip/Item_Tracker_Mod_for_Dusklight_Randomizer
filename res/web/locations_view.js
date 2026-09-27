@@ -66,6 +66,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
   let world = null;
   let locations = [];
   let pickableItems = [];
+  let itemMax = new Map(); // item -> how many the item pool holds (the vanilla placement count)
   let mapGroups = []; // [{ title: province, regions }] in the order of the randomizer's world files
   let randoFlags = [];
   let excluded = new Set();
@@ -138,6 +139,11 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
         .map((i) => i.Name)
         .sort((a, b) => a.localeCompare(b));
       mapGroups = regionGroups(data);
+      itemMax = new Map();
+      for (const l of data["locations.yaml"] ?? []) {
+        const item = l?.["Original Item"];
+        if (item) itemMax.set(item, (itemMax.get(item) ?? 0) + 1);
+      }
       randoFlags = RANDO_FLAGS.filter((f) => GAME_TWILIGHTS[f] || world.settingOptions.get(f)?.includes("On"));
       retries = 0;
     } catch (err) {
@@ -524,6 +530,8 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       render();
       if (focusSearch) root.querySelector(".rule-search")?.focus();
     }
+    const list = (popup?.document ?? root).querySelector(".rule-list");
+    if (list) list.scrollTop = editing?.listScroll ?? 0;
   }
 
   function renderEditor() {
@@ -680,20 +688,42 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     box.append(el("div", { className: "rule-tabs", role: "tablist" }, ...ENTRY_TABS.map(([key, label]) => el("button", {
       type: "button", role: "tab", className: "rule-tab" + (key === tab ? " selected" : ""), textContent: label,
       ariaSelected: String(key === tab),
-      onclick: () => { editing.tab = key; editing.query = ""; redrawEditor(true); },
+      onclick: () => { editing.tab = key; editing.query = ""; editing.listScroll = 0; redrawEditor(true); },
     }))));
     const placeholder = ENTRY_TABS.find(([key]) => key === tab)[2];
     // The typed text survives redraws (e.g. a state update while the editor is in the panel).
     const input = el("input", { type: "search", className: "rule-search", placeholder, autocomplete: "off", spellcheck: false, value: editing.query ?? "" });
-    const count = tab === "item" ? el("input", { type: "number", min: 1, max: 99, value: 1, className: "loc-item-count", title: "Count added with an item" }) : null;
     const list = el("div", { className: "rule-list" + (tab === "item" || tab === "time" ? " with-icons" : "") });
     const groups = pickerGroups(tab);
-    // Checked rows are in the route: clicking adds or removes them.
+    // Checked rows are in the route: clicking adds or removes them, with the count typed on the row.
+    editing.counts ??= new Map(); // counts typed on rows not yet checked
+    const maxOf = (item) => Math.max(1, itemMax.get(item) ?? 1);
     const toggle = (row) => {
       const at = route.findIndex((e) => e.item === row.item);
       if (at >= 0) route.splice(at, 1);
-      else route.push({ item: row.item, n: count ? Math.max(1, Math.min(99, Number(count.value) || 1)) : 1 });
-      redrawEditor(true);
+      else route.push({ item: row.item, n: Math.min(editing.counts.get(row.item) ?? 1, maxOf(row.item)) });
+      redrawEditor();
+    };
+    // Count box for items the pool holds more than one of: 1..max, shown as "n / max".
+    const countBox = (r, entry) => {
+      const max = maxOf(r.item);
+      if (tab !== "item" || max < 2) return null;
+      const input = el("input", {
+        type: "number", min: 1, max, step: 1, className: "rule-count", value: String(entry?.n ?? editing.counts.get(r.item) ?? 1),
+        title: `How many are needed (1–${max})`, ariaLabel: `${r.label} count`,
+        onclick: (e) => e.stopPropagation(),
+        onkeydown: (e) => e.stopPropagation(),
+        onchange: () => {
+          const n = Math.max(1, Math.min(max, Math.round(Number(input.value)) || 1));
+          input.value = String(n);
+          editing.counts.set(r.item, n);
+          if (entry) {
+            entry.n = n;
+            redrawEditor();
+          }
+        },
+      });
+      return el("span", { className: "rule-count-box" }, input, el("span", { textContent: `/ ${max}` }));
     };
     let first = null;
     const draw = () => {
@@ -723,27 +753,37 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
           const icon = r.icon !== undefined || r.src
             ? el("span", { className: "rule-icon" }, r.src ? el("img", { src: r.src, alt: "" }) : r.icon ? makeIcon(r.icon, r.itemId) : null)
             : null;
-          nodes.push(el("button", {
-            type: "button", role: "checkbox", ariaChecked: String(Boolean(entry)),
+          nodes.push(el("div", {
+            role: "checkbox", tabIndex: 0, ariaChecked: String(Boolean(entry)),
             className: "rule-row" + (entry ? " checked" : ""), title: entry ? "In this route — click to remove" : "Click to add to this route",
             onclick: () => toggle(r),
-          }, mapCheck(Boolean(entry)), icon, el("span", { className: "rule-label", textContent: entry?.n > 1 ? `${r.label} ×${entry.n}` : r.label }),
+            onkeydown: (e) => {
+              if (e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                toggle(r);
+              }
+            },
+          }, mapCheck(Boolean(entry)), icon, el("span", { className: "rule-label", textContent: r.label }), countBox(r, entry),
           r.state === undefined ? null : el("span", { className: "rule-state" + (r.state ? " on" : ""), textContent: r.state ? "ON" : "OFF" })));
         }
       }
       list.replaceChildren(...nodes);
       if (!nodes.length) list.append(el("span", { className: "loc-note", textContent: "No match." }));
     };
-    input.addEventListener("input", () => { editing.query = input.value; draw(); list.scrollTop = 0; });
+    input.addEventListener("input", () => { editing.query = input.value; draw(); list.scrollTop = 0; editing.listScroll = 0; });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && first) {
         e.preventDefault();
         editing.query = "";
+        editing.listScroll = 0;
         toggle(first);
+        (popup?.document ?? document).querySelector(".rule-search")?.focus();
       }
     });
     draw();
-    box.append(el("div", { className: "rule-search-row" }, input, count), list);
+    // Keep the list where it was scrolled to across redraws.
+    list.addEventListener("scroll", () => { editing.listScroll = list.scrollTop; });
+    box.append(el("div", { className: "rule-search-row" }, input), list);
     if (tab === "map") box.append(el("p", { className: "loc-note", textContent: "ON/OFF: whether you marked the region reachable. Click a Map entry in a check's requirement to switch it for every check." }));
     if (tab === "time") box.append(el("p", { className: "loc-note", textContent: "Met when the game's clock shows that time (night is 19:00–6:00)." }));
     return box;

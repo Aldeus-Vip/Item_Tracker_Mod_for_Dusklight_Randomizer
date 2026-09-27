@@ -97,7 +97,8 @@ it opens in the panel). The window closes when you press **Save**.
   or `(A or B) and (C or D)`. Options can hold Or groups of their own. Click an option to add to
   it; the picker's heading shows where new conditions go.
 - Below it, pick conditions from four tabs. Each tab is a two-column list of check boxes: a checked
-  row is in the selected route, and clicking a row adds or removes it. Items follow the Items tab's
+  row is in the selected route, and clicking a row adds or removes it. Items the pool holds more
+  than one of have a count box on their row (`1 / 4`), limited to that number. Items follow the Items tab's
   sections and order and show its icons; Map regions are grouped by province. Type in the search
   box to filter; **Enter** adds the best match.
 
