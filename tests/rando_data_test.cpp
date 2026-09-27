@@ -92,7 +92,7 @@ void check(bool ok, const std::string& what) {
 int main() {
     svc_http = &g_http;
     svc_log = &g_log;
-    const auto dir = std::filesystem::temp_directory_path() / "shadowq_rando_data_test" / "mod";
+    const auto dir = std::filesystem::temp_directory_path() / "dusklight_tracker_rando_data_test" / "mod";
     std::filesystem::remove_all(dir.parent_path());
     std::filesystem::create_directories(dir);
 

@@ -1,4 +1,4 @@
-# ShadowQ Item Tracker
+# Dusklight Item Tracker
 
 An automatic item and location tracker for the
 [Dusklight](https://github.com/TwilitRealm/dusklight) Randomizer.
@@ -31,11 +31,11 @@ a Browser Source. You don't need to install any separate application.
 
 ## Installing
 
-1. Copy `shadowq_tracker.dusk` into the Dusklight mods folder:
+1. Copy `dusklight_item_tracker.dusk` into the Dusklight mods folder:
    - Windows: `%APPDATA%\TwilitRealm\Dusklight\mods`
    - Linux: `~/.local/share/TwilitRealm/Dusklight/mods`
    - macOS: `~/Library/Application Support/TwilitRealm/Dusklight/mods`
-2. Enable **ShadowQ Item Tracker** in the in-game mod manager. Its panel shows:
+2. Enable **Dusklight Item Tracker** in the in-game mod manager. Its panel shows:
    - the tracker URL, with a port input and a copy button
    - the number of connected pages
    - the status of the randomizer logic data
@@ -91,7 +91,7 @@ cmake -B build
 cmake --build build
 ```
 
-The result is `build/mods/shadowq_tracker.dusk`, which works on your own platform only. The
+The result is `build/mods/dusklight_item_tracker.dusk`, which works on your own platform only. The
 first configure downloads the Dusklight sources.
 
 ### GitHub Actions

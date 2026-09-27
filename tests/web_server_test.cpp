@@ -152,7 +152,7 @@ int main() {
     svc_resource = &g_res;
     svc_log = &g_log;
 
-    const auto dir = std::filesystem::temp_directory_path() / "shadowq_web_server_test";
+    const auto dir = std::filesystem::temp_directory_path() / "dusklight_tracker_web_server_test";
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir);
     tracker::web::set_data_dir(dir.string());
