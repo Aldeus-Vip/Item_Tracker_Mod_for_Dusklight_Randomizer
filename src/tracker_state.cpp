@@ -54,28 +54,31 @@ constexpr int kCoroGateFlag = 0x0C;
 
 constexpr int kSkyCharacterCount = 6;
 
-// Randomizer custom item ids (TwilitRealm/dusklight-randomizer src/item_ids.h) and the matching
-// logic item names (generator/data/items.yaml).
-struct RandomizerItem {
-    u8 id;
+// Warp portals (logic item names from the randomizer's generator/data/items.yaml): open when the
+// stage switch the randomizer's portal items set is on (the same check as its
+// item_getcheck_func_*_PORTAL in src/item.cpp). The item-get bits of the portal item ids are not
+// reliable: the ids are shared with vanilla items.
+struct PortalFlag {
+    int saveId;
+    int flag;
     const char* name;
 };
-constexpr RandomizerItem kRandomizerPortals[] = {
-    {0x14, "Ordon Spring Portal"},
-    {0x15, "South Faron Portal"},
-    {0x3C, "North Faron Portal"},
-    {0xBF, "Sacred Grove Portal"},
-    {0x4D, "Kakariko Gorge Portal"},
-    {0x4E, "Kakariko Village Portal"},
-    {0x52, "Death Mountain Portal"},
-    {0xE8, "Bridge of Eldin Portal"},
-    {0x3A, "Castle Town Portal"},
-    {0x39, "Upper Zoras River Portal"},
-    {0x57, "Zoras Domain Portal"},
-    {0x8F, "Lake Hylia Portal"},
-    {0xAF, "Snowpeak Portal"},
-    {0x3B, "Gerudo Desert Portal"},
-    {0xAE, "Mirror Chamber Portal"},
+constexpr PortalFlag kPortals[] = {
+    {0x0, 0x34, "Ordon Spring Portal"},
+    {0x2, 0x47, "South Faron Portal"},
+    {0x2, 0x02, "North Faron Portal"},
+    {0x7, 0x64, "Sacred Grove Portal"},
+    {0x6, 0x15, "Kakariko Gorge Portal"},
+    {0x3, 0x1F, "Kakariko Village Portal"},
+    {0x3, 0x15, "Death Mountain Portal"},
+    {0x6, 0x63, "Bridge of Eldin Portal"},
+    {0x6, 0x03, "Castle Town Portal"},
+    {0x4, 0x15, "Upper Zoras River Portal"},
+    {0x4, 0x02, "Zoras Domain Portal"},
+    {0x4, 0x0A, "Lake Hylia Portal"},
+    {0x8, 0x15, "Snowpeak Portal"},
+    {0xA, 0x15, "Gerudo Desert Portal"},
+    {0xA, 0x28, "Mirror Chamber Portal"},
 };
 // Event bits the randomizer sets for each learned Hidden Skill (item_func_ENDING_BLOW ..
 // item_func_GREAT_SPIN); the skills menu reads the same bits. The item-get bits of the skill
@@ -317,9 +320,9 @@ void write_items(JsonWriter& w) {
         bugs += have(static_cast<u8>(i)) ? 1 : 0;
     }
     w.member("Golden Bug", bugs);
-    // Randomizer-only items (custom item ids): warp portals.
-    for (const auto& [id, name] : kRandomizerPortals) {
-        w.member(name, have(id) ? 1 : 0);
+    // Randomizer-only items: warp portals, open or not.
+    for (const PortalFlag& p : kPortals) {
+        w.member(p.name, dComIfGs_isStageSwitch(p.saveId, p.flag) ? 1 : 0);
     }
     int skills = 0;
     for (u16 event : kHiddenSkillEvents) {

@@ -580,6 +580,10 @@ label.tool { display: inline-block; }
 .loc-row.excluded { opacity: 0.45; font-style: italic; }
 .loc-row.excluded .loc-dot { background: transparent; border: 1px solid var(--muted); }
 .loc-tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; border: 1px solid var(--warn); color: var(--warn); }
+/* What a found check held */
+.loc-found { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--gold); }
+.loc-seed { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.loc-seed select { max-width: 220px; background: var(--bar-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font: inherit; font-size: 12px; }
 
 /* Narrow (set by the page from the tab's width): regions first, then one region's checks */
 .loc-narrow .loc-body { grid-template-columns: 1fr; }

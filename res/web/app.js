@@ -1,4 +1,4 @@
-import { COLUMNS, DEFAULT_LAYOUT, DUNGEON_EXTRAS, DUNGEON_ICONS, GAME_ICON_BACKGROUNDS, GAME_ICON_IDS, TILES, normalizeLayout } from "./layout.js";
+import { COLUMNS, DEFAULT_LAYOUT, DUNGEON_EXTRAS, DUNGEON_ICONS, GAME_ICON_BACKGROUNDS, GAME_ICON_IDS, GAME_ICON_TINTS, TILES, normalizeLayout } from "./layout.js";
 import { createLocationsView, normalizeOverrides } from "./locations_view.js";
 
 const PROTOCOL_VERSION = 1;
@@ -108,6 +108,23 @@ function iconImg(name, className, onMissing, itemId) {
     else img.remove();
   };
   img.addEventListener("error", tryNext);
+  // A gray default texture the game colors when drawing it gets that color here.
+  const tint = GAME_ICON_TINTS[name];
+  if (tint) {
+    const gameUrl = gameIconUrl(name, itemId);
+    img.addEventListener("load", () => {
+      if (img.src !== new URL(gameUrl, location.href).href) return; // custom icon, or already tinted
+      const canvas = Object.assign(document.createElement("canvas"), { width: img.naturalWidth, height: img.naturalHeight });
+      const g = canvas.getContext("2d");
+      g.drawImage(img, 0, 0);
+      g.globalCompositeOperation = "multiply";
+      g.fillStyle = tint;
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      g.globalCompositeOperation = "destination-in"; // keep the texture's own transparency
+      g.drawImage(img, 0, 0);
+      img.src = canvas.toDataURL();
+    });
+  }
   // Without any source the fallback runs after the caller has attached the image.
   if (sources.length) tryNext();
   else queueMicrotask(tryNext);
@@ -372,7 +389,10 @@ const DEFAULT_SETTINGS = {
   background: { enabled: false, fit: "cover", dim: 0.35, rev: 0 },
   logicOverrides: {}, // custom per-check requirements (Locations tab)
   logic: true, // Locations tab evaluates reachability
-  mapReachable: [], // logic regions marked reachable by hand (Map entries of custom requirements)
+  mapReachable: [], // logic regions marked reachable (on entry or by hand; Map entries of custom requirements)
+  // Found items in the Locations tab: picked seed (null = newest), shown or not, checks seen in
+  // shops ({ [seed hash]: [location] }).
+  seedView: { hash: null, show: true, seen: {} },
   // Icons changed in the icon editor: { [icon name]: { source: "file" | "game", rev } }. rev
   // changes on every upload so browsers fetch the new image.
   iconOverrides: {},
@@ -396,6 +416,14 @@ function normalizeSettings(raw) {
   out.mapReachable = Array.isArray(raw?.mapReachable)
     ? [...new Set(raw.mapReachable.filter((r) => typeof r === "string" && r.length <= 64))].slice(0, 200)
     : [];
+  const sv = raw?.seedView;
+  if (sv && typeof sv === "object") {
+    out.seedView.hash = typeof sv.hash === "string" && sv.hash.length <= 100 ? sv.hash : null;
+    out.seedView.show = sv.show !== false;
+    for (const [hash, names] of Object.entries(sv.seen ?? {}).slice(0, 4)) {
+      if (Array.isArray(names)) out.seedView.seen[hash] = names.filter((n) => typeof n === "string").slice(0, 2000);
+    }
+  }
   const textureRef = (v) => (typeof v === "string" && /^[a-z0-9]{1,16}\/[\w.#-]{1,64}$/.test(v) ? v : undefined);
   for (const [name, o] of Object.entries(raw?.iconOverrides ?? {})) {
     if (/^[\w.'-]+$/.test(name) && o && typeof o === "object") {
@@ -730,7 +758,8 @@ function renderDungeons(dungeons) {
     }
     row.insertCell().append(mark(d.map, "Map", DUNGEON_ICONS.map));
     row.insertCell().append(mark(d.compass, "Compass", DUNGEON_ICONS.compass));
-    // Boss icon when one is set in the icon editor, otherwise a circle.
+    // Boss icon: the field map's boss mark unless one is set in the icon editor; a circle when
+    // neither can be drawn.
     const bossIcon = DUNGEON_ICONS.bosses[d.name];
     const bossCell = row.insertCell();
     const bossMark = mark(d.bossDefeated, "Boss defeated");
@@ -761,6 +790,11 @@ const locationsView = createLocationsView(views.locations, {
   getLogic: () => settings.logic,
   saveLogic: async (enabled) => {
     settings.logic = enabled;
+    await saveSettings();
+  },
+  getSeedView: () => settings.seedView,
+  saveSeedView: async (view) => {
+    settings.seedView = view;
     await saveSettings();
   },
   getLayoutSections: () => savedLayout.sections,

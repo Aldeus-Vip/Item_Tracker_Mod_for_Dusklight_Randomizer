@@ -4,8 +4,8 @@
 
 import yaml from "./vendor/js-yaml.mjs";
 import { World, Search, itemsFromState, routeSatisfied, routeEntrySatisfied, routeEntryLabel, trackerEntry, parseDisplay, atomLabel, BOSS_NAMES } from "./logic.js";
-import { REGION_GROUPS, FlagReader, buildLocationList, buildRoomRegions, isObtained } from "./locations.js";
-import { TILE_ITEMS, OTHER_ITEM_GROUPS, isDungeonKey, dungeonKeyIcon } from "./layout.js";
+import { REGION_GROUPS, STAGE_NAMES, FlagReader, buildLocationList, buildRoomRegions, isObtained } from "./locations.js";
+import { TILE_ITEMS, OTHER_ITEM_GROUPS, DUNGEON_ICONS, isDungeonKey, dungeonKeyIcon } from "./layout.js";
 
 const DATA_FILES = [
   "locations.yaml", "macros.yaml", "items.yaml", "settings_list.yaml", "world/Root.yaml",
@@ -34,6 +34,9 @@ const DUNGEON_ORDER = Object.keys(BOSS_NAMES);
 // Seed conditions: met when the seed's requirement (randomizer logic, with the current items) is
 // met, or when the game has set the flag it opens with.
 const SEED_CONDITIONS = {
+  // Won the sumo match against Gor Coron: the randomizer sets it from the start unless the
+  // entrance is Closed.
+  "Goron Mines Entrance Opened": { event: 0x0704 },
   "Door to the Past Opened": { expr: "Has_Sword_For_Temple_of_Time" },
   "Mirror of Twilight Repaired": {
     expr: "Palace_of_Twilight_Requirements == Open or " +
@@ -48,8 +51,7 @@ const SEED_CONDITIONS = {
 // The Dungeon tab's "Entrance" group, in vanilla clear order: settings and seed conditions that
 // open the way into each dungeon.
 const ENTRANCE_ENTRIES = [
-  "flag:Goron Mines Entrance = Open", "flag:Goron Mines Entrance = No Wrestling", "flag:Goron Mines Entrance = Closed",
-  "flag:Lakebed Does Not Require Water Bombs", "flag:Arbiters Does Not Require Bulblin Camp",
+  "cond:Goron Mines Entrance Opened", "flag:Lakebed Does Not Require Water Bombs", "flag:Arbiters Does Not Require Bulblin Camp",
   "flag:Snowpeak Does Not Require Reekfish Scent", "flag:Sacred Grove Does Not Require Skull Kid",
   "cond:Door to the Past Opened", "flag:City Does Not Require Filled Skybook",
   "cond:Mirror of Twilight Repaired", "cond:Hyrule Barrier Dispelled",
@@ -86,12 +88,15 @@ const el = (tag, props = {}, ...children) => {
  * @param options.saveMapFlags  ([region]) => Promise
  * @param options.getLayoutSections () => the Items tab's sections ({ title, slots: [tile id] })
  * @param options.makeIcon      (icon name, game item id?) => <img> drawn as in the Items tab
+ * @param options.getSeedView   () => { hash, show, seen }: picked seed (null = newest), whether
+ *                              found items are shown, and the checks seen per seed (shops)
+ * @param options.saveSeedView  (view) => Promise
  * @param options.setStatus     (kind, text) => void
  */
 // Below this width the region list and the check list are shown one at a time.
 const NARROW_WIDTH = 560;
 
-export function createLocationsView(root, { getOverrides, saveOverrides, getLogic, saveLogic, getMapFlags, saveMapFlags, getLayoutSections, makeIcon, setStatus }) {
+export function createLocationsView(root, { getOverrides, saveOverrides, getLogic, saveLogic, getMapFlags, saveMapFlags, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -100,6 +105,9 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
   let randoFlags = [];
   let roomRegion = () => null; // (stage, room) -> logic region
   let lastRegion = null; // region Link was last seen in (marked reachable on entry)
+  let seeds = []; // generated seeds with a spoiler log, newest first
+  let seedHash = null; // seed whose placements are loaded
+  let spoiler = null; // { placements, settings } of that seed
   let excluded = new Set();
   let settingsNote = "";
   let loadError = "";
@@ -147,12 +155,17 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
         throw new Error(`${missing.length} of ${DATA_FILES.length} files missing, e.g. ${missing[0]}`);
       }
       const data = Object.fromEntries(DATA_FILES.map((f, i) => [f, yaml.load(fetched[i].value)]));
+      await loadSeed();
       let settings = {};
       settingsNote = "";
-      try {
-        settings = yaml.load(await fetchText("rando-settings.yaml")) ?? {};
-      } catch {
-        settingsNote = "Randomizer settings not found — using default settings.";
+      if (spoiler?.settings) {
+        settings = spoiler.settings; // the settings the seed was generated with
+      } else {
+        try {
+          settings = yaml.load(await fetchText("rando-settings.yaml")) ?? {};
+        } catch {
+          settingsNote = "Randomizer settings not found — using default settings.";
+        }
       }
       world = new World({
         worldFiles: DATA_FILES.filter((f) => f.startsWith("world/")).map((f) => data[f]),
@@ -193,6 +206,72 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     }
     evaluate();
     render();
+  }
+
+  // ---- Seed (found items) ----
+
+  // The seed being played: the one picked in Rules, else the newest generated seed that has a
+  // spoiler log. Its placements are only shown for checks the player has found.
+  async function loadSeed() {
+    seeds = [];
+    spoiler = null;
+    seedHash = null;
+    try {
+      seeds = JSON.parse(await fetchText("rando-seeds/")).filter((s) => s?.spoiler && typeof s.hash === "string");
+    } catch {}
+    const wanted = getSeedView().hash;
+    const chosen = seeds.find((s) => s.hash === wanted) ?? seeds[0];
+    if (!chosen) return;
+    try {
+      spoiler = parseSpoiler(await fetchText(`rando-seeds/${encodeURIComponent(chosen.hash)}`));
+      seedHash = chosen.hash;
+    } catch {}
+  }
+
+  // Spoiler log -> { placements: Map(location -> item), settings } ("All Locations:" and "# Settings").
+  function parseSpoiler(text) {
+    const placements = new Map();
+    const lines = text.split(/\r?\n/);
+    let section = "";
+    let settings = null;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith("# Settings")) {
+        try {
+          const parsed = yaml.load(lines.slice(i + 1).join("\n"));
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) settings = parsed;
+        } catch {}
+        break;
+      }
+      if (/^\S/.test(line)) {
+        section = line.replace(/:\s*$/, "");
+        continue;
+      }
+      const m = section === "All Locations" && /^ {8}(\S.*?):\s+(\S.*)$/.exec(line);
+      if (m) placements.set(m[1], m[2].trim());
+    }
+    return { placements, settings };
+  }
+
+  // Item placed at a check, when the player has found it: obtained it, or seen it in a shop.
+  function foundItem(loc) {
+    if (!spoiler || !getSeedView().show) return null;
+    const seen = results.get(loc.name) === "obtained" || (getSeedView().seen?.[seedHash] ?? []).includes(loc.name);
+    return seen ? spoiler.placements.get(loc.name) ?? null : null;
+  }
+
+  // Entering a shop's room shows what each of its slots holds.
+  function markSeenShops() {
+    if (!spoiler || !state?.inGame) return;
+    const view = getSeedView();
+    const seen = new Set(view.seen?.[seedHash] ?? []);
+    const before = seen.size;
+    for (const loc of locations) {
+      const shop = loc.metadata.Shop;
+      const entries = Array.isArray(shop) ? shop : shop ? [shop] : [];
+      if (entries.some((s) => STAGE_NAMES[s?.Stage] === state.stage && s?.Room === state.room)) seen.add(loc.name);
+    }
+    if (seen.size !== before) saveSeedView({ ...view, seen: { [seedHash]: [...seen] } }).then(() => render());
   }
 
   // Logic regions by province: the overworld files are one province each (Ordona, Faron, Eldin,
@@ -272,7 +351,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     const c = SEED_CONDITIONS[name];
     if (!c) return false;
     if (c.event !== undefined && new FlagReader(state?.flags).event(c.event)) return true;
-    return Boolean(search) && routeEntrySatisfied(search, { item: c.expr });
+    return Boolean(c.expr && search) && routeEntrySatisfied(search, { item: c.expr });
   }
 
   // Marks the region Link has just entered as reachable (hand marks stay as they are otherwise).
@@ -339,6 +418,17 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
         try { localStorage.setItem("tracker.hideObtained", hideObtained ? "1" : "0"); } catch {}
         render();
       } }), " Hide obtained");
+    const found = spoiler ? el("label", { className: "loc-toggle", title: "Show what each found check held (obtained, or seen in a shop)" },
+      el("input", { type: "checkbox", checked: getSeedView().show, onchange: async (e) => {
+        await saveSeedView({ ...getSeedView(), show: e.target.checked });
+        render();
+      } }), " Show found items") : null;
+    const seedPicker = el("label", { className: "loc-seed", title: "Seed whose items are shown for found checks" }, "Seed ",
+      seeds.length
+        ? el("select", { onchange: async (e) => { await saveSeedView({ ...getSeedView(), hash: e.target.value || null }); load(); } },
+          el("option", { value: "", textContent: "Newest", selected: !getSeedView().hash }),
+          ...seeds.map((s) => el("option", { value: s.hash, textContent: s.hash, selected: s.hash === getSeedView().hash })))
+        : el("span", { className: "loc-note", textContent: "no spoiler log found" }));
     const logicSwitch = el("button", {
       type: "button",
       className: "tool loc-logic-switch" + (logic ? " on" : ""),
@@ -353,13 +443,14 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       el("div", { className: "loc-menu-items" },
         el("button", { className: "tool", type: "button", textContent: "Export rules", onclick: exportOverrides }),
         el("label", { className: "tool" }, "Import rules", el("input", { type: "file", accept: "application/json,.json", hidden: true, onchange: importOverrides })),
-        el("button", { className: "tool", type: "button", textContent: "Reload data", onclick: load })));
+        el("button", { className: "tool", type: "button", textContent: "Reload data", onclick: load }),
+        seedPicker));
     toolbar.append(
       el("span", { className: "loc-summary" }, ...(logic
         ? [el("b", { className: "reach", textContent: String(total.reachable) }), " reachable · "]
         : [el("b", { textContent: String(total.obtained) }), " obtained · "]),
       el("b", { textContent: String(total.remaining) }), " remaining"),
-      el("span", { className: "loc-actions" }, logicSwitch, hide, menu),
+      el("span", { className: "loc-actions" }, logicSwitch, hide, found, menu),
     );
     if (settingsNote && logic) toolbar.append(el("span", { className: "loc-note", textContent: settingsNote }));
     if (!state) toolbar.append(el("span", { className: "loc-note", textContent: "Waiting for the game…" }));
@@ -410,6 +501,10 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
           render();
         },
       }, el("span", { className: "loc-dot" }), el("span", { className: "loc-name", textContent: loc.name }),
+      (() => {
+        const item = foundItem(loc);
+        return item ? el("span", { className: "loc-found", textContent: item, title: `Holds: ${item}` }) : null;
+      })(),
       overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null));
     }
     if (!list.childElementCount) list.append(el("p", { className: "empty", textContent: "Nothing left here." }));
@@ -721,7 +816,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       const keys = DUNGEON_ORDER.flatMap((d) => pickableItems.filter((i) => isDungeonKey(i) && i.startsWith(`${d} `))
         .sort((a, b) => keyOrder(a) - keyOrder(b)))
         .map((i) => ({ item: i, label: i, icon: dungeonKeyIcon(i) }));
-      const bosses = DUNGEON_ORDER.map((d) => ({ item: `boss:${d}`, label: `${BOSS_NAMES[d]} (${d})`, icon: "Boss", state: entryMet({ item: `boss:${d}` }) }));
+      const bosses = DUNGEON_ORDER.map((d) => ({ item: `boss:${d}`, label: `${BOSS_NAMES[d]} (${d})`, icon: DUNGEON_ICONS.bosses[d], state: entryMet({ item: `boss:${d}` }) }));
       const entrances = ENTRANCE_ENTRIES.filter((item) => {
         const { kind, name } = trackerEntry(item);
         if (kind !== "flag") return true;
@@ -921,6 +1016,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     setState(next) {
       state = next;
       markCurrentRegion();
+      markSeenShops();
       evaluate();
       render();
     },

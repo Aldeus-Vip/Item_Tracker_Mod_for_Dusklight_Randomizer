@@ -8,7 +8,8 @@
 // GAME_ICON_DIR to a folder of <item number>.png standing in for the icons the mod builds from the
 // game data (/game-icons/, 404 when unset).
 // Locations tab: set RANDO_DATA to a dusklight-randomizer checkout's generator/data folder
-// (optionally RANDO_SETTINGS to a randomizer settings.yaml).
+// (optionally RANDO_SETTINGS to a randomizer settings.yaml, and SEEDS_DIR to a folder of
+// <hash>/<hash> Spoiler Log.txt standing in for the randomizer's seeds).
 
 import { createServer } from "node:http";
 import { readFile, readdir } from "node:fs/promises";
@@ -22,6 +23,7 @@ const gameIconRoot = process.env.GAME_ICON_DIR;
 const uploadedIcons = {};
 const randoRoot = process.env.RANDO_DATA;
 const randoSettings = process.env.RANDO_SETTINGS;
+const seedsRoot = process.env.SEEDS_DIR;
 
 // Raw save flags in the mod's format (docs/protocol.md): 32 stage tables + events.
 const hex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -101,6 +103,7 @@ const script = [
   () => Object.assign(state.dungeons[0], { smallKeys: 1, smallKeysHeld: 1, map: true }),
   () => (state.items["Gale Boomerang"] = 1),
   () => (state.time = { hour: 21, night: true }),
+  () => Object.assign(state, { stage: "R_SP01", room: 1 }), // Sera's shop
   () => Object.assign(state, { stage: "F_SP108", room: 0 }), // South Faron Woods
   () => (state.items["North Faron Woods Gate Key"] = 1),
   // Wooden Sword Chest (stage 65 -> save table 0, treasure box 4) and Links Basement Chest (box 1)
@@ -166,6 +169,28 @@ createServer(async (req, res) => {
       if (!file || file.includes("..")) throw new Error("not found");
       const body = await readFile(file);
       res.writeHead(200, { "Content-Type": TYPES[".yaml"] });
+      return res.end(body);
+    } catch {
+      return res.writeHead(404).end();
+    }
+  }
+  if (path.startsWith("/rando-seeds/")) {
+    // SEEDS_DIR stands in for the randomizer's seeds folder (seeds/<hash>/<hash> Spoiler Log.txt).
+    const hash = decodeURIComponent(path.slice(13));
+    try {
+      if (!seedsRoot || hash.includes("/") || hash.includes("..")) throw new Error("not found");
+      if (hash === "") {
+        const list = [];
+        for (const d of await readdir(seedsRoot, { withFileTypes: true })) {
+          if (!d.isDirectory()) continue;
+          const spoiler = await readFile(join(seedsRoot, d.name, `${d.name} Spoiler Log.txt`)).then(() => true, () => false);
+          list.push({ hash: d.name, spoiler });
+        }
+        res.writeHead(200, { "Content-Type": TYPES[".json"] });
+        return res.end(JSON.stringify(list));
+      }
+      const body = await readFile(join(seedsRoot, hash, `${hash} Spoiler Log.txt`));
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
       return res.end(body);
     } catch {
       return res.writeHead(404).end();

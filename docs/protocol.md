@@ -21,6 +21,8 @@ the mod's panel). Only loopback clients can connect, and requests whose `Host` h
 | GET / POST / DELETE | `/background` | Custom background image (PNG, JPEG, WebP or GIF, max 8 MB) |
 | GET | `/rando/<path>` | Randomizer data file downloaded by the mod (e.g. `world/Root.yaml`) |
 | GET | `/rando-settings.yaml` | The randomizer's current `settings.yaml` (404 if the randomizer never saved one) |
+| GET | `/rando-seeds/` | The randomizer's generated seeds, newest first: `[{"hash": "Epona Lantern Goron", "spoiler": true}]` |
+| GET | `/rando-seeds/<hash>` | That seed's spoiler log (text). The page shows only placements of checks the player has found |
 
 Writes are accepted only from the tracker page's own origin (or without `Origin`, e.g. curl) and
 only with `Content-Type: application/json` (layout, settings) or `image/*` (background). These
@@ -47,6 +49,7 @@ data: {"protocol":1,"inGame":true,...}
   "protocol": 1,          // bumped on incompatible changes; the page refuses other versions
   "inGame": true,         // false on the title screen / file select (no other fields then)
   "stage": "F_SP103",     // current stage name
+  "room": 0,              // room Link is in (marks the logic region as reachable)
   "items": {              // counts, keyed by randomizer logic item names
     "Progressive Sword": 1,         // 0-4: Wooden, Ordon, Master, Light
     "Ordon Shield": 0, "Wooden Shield": 0, "Hylian Shield": 0,

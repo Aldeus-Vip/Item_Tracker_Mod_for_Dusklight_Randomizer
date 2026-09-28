@@ -15,6 +15,7 @@
 #include <span>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace tracker::web {
 namespace {
@@ -50,6 +51,7 @@ GameIconProvider g_gameIcons = nullptr;
 TextureListProvider g_textureList = nullptr;
 TextureProvider g_texture = nullptr;
 std::filesystem::path g_randoSettingsFile;
+std::filesystem::path g_seedsDir;  // the randomizer's seeds/<hash>/ folders
 
 // Icons are at most a few hundred KB; anything larger is not an icon.
 constexpr std::uintmax_t kMaxIconBytes = 4 * 1024 * 1024;
@@ -519,6 +521,59 @@ void serve_rando_file(Client& client, std::string_view encodedPath) {
     serve_yaml_file(client, file);
 }
 
+// Seed hashes are three words ("Epona Lantern Goron"); anything else is not a seed folder.
+bool is_safe_seed_hash(std::string_view hash) {
+    return !hash.empty() && hash.size() <= 100 && hash.find("..") == std::string_view::npos &&
+        std::all_of(hash.begin(), hash.end(), [](char c) {
+            return std::isalnum(static_cast<unsigned char>(c)) || c == ' ' || c == '-' || c == '_' || c == '\'';
+        });
+}
+
+std::filesystem::path spoiler_path(const std::string& hash) {
+    return g_seedsDir / hash / (hash + " Spoiler Log.txt");
+}
+
+// /rando-seeds/ -> JSON array of the generated seeds, newest first: [{"hash", "spoiler": bool}]
+void serve_seed_list(Client& client) {
+    struct Seed {
+        std::string hash;
+        std::filesystem::file_time_type time;
+        bool spoiler;
+    };
+    std::vector<Seed> seeds;
+    std::error_code ec;
+    if (!g_seedsDir.empty()) {
+        for (const auto& entry : std::filesystem::directory_iterator(g_seedsDir, ec)) {
+            if (!entry.is_directory(ec)) continue;
+            const std::string hash = entry.path().filename().string();
+            if (!is_safe_seed_hash(hash)) continue;
+            const auto seedFile = entry.path() / "seed.dat";
+            const auto time = std::filesystem::last_write_time(std::filesystem::exists(seedFile, ec) ? seedFile : entry.path(), ec);
+            seeds.push_back({hash, time, std::filesystem::exists(spoiler_path(hash), ec)});
+        }
+    }
+    std::sort(seeds.begin(), seeds.end(), [](const Seed& a, const Seed& b) { return a.time > b.time; });
+    std::string body = "[";
+    for (const Seed& s : seeds) {
+        if (body.size() > 1) body += ',';
+        body += R"({"hash":")" + s.hash + R"(","spoiler":)" + (s.spoiler ? "true" : "false") + "}";
+    }
+    body += "]";
+    send_response(client, "200 OK", "application/json; charset=utf-8", body, "no-store");
+}
+
+// /rando-seeds/<hash> -> that seed's spoiler log (the page shows only what the player has found)
+void serve_seed_spoiler(Client& client, std::string_view encodedHash) {
+    std::string hash;
+    std::string body;
+    if (g_seedsDir.empty() || !percent_decode(encodedHash, hash) || !is_safe_seed_hash(hash) ||
+        !read_file(spoiler_path(hash), body)) {
+        send_error(client, "404 Not Found");
+        return;
+    }
+    send_response(client, "200 OK", "text/plain; charset=utf-8", body, "no-store");
+}
+
 // Largest request body accepted for a target.
 size_t max_body_bytes(std::string_view target) {
     if (target.starts_with("/icons/")) return kMaxIconBytes;
@@ -605,6 +660,14 @@ bool handle_request(Client& client, const Request& req) {
     }
     if (target.starts_with("/rando/")) {
         serve_rando_file(client, target.substr(7));
+        return false;
+    }
+    if (target == "/rando-seeds/") {
+        serve_seed_list(client);
+        return false;
+    }
+    if (target.starts_with("/rando-seeds/")) {
+        serve_seed_spoiler(client, target.substr(13));
         return false;
     }
     if (target == "/rando-settings.yaml") {
@@ -755,6 +818,10 @@ void set_game_icons(GameIconProvider provider) {
 void set_game_textures(TextureListProvider list, TextureProvider texture) {
     g_textureList = list;
     g_texture = texture;
+}
+
+void set_seeds_dir(std::string dir) {
+    g_seedsDir = std::filesystem::path{std::move(dir)};
 }
 
 void set_rando_files(RandoFileResolver resolver, std::string settingsFile) {

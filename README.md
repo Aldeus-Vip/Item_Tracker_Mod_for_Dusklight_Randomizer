@@ -59,7 +59,8 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | Click a **Map** entry in a requirement | Mark that region reachable, or unmark it, for every check |
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
-| Locations | **Rules ▾** | Export or import your custom requirements as JSON |
+| Locations | **Rules ▾** | Export or import your custom requirements as JSON; pick the seed (default: the newest) |
+| Locations | **Show found items** | Show what a found check held: a check you obtained, or a shop's items once you have entered the shop. Nothing else of the seed is shown |
 
 ### Icon editor
 
@@ -79,7 +80,7 @@ Default icons:
 | Most items | Built from your game's item icons |
 | Shadow Crystal, Fused Shadow, Mirror Shard | Original art made for this mod (the game has no 2D icon for them) |
 | Field keys (Faron, Coro, Gate, Bulblin Camp) | The game's key icon on an original abstract background |
-| Bosses | None: shown as text. You can set an icon in the editor |
+| Bosses | The field map's boss mark. You can set an icon for each boss in the editor |
 
 ## Credits
 
@@ -105,7 +106,7 @@ it opens in the panel). The window closes when you press **Save**.
 | Tab | Conditions | Met when |
 |---|---|---|
 | Items | Randomizer items, with a count | You have them |
-| Dungeon | Dungeon keys; bosses; entrances (dungeon entrance settings, Door to the Past Opened, Mirror of Twilight Repaired, Hyrule Barrier Dispelled), each in vanilla clear order | You have the keys / the boss is defeated / the setting is on, or the seed's condition for it is met with your items (or the game has already opened it) |
+| Dungeon | Dungeon keys; bosses; entrances (Goron Mines Entrance Opened, the dungeon requirement settings, Door to the Past Opened, Mirror of Twilight Repaired, Hyrule Barrier Dispelled), each in vanilla clear order | You have the keys / the boss is defeated / the setting is on, or the seed's condition for it is met with your items (or the game has already opened it) |
 | Portals | Gerudo Desert, Mirror Chamber, Snowpeak, Sacred Grove, Bridge of Eldin and Upper Zoras River portals | The portal is open in the game |
 | Time | Day, Night | The game's clock shows that time (night is 19:00–6:00) |
 | Rand Settings | On/off settings such as Faron Twilight Cleared or Open Door of Time | The setting is on. The three twilights are also read from your save, so a twilight you cleared counts |

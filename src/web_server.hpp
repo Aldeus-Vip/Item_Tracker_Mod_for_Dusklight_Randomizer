@@ -16,6 +16,8 @@
 //   GET/POST/DELETE /background -> custom background image
 //   GET /rando/<path>     -> randomizer logic data file (see set_rando_files)
 //   GET /rando-settings.yaml -> the randomizer's current settings.yaml
+//   GET /rando-seeds/     -> generated seeds, newest first (see set_seeds_dir)
+//   GET /rando-seeds/<hash> -> a seed's spoiler log
 // Writes are accepted from the tracker page only and trigger an SSE "config" event so every open
 // page (browser, OBS) reloads the configuration.
 //
@@ -67,5 +69,8 @@ using RandoFileResolver = std::string (*)(const std::string& relative);
 
 // Enables /rando/<path> and /rando-settings.yaml.
 void set_rando_files(RandoFileResolver resolver, std::string settingsFile);
+
+// The randomizer's seeds folder (seeds/<hash>/). Enables /rando-seeds/.
+void set_seeds_dir(std::string dir);
 
 }  // namespace tracker::web

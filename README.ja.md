@@ -57,7 +57,8 @@ English: [README.md](README.md)
 | Locations | 必要条件の **Map** 項目をクリック | その地域の「到達可能」を ON/OFF(全チェック共通) |
 | Locations | 右クリック | チェックや地域を強調する |
 | Locations | **Logic ON/OFF** | 到達判定の ON/OFF |
-| Locations | **Rules ▾** | 自分で設定した条件を JSON で書き出し・読み込み |
+| Locations | **Rules ▾** | 自分で設定した条件を JSON で書き出し・読み込み、シードの選択(初期値は最新) |
+| Locations | **Show found items** | 見つけたチェックの中身を表示(取得したチェックと、入ったショップの商品)。それ以外のシードの中身は表示しない |
 
 ### アイコン編集
 
@@ -76,7 +77,7 @@ English: [README.md](README.md)
 | ほとんどのアイテム | 各自のゲームのアイテムアイコンから作成 |
 | Shadow Crystal、Fused Shadow、Mirror Shard | この Mod のために作ったオリジナルのアート(ゲームに 2D のアイコンがないため) |
 | フィールドのカギ(Faron、Coro、Gate、Bulblin Camp) | ゲームのカギのアイコン+オリジナルの抽象的な背景 |
-| ボス | なし(文字で表示)。アイコン編集で設定できます |
+| ボス | フィールドマップのボスマーク。アイコン編集でボスごとに設定できます |
 
 ## クレジット
 
@@ -101,7 +102,7 @@ English: [README.md](README.md)
 | タブ | 条件 | 満たす条件 |
 |---|---|---|
 | Items | Randomizer のアイテム(個数付き) | 持っている |
-| Dungeon | ダンジョンのカギ、ボス、入口(ダンジョン入口の設定、Door to the Past Opened、Mirror of Twilight Repaired、Hyrule Barrier Dispelled)。それぞれ通常のクリア順 | カギを持っている/ボスを倒した/設定が ON、またはシードの解放条件を今のアイテムで満たしている(ゲーム内で開いている場合も) |
+| Dungeon | ダンジョンのカギ、ボス、入口(Goron Mines Entrance Opened、ダンジョンの条件の設定、Door to the Past Opened、Mirror of Twilight Repaired、Hyrule Barrier Dispelled)。それぞれ通常のクリア順 | カギを持っている/ボスを倒した/設定が ON、またはシードの解放条件を今のアイテムで満たしている(ゲーム内で開いている場合も) |
 | Portals | Gerudo Desert、Mirror Chamber、Snowpeak、Sacred Grove、Bridge of Eldin、Upper Zoras River のポータル | ゲーム内でポータルが開いている |
 | Time | Day、Night | ゲーム内の時計がその時間帯(夜は 19:00〜6:00) |
 | Rand Settings | Faron Twilight Cleared、Open Door of Time などの ON/OFF 設定 | 設定が ON。3 つの Twilight はセーブデータからも読むので、プレイでクリアした場合も満たす |

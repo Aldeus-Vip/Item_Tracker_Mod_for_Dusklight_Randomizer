@@ -132,6 +132,9 @@ void init_data_dir() {
     tracker::web::set_rando_files(
         [](const std::string& relative) { return tracker::rando::data_file(relative); },
         tracker::rando::settings_file());
+    // Next to the randomizer's settings.yaml: seeds/<hash>/ with seed.dat and the spoiler log.
+    tracker::web::set_seeds_dir(
+        (std::filesystem::path{tracker::rando::settings_file()}.parent_path() / "seeds").string());
 
     const std::filesystem::path dir = std::filesystem::path{dataDir} / "icons";
     std::error_code ec;

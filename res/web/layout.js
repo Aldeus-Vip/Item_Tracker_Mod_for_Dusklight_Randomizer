@@ -437,9 +437,15 @@ export const GAME_ICON_IDS = {
   GBK0: 0xf9, GBK1: 0xfa, GBK2: 0xfb, GBK3: 0xfd,
   Ordon_Pumpkin: 0xf4, Ordon_Goat_Cheese: 0xf5,
   Tear_of_Light: "itemicon/#82", // O_HIKARI_POD
-  // Field map marks: the warp portal and the boss skull.
-  Portal: "fmap/#32", // IM_MAP_ICON_WARP_32_CI8_00
-  Boss: "fmap/#54", // TT_MAP_ICON_BOSS_CI8_32_00
+  // Field map marks: the warp portal and, until a boss has an icon of its own, the boss skull.
+  Portal: "fmap/#30", // IM_MAP_ICON_PORTAL_4IA_40_05
+  ...Object.fromEntries(["Diababa", "Fyrus", "Morpheel", "Stallord", "Blizzeta", "Armogohma", "Argorok", "Zant", "Ganondorf"]
+    .map((boss) => [boss, "fmap/#54"])), // TT_MAP_ICON_BOSS_CI8_32_00
+};
+
+// Colors for default icons whose texture is gray and colored by the game when drawn.
+export const GAME_ICON_TINTS = {
+  Portal: "#50e8dc", // the map screen's portal teal
 };
 
 // Original art drawn behind a default icon: field keys show the game's small key over the place
@@ -474,6 +480,7 @@ export const DUNGEON_ICONS = {
     "Temple of Time": "Armogohma",
     "City in the Sky": "Argorok",
     "Palace of Twilight": "Zant",
+    "Hyrule Castle": "Ganondorf",
   },
 };
 
