@@ -128,7 +128,7 @@ cmake --build build
 
 ### GitHub Actions
 
-| きっかけ | ビルド内容 |
+| トリガー | ビルド内容 |
 |---|---|
 | Pull request | Linux x86_64(ホストテスト付き)と Windows x64。Windows 用の `.dusk` を実行結果に添付 |
 | タグ(例:`v0.1.0`) | 全 8 プラットフォームをまとめた `.dusk` を作り、GitHub のリリースに添付 |
