@@ -390,9 +390,10 @@ const DEFAULT_SETTINGS = {
   logicOverrides: {}, // custom per-check requirements (Locations tab)
   logic: true, // Locations tab evaluates reachability
   mapReachable: [], // logic regions marked reachable (on entry or by hand; Map entries of custom requirements)
-  // Found items in the Locations tab: picked seed (null = newest), shown or not, checks seen in
-  // shops ({ [seed hash]: [location] }).
-  seedView: { hash: null, show: true, seen: {} },
+  // Found items in the Locations tab: seed picked in Rules (null = the save's seed, else the
+  // newest) and whether found items are shown (off unless turned on). What was found is kept
+  // with the game's save by the mod.
+  seedView: { hash: null, show: false },
   // Icons changed in the icon editor: { [icon name]: { source: "file" | "game", rev } }. rev
   // changes on every upload so browsers fetch the new image.
   iconOverrides: {},
@@ -419,10 +420,7 @@ function normalizeSettings(raw) {
   const sv = raw?.seedView;
   if (sv && typeof sv === "object") {
     out.seedView.hash = typeof sv.hash === "string" && sv.hash.length <= 100 ? sv.hash : null;
-    out.seedView.show = sv.show !== false;
-    for (const [hash, names] of Object.entries(sv.seen ?? {}).slice(0, 4)) {
-      if (Array.isArray(names)) out.seedView.seen[hash] = names.filter((n) => typeof n === "string").slice(0, 2000);
-    }
+    out.seedView.show = sv.show === true;
   }
   const textureRef = (v) => (typeof v === "string" && /^[a-z0-9]{1,16}\/[\w.#-]{1,64}$/.test(v) ? v : undefined);
   for (const [name, o] of Object.entries(raw?.iconOverrides ?? {})) {

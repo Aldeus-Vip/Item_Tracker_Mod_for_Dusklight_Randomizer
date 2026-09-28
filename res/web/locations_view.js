@@ -88,8 +88,8 @@ const el = (tag, props = {}, ...children) => {
  * @param options.saveMapFlags  ([region]) => Promise
  * @param options.getLayoutSections () => the Items tab's sections ({ title, slots: [tile id] })
  * @param options.makeIcon      (icon name, game item id?) => <img> drawn as in the Items tab
- * @param options.getSeedView   () => { hash, show, seen }: picked seed (null = newest), whether
- *                              found items are shown, and the checks seen per seed (shops)
+ * @param options.getSeedView   () => { hash, show }: seed picked in Rules (null = the save's seed,
+ *                              else the newest) and whether found items are shown
  * @param options.saveSeedView  (view) => Promise
  * @param options.setStatus     (kind, text) => void
  */
@@ -143,7 +143,17 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
   let retryTimer = null;
   let retries = 0;
 
+  let loading = false;
   async function load() {
+    loading = true;
+    try {
+      await loadData();
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function loadData() {
     clearTimeout(retryTimer);
     loadError = "";
     render();
@@ -219,13 +229,23 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     try {
       seeds = JSON.parse(await fetchText("rando-seeds/")).filter((s) => s?.spoiler && typeof s.hash === "string");
     } catch {}
+    // The save's own seed (kept with the save by the mod) wins; then the one picked in Rules.
+    const saved = state?.found?.seed;
     const wanted = getSeedView().hash;
-    const chosen = seeds.find((s) => s.hash === wanted) ?? seeds[0];
+    const chosen = seeds.find((s) => s.hash === saved) ?? seeds.find((s) => s.hash === wanted) ?? seeds[0];
     if (!chosen) return;
     try {
       spoiler = parseSpoiler(await fetchText(`rando-seeds/${encodeURIComponent(chosen.hash)}`));
       seedHash = chosen.hash;
     } catch {}
+    // The save remembers the seed from its next game save on.
+    if (seedHash && state?.inGame && state.found?.seed !== seedHash) sendFound([]);
+  }
+
+  // Tells the mod what was found (kept with the next game save), with the seed being shown.
+  function sendFound(entries) {
+    const body = [`seed\t${seedHash ?? ""}`, ...entries].join("\n");
+    fetch("found", { method: "POST", headers: { "Content-Type": "text/plain" }, body }).catch(() => {});
   }
 
   // Spoiler log -> { placements: Map(location -> item), settings } ("All Locations:" and "# Settings").
@@ -253,25 +273,66 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     return { placements, settings };
   }
 
-  // Item placed at a check, when the player has found it: obtained it, or seen it in a shop.
+  // Item placed at a check, when the player has found it: obtained it, read it in a hint, saw it
+  // lying near Link, or entered its shop.
   function foundItem(loc) {
     if (!spoiler || !getSeedView().show) return null;
-    const seen = results.get(loc.name) === "obtained" || (getSeedView().seen?.[seedHash] ?? []).includes(loc.name);
+    const seen = results.get(loc.name) === "obtained" || foundLocations().has(loc.name);
     return seen ? spoiler.placements.get(loc.name) ?? null : null;
+  }
+
+  // Locations of the mod's found entries ("loc:", "hint:", "check:"), cached per entry list.
+  let foundCache = { key: null, set: new Set() };
+  function foundLocations() {
+    const entries = state?.found?.entries ?? [];
+    const key = entries.join("\n");
+    if (foundCache.key === key) return foundCache.set;
+    const set = new Set();
+    const lower = new Map(locations.map((l) => [l.name.toLowerCase(), l.name]));
+    for (const entry of entries) {
+      const colon = entry.indexOf(":");
+      const kind = entry.slice(0, colon);
+      const value = entry.slice(colon + 1);
+      if (kind === "loc") set.add(value);
+      else if (kind === "hint") {
+        // The hint names the location as its text calls it; match the location list by name.
+        const v = value.toLowerCase();
+        const name = lower.get(v) ?? (v.length >= 8 ? locations.find((l) => l.name.toLowerCase().includes(v))?.name : undefined);
+        if (name) set.add(name);
+      } else if (kind === "check") {
+        for (const name of checkLocations(value)) set.add(name);
+      }
+    }
+    foundCache = { key, set };
+    return set;
+  }
+
+  // Item check names ("freestanding:<stage>:<bit>", "boss:<stage>") -> locations, from their metadata.
+  function checkLocations(check) {
+    const [type, stage, bit] = check.split(":");
+    const flag = type === "boss" ? 0x9f : Number(bit);
+    const out = [];
+    for (const loc of locations) {
+      const meta = loc.metadata["Freestanding Item"];
+      const list = Array.isArray(meta) ? meta : meta ? [meta] : [];
+      if (list.some((m) => STAGE_NAMES[m?.Stage] === stage && Number(m?.Flag) === flag)) out.push(loc.name);
+    }
+    return out;
   }
 
   // Entering a shop's room shows what each of its slots holds.
   function markSeenShops() {
     if (!spoiler || !state?.inGame) return;
-    const view = getSeedView();
-    const seen = new Set(view.seen?.[seedHash] ?? []);
-    const before = seen.size;
+    const known = new Set((state.found?.entries ?? []).filter((e) => e.startsWith("loc:")).map((e) => e.slice(4)));
+    const added = [];
     for (const loc of locations) {
       const shop = loc.metadata.Shop;
       const entries = Array.isArray(shop) ? shop : shop ? [shop] : [];
-      if (entries.some((s) => STAGE_NAMES[s?.Stage] === state.stage && s?.Room === state.room)) seen.add(loc.name);
+      if (!known.has(loc.name) && entries.some((s) => STAGE_NAMES[s?.Stage] === state.stage && s?.Room === state.room)) {
+        added.push(`loc:${loc.name}`);
+      }
     }
-    if (seen.size !== before) saveSeedView({ ...view, seen: { [seedHash]: [...seen] } }).then(() => render());
+    if (added.length) sendFound(added);
   }
 
   // Logic regions by province: the overworld files are one province each (Ordona, Faron, Eldin,
@@ -418,16 +479,23 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
         try { localStorage.setItem("tracker.hideObtained", hideObtained ? "1" : "0"); } catch {}
         render();
       } }), " Hide obtained");
-    const found = spoiler ? el("label", { className: "loc-toggle", title: "Show what each found check held (obtained, or seen in a shop)" },
+    const found = spoiler ? el("label", { className: "loc-toggle", title: "Show what each found check held: obtained, read in a hint, seen nearby, or in a shop you entered" },
       el("input", { type: "checkbox", checked: getSeedView().show, onchange: async (e) => {
         await saveSeedView({ ...getSeedView(), show: e.target.checked });
         render();
       } }), " Show found items") : null;
     const seedPicker = el("label", { className: "loc-seed", title: "Seed whose items are shown for found checks" }, "Seed ",
       seeds.length
-        ? el("select", { onchange: async (e) => { await saveSeedView({ ...getSeedView(), hash: e.target.value || null }); load(); } },
-          el("option", { value: "", textContent: "Newest", selected: !getSeedView().hash }),
-          ...seeds.map((s) => el("option", { value: s.hash, textContent: s.hash, selected: s.hash === getSeedView().hash })))
+        ? el("select", {
+          onchange: async (e) => {
+            // Picking a seed also makes it the save's seed (stored with the next game save).
+            await saveSeedView({ ...getSeedView(), hash: e.target.value || null });
+            seedHash = e.target.value || seeds[0]?.hash || null;
+            if (state?.found) state.found.seed = seedHash;
+            if (state?.inGame) sendFound([]);
+            load();
+          },
+        }, ...seeds.map((s) => el("option", { value: s.hash, textContent: s.hash, selected: s.hash === seedHash })))
         : el("span", { className: "loc-note", textContent: "no spoiler log found" }));
     const logicSwitch = el("button", {
       type: "button",
@@ -1017,6 +1085,9 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       state = next;
       markCurrentRegion();
       markSeenShops();
+      // A save of another seed was loaded: switch to it.
+      const saved = next?.found?.seed;
+      if (world && !loading && saved && saved !== seedHash && seeds.some((s) => s.hash === saved)) load();
       evaluate();
       render();
     },

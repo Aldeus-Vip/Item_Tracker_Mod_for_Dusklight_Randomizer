@@ -6,8 +6,11 @@
 #include "mods/svc/log.hpp"
 #include "mods/svc/net.hpp"
 #include "mods/svc/resource.h"
+#include "mods/svc/save.h"
+#include "mods/svc/hook.h"
 #include "mods/svc/ui.h"
 
+#include "found_checks.hpp"
 #include "game_icons.hpp"
 #include "game_textures.hpp"
 #include "rando_data.hpp"
@@ -27,6 +30,8 @@ IMPORT_SERVICE(UiService, svc_ui);
 IMPORT_SERVICE(HostService, svc_host);
 IMPORT_SERVICE(HttpService, svc_http);
 IMPORT_OPTIONAL_SERVICE(ItemService, svc_item);
+IMPORT_OPTIONAL_SERVICE(SaveService, svc_save);
+IMPORT_OPTIONAL_SERVICE(HookService, svc_hook);
 
 namespace {
 
@@ -241,6 +246,8 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     svc_config->register_var(mod_ctx, &refDesc, &g_logicRefVar);
 
     init_data_dir();
+    tracker::found::init();
+    tracker::web::set_found_sink([](const std::string& body) { tracker::found::add_from_page(body); });
     tracker::rando::download(logic_data_ref(), /*force=*/false);
 
     // A busy port is not fatal: the panel reports it and a port change retries.
@@ -255,6 +262,7 @@ MOD_EXPORT ModResult mod_update(ModError*) {
     }
 
     tracker::web::poll();
+    tracker::found::update();
 
     if (--g_framesUntilPoll <= 0) {
         g_framesUntilPoll = kPollIntervalFrames;

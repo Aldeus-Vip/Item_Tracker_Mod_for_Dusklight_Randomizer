@@ -18,6 +18,7 @@
 //   GET /rando-settings.yaml -> the randomizer's current settings.yaml
 //   GET /rando-seeds/     -> generated seeds, newest first (see set_seeds_dir)
 //   GET /rando-seeds/<hash> -> a seed's spoiler log
+//   POST /found           -> checks the page learned about, kept with the save
 // Writes are accepted from the tracker page only and trigger an SSE "config" event so every open
 // page (browser, OBS) reloads the configuration.
 //
@@ -69,6 +70,10 @@ using RandoFileResolver = std::string (*)(const std::string& relative);
 
 // Enables /rando/<path> and /rando-settings.yaml.
 void set_rando_files(RandoFileResolver resolver, std::string settingsFile);
+
+// Receives the body of POST /found (see found_checks.hpp). Enables /found.
+using FoundSink = void (*)(const std::string& body);
+void set_found_sink(FoundSink sink);
 
 // The randomizer's seeds folder (seeds/<hash>/). Enables /rando-seeds/.
 void set_seeds_dir(std::string dir);

@@ -20,6 +20,7 @@ configure_file(mod.json.in "${CMAKE_CURRENT_BINARY_DIR}/mod.json" @ONLY NEWLINE_
 add_mod(dusklight_item_tracker
         FEATURES game fmt
         SOURCES
+            src/found_checks.cpp
             src/game_icons.cpp
             src/game_textures.cpp
             src/gx_texture.cpp

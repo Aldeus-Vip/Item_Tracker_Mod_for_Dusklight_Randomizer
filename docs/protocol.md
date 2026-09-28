@@ -23,6 +23,7 @@ the mod's panel). Only loopback clients can connect, and requests whose `Host` h
 | GET | `/rando-settings.yaml` | The randomizer's current `settings.yaml` (404 if the randomizer never saved one) |
 | GET | `/rando-seeds/` | The randomizer's generated seeds, newest first: `[{"hash": "Epona Lantern Goron", "spoiler": true}]` |
 | GET | `/rando-seeds/<hash>` | That seed's spoiler log (text). The page shows only placements of checks the player has found |
+| POST | `/found` | `text/plain`: `seed\t<hash>` then `loc:<location>` lines. Kept with the game save (see `found` in the state) |
 
 Writes are accepted only from the tracker page's own origin (or without `Origin`, e.g. curl) and
 only with `Content-Type: application/json` (layout, settings) or `image/*` (background). These
@@ -50,6 +51,10 @@ data: {"protocol":1,"inGame":true,...}
   "inGame": true,         // false on the title screen / file select (no other fields then)
   "stage": "F_SP103",     // current stage name
   "room": 0,              // room Link is in (marks the logic region as reachable)
+  "found": {              // found without collecting, kept with the save: seed hash and entries
+    "seed": "Epona Lantern Goron",
+    "entries": ["hint:Ordon Sword", "check:freestanding:F_SP103:128", "loc:Sera Shop Slingshot"]
+  },
   "items": {              // counts, keyed by randomizer logic item names
     "Progressive Sword": 1,         // 0-4: Wooden, Ordon, Master, Light
     "Ordon Shield": 0, "Wooden Shield": 0, "Hylian Shield": 0,

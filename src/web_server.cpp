@@ -52,6 +52,7 @@ TextureListProvider g_textureList = nullptr;
 TextureProvider g_texture = nullptr;
 std::filesystem::path g_randoSettingsFile;
 std::filesystem::path g_seedsDir;  // the randomizer's seeds/<hash>/ folders
+FoundSink g_foundSink = nullptr;
 
 // Icons are at most a few hundred KB; anything larger is not an icon.
 constexpr std::uintmax_t kMaxIconBytes = 4 * 1024 * 1024;
@@ -574,6 +575,16 @@ void serve_seed_spoiler(Client& client, std::string_view encodedHash) {
     send_response(client, "200 OK", "text/plain; charset=utf-8", body, "no-store");
 }
 
+// POST /found: checks the page learned about (shops entered), kept with the save by the mod.
+void add_found(Client& client, const Request& req) {
+    if (g_foundSink == nullptr || !is_own_origin(req.origin) || !req.contentType.starts_with("text/plain")) {
+        send_error(client, "403 Forbidden");
+        return;
+    }
+    g_foundSink(std::string{req.body});
+    send_response(client, "200 OK", "application/json; charset=utf-8", "{\"ok\":true}");
+}
+
 // Largest request body accepted for a target.
 size_t max_body_bytes(std::string_view target) {
     if (target.starts_with("/icons/")) return kMaxIconBytes;
@@ -597,6 +608,8 @@ bool handle_request(Client& client, const Request& req) {
             save_background(client, req);
         } else if (target.starts_with("/icons/")) {
             save_icon(client, req, target.substr(7));
+        } else if (target == "/found") {
+            add_found(client, req);
         } else {
             send_error(client, "404 Not Found");
         }
@@ -818,6 +831,10 @@ void set_game_icons(GameIconProvider provider) {
 void set_game_textures(TextureListProvider list, TextureProvider texture) {
     g_textureList = list;
     g_texture = texture;
+}
+
+void set_found_sink(FoundSink sink) {
+    g_foundSink = sink;
 }
 
 void set_seeds_dir(std::string dir) {

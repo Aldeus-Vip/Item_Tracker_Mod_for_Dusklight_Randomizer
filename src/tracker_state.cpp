@@ -1,5 +1,7 @@
 #include "tracker_state.hpp"
 
+#include "found_checks.hpp"
+
 #include "json_writer.hpp"
 
 #include "d/d_com_inf_game.h"
@@ -497,6 +499,7 @@ std::string build_state_json() {
         write_flags(w);
         write_dungeons(w);
     }
+    tracker::found::write_json(w);
     w.endObject();
     return w.str();
 }

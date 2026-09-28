@@ -70,6 +70,8 @@ const state = {
   stage: "F_SP103",
   room: 0,
   maxLife: 15,
+  // What was found without collecting it (the mod keeps this with the save).
+  found: { seed: "", entries: [] },
   time: { hour: 14, night: false },
   twilightCleared: { Faron: true, Eldin: false, Lanayru: false },
   items: {
@@ -103,6 +105,8 @@ const script = [
   () => Object.assign(state.dungeons[0], { smallKeys: 1, smallKeysHeld: 1, map: true }),
   () => (state.items["Gale Boomerang"] = 1),
   () => (state.time = { hour: 21, night: true }),
+  () => state.found.entries.push("hint:Ordon Sword"), // read a hint sign
+  () => state.found.entries.push("check:freestanding:F_SP103:128"), // walked past Ordon Bo Cliff Rupee
   () => Object.assign(state, { stage: "R_SP01", room: 1 }), // Sera's shop
   () => Object.assign(state, { stage: "F_SP108", room: 0 }), // South Faron Woods
   () => (state.items["North Faron Woods Gate Key"] = 1),
@@ -173,6 +177,16 @@ createServer(async (req, res) => {
     } catch {
       return res.writeHead(404).end();
     }
+  }
+  if (path === "/found" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    for (const [i, line] of body.split("\n").entries()) {
+      if (i === 0 && line.startsWith("seed\t")) state.found.seed = line.slice(5);
+      else if (line.startsWith("loc:") && !state.found.entries.includes(line)) state.found.entries.push(line);
+    }
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end('{"ok":true}');
   }
   if (path.startsWith("/rando-seeds/")) {
     // SEEDS_DIR stands in for the randomizer's seeds folder (seeds/<hash>/<hash> Spoiler Log.txt).

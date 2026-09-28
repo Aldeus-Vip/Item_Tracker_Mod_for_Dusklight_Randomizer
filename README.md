@@ -59,8 +59,8 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | Click a **Map** entry in a requirement | Mark that region reachable, or unmark it, for every check |
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
-| Locations | **Rules ▾** | Export or import your custom requirements as JSON; pick the seed (default: the newest) |
-| Locations | **Show found items** | Show what a found check held: a check you obtained, or a shop's items once you have entered the shop. Nothing else of the seed is shown |
+| Locations | **Rules ▾** | Export or import your custom requirements as JSON; pick the seed |
+| Locations | **Show found items** | Off by default. Show what a found check held (see below). Nothing else of the seed is shown |
 
 ### Icon editor
 
@@ -111,6 +111,22 @@ it opens in the panel). The window closes when you press **Save**.
 | Time | Day, Night | The game's clock shows that time (night is 19:00–6:00) |
 | Rand Settings | On/off settings such as Faron Twilight Cleared or Open Door of Time | The setting is on. The three twilights are also read from your save, so a twilight you cleared counts |
 | Map Reachable | Regions of the randomizer logic (Faron Woods, North Eldin, …) | The region is marked reachable. It is marked when you enter it in the game, and you can switch it by clicking a Map entry in a check's requirement. **Unmark all** clears every mark for a new seed |
+
+### Found items
+
+With **Show found items** on, a check shows what it holds once you have found it:
+
+| Found by | When |
+|---|---|
+| Collecting it | The check is obtained |
+| A hint | You read a "They say that the reward for … is …" hint about it |
+| Seeing it | A freestanding item (or a boss's heart container) is near Link |
+| A shop | You entered the shop |
+
+The placements come from the seed's spoiler log in the randomizer's seeds folder, so the seed must
+have one. What you found is kept with your game save: it is saved when the game saves, and
+loading a save shows what was known at that save (quick saves are not supported). The save also
+remembers its seed; a new save uses the newest seed, or the one picked in **Rules ▾**.
 
 ### OBS
 
