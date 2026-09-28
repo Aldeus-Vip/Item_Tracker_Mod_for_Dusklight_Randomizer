@@ -450,12 +450,21 @@ export function itemsFromState(state) {
 // ('Can_Complete_Forest_Temple'), a macro (Can_Complete_Prologue) or a setting comparison
 // (Faron_Woods_Logic == Open). Logic entries use the results of a finished search.
 // Route entries that are not items or logic: "time:Day" / "time:Night" (the in-game clock),
-// "flag:<name>" (a randomizer setting or game state such as a cleared twilight) and "map:<region>"
-// (a region the player marked as reachable). The tracker page decides them through ctx.test.
+// "flag:<name>" (a randomizer on/off setting or game state such as a cleared twilight, or
+// "flag:<setting> = <option>"), "map:<region>" (a region marked reachable, by hand or by entering
+// it), "boss:<dungeon>" (its boss defeated) and "cond:<name>" (a seed condition such as the Hyrule
+// barrier being dispelled). The tracker page decides them through ctx.test.
 export function trackerEntry(item) {
-  const m = /^(time|flag|map):(.+)$/.exec(item);
+  const m = /^(time|flag|map|boss|cond):(.+)$/.exec(item);
   return m ? { kind: m[1], name: m[2] } : null;
 }
+
+// Dungeon -> its boss, in vanilla clear order.
+export const BOSS_NAMES = {
+  "Forest Temple": "Diababa", "Goron Mines": "Fyrus", "Lakebed Temple": "Morpheel",
+  "Arbiters Grounds": "Stallord", "Snowpeak Ruins": "Blizzeta", "Temple of Time": "Armogohma",
+  "City in the Sky": "Argorok", "Palace of Twilight": "Zant", "Hyrule Castle": "Ganondorf",
+};
 
 // A route entry is { item, n } or a nested group { or: [route, ...] } (any one of its routes).
 // ctx: { test(entry) => boolean } for tracker entries, or { all: true } to treat them as met.
@@ -484,7 +493,13 @@ export function routeSatisfied(search, route, ctx = {}) {
 // Display name of a route entry: logic entries without quotes and underscores.
 export function routeEntryLabel(item) {
   const special = trackerEntry(item);
-  if (special) return special.kind === "time" ? `Time: ${special.name}` : special.kind === "map" ? `Map: ${special.name}` : special.name;
+  if (special) {
+    const { kind, name } = special;
+    if (kind === "time") return `Time: ${name}`;
+    if (kind === "map") return `Map: ${name}`;
+    if (kind === "boss") return `${BOSS_NAMES[name] ?? "Boss"} Defeated`;
+    return name.replace(" = ", ": ");
+  }
   return item.replaceAll("'", "").replaceAll("_", " ");
 }
 

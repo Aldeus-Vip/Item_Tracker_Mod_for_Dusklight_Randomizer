@@ -96,7 +96,7 @@ it opens in the panel). The window closes when you press **Save**.
 - **+ Or group** adds a part met by any one of its options, so a route can say `A and (B or C)`
   or `(A or B) and (C or D)`. Options can hold Or groups of their own. Click an option to add to
   it; the picker's heading shows where new conditions go.
-- Below it, pick conditions from four tabs. Each tab is a two-column list of check boxes: a checked
+- Below it, pick conditions from six tabs. Each tab is a two-column list of check boxes: a checked
   row is in the selected route, and clicking a row adds or removes it. Items the pool holds more
   than one of have a count box on their row (`1 / 4`), limited to that number. Items follow the Items tab's
   sections and order and show its icons; Map regions are grouped by province. Type in the search
@@ -105,9 +105,11 @@ it opens in the panel). The window closes when you press **Save**.
 | Tab | Conditions | Met when |
 |---|---|---|
 | Items | Randomizer items, with a count | You have them |
+| Dungeon | Dungeon keys; bosses; entrances (dungeon entrance settings, Door to the Past Opened, Mirror of Twilight Repaired, Hyrule Barrier Dispelled), each in vanilla clear order | You have the keys / the boss is defeated / the setting is on, or the seed's condition for it is met with your items (or the game has already opened it) |
+| Portals | Gerudo Desert, Mirror Chamber, Snowpeak, Sacred Grove, Bridge of Eldin and Upper Zoras River portals | The portal is open in the game |
 | Time | Day, Night | The game's clock shows that time (night is 19:00–6:00) |
 | Rand Settings | On/off settings such as Faron Twilight Cleared or Open Door of Time | The setting is on. The three twilights are also read from your save, so a twilight you cleared counts |
-| Map Reachable | Regions of the randomizer logic (Faron Woods, North Eldin, …) | You marked the region reachable. Click a Map entry in a check's requirement to switch it |
+| Map Reachable | Regions of the randomizer logic (Faron Woods, North Eldin, …) | The region is marked reachable. It is marked when you enter it in the game, and you can switch it by clicking a Map entry in a check's requirement. **Unmark all** clears every mark for a new seed |
 
 ### OBS
 

@@ -66,6 +66,7 @@ const state = {
   protocol: 1,
   inGame: true,
   stage: "F_SP103",
+  room: 0,
   maxLife: 15,
   time: { hour: 14, night: false },
   twilightCleared: { Faron: true, Eldin: false, Lanayru: false },
@@ -100,6 +101,7 @@ const script = [
   () => Object.assign(state.dungeons[0], { smallKeys: 1, smallKeysHeld: 1, map: true }),
   () => (state.items["Gale Boomerang"] = 1),
   () => (state.time = { hour: 21, night: true }),
+  () => Object.assign(state, { stage: "F_SP108", room: 0 }), // South Faron Woods
   () => (state.items["North Faron Woods Gate Key"] = 1),
   // Wooden Sword Chest (stage 65 -> save table 0, treasure box 4) and Links Basement Chest (box 1)
   () => setBit(flagBytes.stages[0].t, 4) && setBit(flagBytes.stages[0].t, 1),

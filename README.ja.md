@@ -93,7 +93,7 @@ English: [README.md](README.md)
 - **+ Or group**:「いずれか 1 つを満たせばよい」部品をルートに追加します。`A and (B or C)` や
   `(A or B) and (C or D)` が設定できます。Option の中にさらに Or group も入れられます。Option をクリックすると
   そこに追加します(追加先は下の枠の見出しに表示)。
-- 下の枠:4 つのタブから条件を選びます。各タブは 2 列のチェックボックス一覧で、チェックが入った項目が
+- 下の枠:6 つのタブから条件を選びます。各タブは 2 列のチェックボックス一覧で、チェックが入った項目が
   選択中のルートに入っています。クリックで追加・削除します。複数あるアイテムは行の右に個数欄(`1 / 4`)があり、
   そのアイテムの総数までしか入力できません。Items は Items タブのグループと順番・アイコンに従い、
   Map は地方ごとにまとめています。検索欄に入力すると絞り込まれ、**Enter** で一番近い候補を追加します。
@@ -101,9 +101,11 @@ English: [README.md](README.md)
 | タブ | 条件 | 満たす条件 |
 |---|---|---|
 | Items | Randomizer のアイテム(個数付き) | 持っている |
+| Dungeon | ダンジョンのカギ、ボス、入口(ダンジョン入口の設定、Door to the Past Opened、Mirror of Twilight Repaired、Hyrule Barrier Dispelled)。それぞれ通常のクリア順 | カギを持っている/ボスを倒した/設定が ON、またはシードの解放条件を今のアイテムで満たしている(ゲーム内で開いている場合も) |
+| Portals | Gerudo Desert、Mirror Chamber、Snowpeak、Sacred Grove、Bridge of Eldin、Upper Zoras River のポータル | ゲーム内でポータルが開いている |
 | Time | Day、Night | ゲーム内の時計がその時間帯(夜は 19:00〜6:00) |
 | Rand Settings | Faron Twilight Cleared、Open Door of Time などの ON/OFF 設定 | 設定が ON。3 つの Twilight はセーブデータからも読むので、プレイでクリアした場合も満たす |
-| Map Reachable | Randomizer のロジックの地域(Faron Woods、North Eldin など) | 手動で「到達可能」にした。チェックの必要条件にある Map 項目をクリックで切り替え |
+| Map Reachable | Randomizer のロジックの地域(Faron Woods、North Eldin など) | 「到達可能」になっている。ゲームでその地域に入ると自動で ON になり、チェックの必要条件にある Map 項目のクリックでも切り替えられる。新しいシードでは **Unmark all** で全部解除 |
 
 ### OBS
 

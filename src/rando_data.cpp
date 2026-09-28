@@ -21,6 +21,7 @@ constexpr const char* kFiles[] = {
     "macros.yaml",
     "items.yaml",
     "settings_list.yaml",
+    "entrance_shuffle_data.yaml",  // stage/room of each area, to mark the region Link is in
     "world/Root.yaml",
     "world/overworld/Ordona Province.yaml",
     "world/overworld/Faron Province.yaml",

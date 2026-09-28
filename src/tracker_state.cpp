@@ -487,6 +487,8 @@ std::string build_state_json() {
     w.member("inGame", inGame);
     if (inGame) {
         w.member("stage", dComIfGp_getStartStageName());
+        // Room Link is in (the page marks the logic region it belongs to as reachable).
+        w.member("room", dComIfGp_roomControl_getStayNo());
         write_items(w);
         write_inventory(w);
         write_flags(w);

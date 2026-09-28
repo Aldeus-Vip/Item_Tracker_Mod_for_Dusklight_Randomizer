@@ -323,16 +323,23 @@ export const TILE_ITEMS = {
   wallet: [["Progressive Wallet", "Progressive_Wallet0"]],
   hiddenSkills: [["Progressive Hidden Skill", "Hidden_Skill"]],
   poeSoul: [["Poe Soul", "Poe_Soul"]],
-  goldenBug: GOLDEN_BUGS.map((bug) => [bug, "Bug0"]),
+  goldenBug: GOLDEN_BUGS.map((bug, i) => [bug, "Bug0", 0xc0 + i]),
 };
 
-// Items no tile shows, grouped after the tracker's sections; matched by name.
+// Items no tile shows, grouped after the tracker's sections; matched by name. Dungeon keys and
+// portals have their own tabs in the requirement editor; "Game Beatable" is the randomizer's goal
+// marker, not an item.
+export const isDungeonKey = (n) => / (Small|Big) Key$|Key Shard$|Bedroom Key$/.test(n);
+export const isPortal = (n) => / Portal$/.test(n);
 export const OTHER_ITEM_GROUPS = [
-  { title: "Dungeon Keys", match: (n) => / (Small|Big) Key$|Key Shard$|Bedroom Key$/.test(n),
-    icon: (n) => (/Big Key$/.test(n) ? "Boss_Key" : /Key Shard$/.test(n) ? "GBK0" : /Bedroom Key$/.test(n) ? "Bedroom_Key" : "Small_Key") },
-  { title: "Portals", match: (n) => / Portal$/.test(n), icon: () => null },
-  { title: "Other", match: () => true, icon: (n) => ({ "Ordon Pumpkin": "Ordon_Pumpkin", "Ordon Cheese": "Ordon_Goat_Cheese" })[n] ?? null },
+  {
+    title: "Other",
+    match: (n) => !isDungeonKey(n) && !isPortal(n) && n !== "Game Beatable",
+    icon: (n) => ({ "Ordon Pumpkin": "Ordon_Pumpkin", "Ordon Cheese": "Ordon_Goat_Cheese" })[n] ?? (/Twilight Tear$/.test(n) ? "Tear_of_Light" : null),
+  },
 ];
+export const dungeonKeyIcon = (n) =>
+  /Big Key$/.test(n) ? "Boss_Key" : /Key Shard$/.test(n) ? "GBK0" : /Bedroom Key$/.test(n) ? "Bedroom_Key" : "Small_Key";
 
 // Default layout: sections of COLUMNS-wide rows. null = empty slot.
 export const DEFAULT_LAYOUT = {
@@ -429,6 +436,10 @@ export const GAME_ICON_IDS = {
   Small_KeyF: 0x20, Small_KeyC: 0x20, Small_KeyG: 0x20, Small_KeyB: 0x20, Dungeon_Map: 0x23, Compass: 0x24, Bedroom_Key: 0xf6,
   GBK0: 0xf9, GBK1: 0xfa, GBK2: 0xfb, GBK3: 0xfd,
   Ordon_Pumpkin: 0xf4, Ordon_Goat_Cheese: 0xf5,
+  Tear_of_Light: "itemicon/#82", // O_HIKARI_POD
+  // Field map marks: the warp portal and the boss skull.
+  Portal: "fmap/#32", // IM_MAP_ICON_WARP_32_CI8_00
+  Boss: "fmap/#54", // TT_MAP_ICON_BOSS_CI8_32_00
 };
 
 // Original art drawn behind a default icon: field keys show the game's small key over the place

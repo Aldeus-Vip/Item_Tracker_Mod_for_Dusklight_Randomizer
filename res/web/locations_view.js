@@ -3,9 +3,9 @@
 // logic for that check.
 
 import yaml from "./vendor/js-yaml.mjs";
-import { World, Search, itemsFromState, routeSatisfied, routeEntrySatisfied, routeEntryLabel, trackerEntry, parseDisplay, atomLabel } from "./logic.js";
-import { REGION_GROUPS, FlagReader, buildLocationList, isObtained } from "./locations.js";
-import { TILE_ITEMS, OTHER_ITEM_GROUPS } from "./layout.js";
+import { World, Search, itemsFromState, routeSatisfied, routeEntrySatisfied, routeEntryLabel, trackerEntry, parseDisplay, atomLabel, BOSS_NAMES } from "./logic.js";
+import { REGION_GROUPS, FlagReader, buildLocationList, buildRoomRegions, isObtained } from "./locations.js";
+import { TILE_ITEMS, OTHER_ITEM_GROUPS, isDungeonKey, dungeonKeyIcon } from "./layout.js";
 
 const DATA_FILES = [
   "locations.yaml", "macros.yaml", "items.yaml", "settings_list.yaml", "world/Root.yaml",
@@ -24,18 +24,47 @@ const DATA_FILES = [
 const RANDO_FLAG_GROUPS = [
   { title: "Story", flags: ["Skip Prologue", "Faron Twilight Cleared", "Eldin Twilight Cleared", "Lanayru Twilight Cleared", "Skip Midna's Desperate Hour"] },
   { title: "World", flags: ["Unlock Map Regions", "Open Door of Time", "Active Goron Mines Magnets", "Lower Hyrule Castle Chandelier", "Skip Bridge Donation", "Logic Transform Anywhere"] },
-  {
-    title: "Dungeon requirements",
-    flags: ["Lakebed Does Not Require Water Bombs", "Arbiters Does Not Require Bulblin Camp", "Snowpeak Does Not Require Reekfish Scent",
-      "Sacred Grove Does Not Require Skull Kid", "City Does Not Require Filled Skybook"],
-  },
 ];
 const RANDO_FLAGS = RANDO_FLAG_GROUPS.flatMap((g) => g.flags);
 const GAME_TWILIGHTS = { "Faron Twilight Cleared": "Faron", "Eldin Twilight Cleared": "Eldin", "Lanayru Twilight Cleared": "Lanayru" };
 
+// Dungeons in vanilla clear order.
+const DUNGEON_ORDER = Object.keys(BOSS_NAMES);
+
+// Seed conditions: met when the seed's requirement (randomizer logic, with the current items) is
+// met, or when the game has set the flag it opens with.
+const SEED_CONDITIONS = {
+  "Door to the Past Opened": { expr: "Has_Sword_For_Temple_of_Time" },
+  "Mirror of Twilight Repaired": {
+    expr: "Palace_of_Twilight_Requirements == Open or " +
+      "(Palace_of_Twilight_Requirements == Fused_Shadows and count(Progressive_Fused_Shadow, 3)) or " +
+      "(Palace_of_Twilight_Requirements == Mirror_Shards and count(Progressive_Mirror_Shard, 4)) or " +
+      "(Palace_of_Twilight_Requirements == Vanilla and 'Can_Complete_City_in_the_Sky')",
+    event: 0x2b08,
+  },
+  "Hyrule Barrier Dispelled": { expr: "Can_Break_Hyrule_Castle_Barrier", event: 0x4208 },
+};
+
+// The Dungeon tab's "Entrance" group, in vanilla clear order: settings and seed conditions that
+// open the way into each dungeon.
+const ENTRANCE_ENTRIES = [
+  "flag:Goron Mines Entrance = Open", "flag:Goron Mines Entrance = No Wrestling", "flag:Goron Mines Entrance = Closed",
+  "flag:Lakebed Does Not Require Water Bombs", "flag:Arbiters Does Not Require Bulblin Camp",
+  "flag:Snowpeak Does Not Require Reekfish Scent", "flag:Sacred Grove Does Not Require Skull Kid",
+  "cond:Door to the Past Opened", "flag:City Does Not Require Filled Skybook",
+  "cond:Mirror of Twilight Repaired", "cond:Hyrule Barrier Dispelled",
+];
+
+// Portals offered in the Portals tab: the ones a route may need (the mod reports each as an item
+// once the game has opened it).
+const PORTALS = ["Gerudo Desert Portal", "Mirror Chamber Portal", "Snowpeak Portal", "Sacred Grove Portal",
+  "Bridge of Eldin Portal", "Upper Zoras River Portal"];
+
 // Condition groups of the requirement editor: [key, tab label, search placeholder].
 const ENTRY_TABS = [
   ["item", "Items", "Search items…"],
+  ["dungeon", "Dungeon", "Search keys, bosses, entrances…"],
+  ["portal", "Portals", "Search portals…"],
   ["time", "Time", "Day or Night"],
   ["flag", "Rand Settings", "Search settings…"],
   ["map", "Map Reachable", "Search regions…"],
@@ -69,6 +98,8 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
   let itemMax = new Map(); // item -> how many the item pool holds (the vanilla placement count)
   let mapGroups = []; // [{ title: province, regions }] in the order of the randomizer's world files
   let randoFlags = [];
+  let roomRegion = () => null; // (stage, room) -> logic region
+  let lastRegion = null; // region Link was last seen in (marked reachable on entry)
   let excluded = new Set();
   let settingsNote = "";
   let loadError = "";
@@ -147,6 +178,11 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       // Sold in two shops, but one is all anyone needs.
       itemMax.set("Hylian Shield", 1);
       randoFlags = RANDO_FLAGS.filter((f) => GAME_TWILIGHTS[f] || world.settingOptions.get(f)?.includes("On"));
+      // Optional: older downloads of the logic data lack this file; regions are then only marked by hand.
+      roomRegion = () => null;
+      try {
+        roomRegion = buildRoomRegions(yaml.load(await fetchText("rando/entrance_shuffle_data.yaml")), world);
+      } catch {}
       retries = 0;
     } catch (err) {
       world = null;
@@ -209,22 +245,43 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     }
   }
 
-  // Decides the time / setting / map entries of custom routes.
+  // Decides the time / setting / map / boss / seed-condition entries of custom routes.
   function entryContext() {
     return {
       test({ kind, name }) {
         if (kind === "time") return typeof state?.time?.night === "boolean" && state.time.night === (name === "Night");
         if (kind === "map") return getMapFlags().includes(name);
         if (kind === "flag") return flagOn(name);
+        if (kind === "boss") return Boolean(state?.dungeons?.find((d) => d.name === name)?.bossDefeated);
+        if (kind === "cond") return condOn(name);
         return false;
       },
     };
   }
 
+  // "Setting" (an on/off setting, or a cleared twilight read from the save) or "Setting = Option".
   function flagOn(name) {
+    const [setting, option] = name.split(" = ");
+    if (option !== undefined) return world?.setting(setting) === option;
     const game = GAME_TWILIGHTS[name];
     if (game && state?.twilightCleared?.[game]) return true;
     return world?.setting(name) === "On";
+  }
+
+  function condOn(name) {
+    const c = SEED_CONDITIONS[name];
+    if (!c) return false;
+    if (c.event !== undefined && new FlagReader(state?.flags).event(c.event)) return true;
+    return Boolean(search) && routeEntrySatisfied(search, { item: c.expr });
+  }
+
+  // Marks the region Link has just entered as reachable (hand marks stay as they are otherwise).
+  function markCurrentRegion() {
+    if (!state?.inGame || !world) return;
+    const region = roomRegion(state.stage, state.room);
+    if (!region || region === lastRegion) return;
+    lastRegion = region;
+    if (!getMapFlags().includes(region)) saveMapFlags([...getMapFlags(), region].sort()).then(() => { evaluate(); render(); });
   }
 
   function entryMet(entry) {
@@ -657,8 +714,26 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       const on = new Set(getMapFlags());
       return mapGroups.map((g) => ({ title: g.title, rows: g.regions.map((r) => ({ item: `map:${r}`, label: r, state: on.has(r) })) }));
     }
-    // Items: the tracker's sections in its order, then what no tile shows.
     const pickable = new Set(pickableItems);
+    if (tab === "dungeon") {
+      // Keys, bosses and entrances, each in vanilla clear order.
+      const keyOrder = (n) => (/Small Key$/.test(n) ? 0 : /Key Shard$/.test(n) ? 1 : /Bedroom Key$/.test(n) ? 2 : 3);
+      const keys = DUNGEON_ORDER.flatMap((d) => pickableItems.filter((i) => isDungeonKey(i) && i.startsWith(`${d} `))
+        .sort((a, b) => keyOrder(a) - keyOrder(b)))
+        .map((i) => ({ item: i, label: i, icon: dungeonKeyIcon(i) }));
+      const bosses = DUNGEON_ORDER.map((d) => ({ item: `boss:${d}`, label: `${BOSS_NAMES[d]} (${d})`, icon: "Boss", state: entryMet({ item: `boss:${d}` }) }));
+      const entrances = ENTRANCE_ENTRIES.filter((item) => {
+        const { kind, name } = trackerEntry(item);
+        if (kind !== "flag") return true;
+        const [setting, option = "On"] = name.split(" = ");
+        return world.settingOptions.get(setting)?.includes(option);
+      }).map((item) => ({ item, label: routeEntryLabel(item), state: entryMet({ item }) }));
+      return [{ title: "Keys", rows: keys }, { title: "Bosses", rows: bosses }, { title: "Entrance", rows: entrances }];
+    }
+    if (tab === "portal") {
+      return [{ title: "Portals", rows: PORTALS.filter((p) => pickable.has(p)).map((p) => ({ item: p, label: p, icon: "Portal", state: (state?.items?.[p] ?? 0) > 0 })) }];
+    }
+    // Items: the tracker's sections in its order, then what no tile shows.
     const seen = new Set();
     const groups = [];
     for (const section of getLayoutSections()) {
@@ -696,7 +771,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     const placeholder = ENTRY_TABS.find(([key]) => key === tab)[2];
     // The typed text survives redraws (e.g. a state update while the editor is in the panel).
     const input = el("input", { type: "search", className: "rule-search", placeholder, autocomplete: "off", spellcheck: false, value: editing.query ?? "" });
-    const list = el("div", { className: "rule-list" + (tab === "item" || tab === "time" ? " with-icons" : "") });
+    const list = el("div", { className: "rule-list" + (["item", "dungeon", "portal", "time"].includes(tab) ? " with-icons" : "") });
     const groups = pickerGroups(tab);
     // Checked rows are in the route: clicking adds or removes them, with the count typed on the row.
     editing.counts ??= new Map(); // counts typed on rows not yet checked
@@ -710,7 +785,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     // Count box for items the pool holds more than one of: 1..max, shown as "n / max".
     const countBox = (r, entry) => {
       const max = maxOf(r.item);
-      if (tab !== "item" || max < 2) return null;
+      if ((tab !== "item" && tab !== "dungeon") || max < 2) return null;
       const input = el("input", {
         type: "number", min: 1, max, step: 1, className: "rule-count", value: String(entry?.n ?? editing.counts.get(r.item) ?? 1),
         title: `How many are needed (1–${max})`, ariaLabel: `${r.label} count`,
@@ -787,7 +862,18 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     // Keep the list where it was scrolled to across redraws.
     list.addEventListener("scroll", () => { editing.listScroll = list.scrollTop; });
     box.append(el("div", { className: "rule-search-row" }, input), list);
-    if (tab === "map") box.append(el("p", { className: "loc-note", textContent: "ON/OFF: whether you marked the region reachable. Click a Map entry in a check's requirement to switch it for every check." }));
+    if (tab === "map") {
+      box.append(el("p", { className: "loc-note" },
+        "ON/OFF: whether the region is marked reachable. A region is marked when you enter it in the game; click a Map entry in a check's requirement to switch it by hand. ",
+        el("button", { type: "button", className: "tool rule-small", textContent: "Unmark all", title: "For a new seed: clear every region mark",
+          onclick: async () => {
+            await saveMapFlags([]);
+            lastRegion = null;
+            evaluate();
+            render();
+            redrawEditor();
+          } })));
+    }
     if (tab === "time") box.append(el("p", { className: "loc-note", textContent: "Met when the game's clock shows that time (night is 19:00–6:00)." }));
     return box;
   }
@@ -834,6 +920,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     load,
     setState(next) {
       state = next;
+      markCurrentRegion();
       evaluate();
       render();
     },
