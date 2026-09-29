@@ -51,7 +51,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Where | Action | Effect |
 |---|---|---|
 | Items / Dungeons | Right-click an icon | Open the icon editor (see below) |
-| Items | Click **Golden Bugs** | Show every golden bug (male and female of each kind, as on the game's insect screen); right-click a bug to change its icon |
+| Items | Click **Golden Bugs** | Show every golden bug (male and female of each kind, as on the game's insect screen), with Agitha's butterfly on the bugs given to her; right-click a bug or the butterfly to change its icon |
 | Items | **Edit** | Rearrange tiles: click two slots or drag one onto another to swap them, add or remove rows, then **Confirm** |
 | Any tab | **Theme** | Choose Twilight, Midna, Hyrule or Shadow, or upload a background image |
 | Locations | Click a region | Show its checks. In a narrow window the region list and the check list are shown one at a time; use **‹ Back** to return |
@@ -86,7 +86,8 @@ Default icons:
 
 ## Credits
 
-The Shadow Crystal, Fused Shadow and Mirror Shard icons and the field key backgrounds in
+The Shadow Crystal, Fused Shadow and Mirror Shard icons, the field key backgrounds, the Day and
+Night icons and Agitha's butterfly mark in
 `res/web/art/` are original art made by the author for this mod. They contain no game images.
 
 ### Custom requirements

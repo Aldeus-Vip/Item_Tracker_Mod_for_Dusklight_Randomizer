@@ -9,6 +9,7 @@
 #include "d/d_item_data.h"
 #include "d/d_menu_ring.h"
 #include "d/d_save.h"
+#include "d/d_menu_insect.h"
 #include "d/d_stage.h"
 
 #include <cstring>
@@ -258,6 +259,23 @@ int count_key_shards() {
     return 0;
 }
 
+// Golden bugs by their logic item names: item numbers 0xC0-0xD7 run male, female for each kind in
+// this order.
+std::string bug_name(int n) {
+    static constexpr const char* kBugKinds[] = {"Beetle", "Butterfly", "Stag Beetle", "Grasshopper",
+        "Phasmid", "Pill Bug", "Mantis", "Ladybug", "Snail", "Dragonfly", "Ant", "Dayfly"};
+    return std::string{n % 2 == 0 ? "Male " : "Female "} + kBugKinds[n / 2];
+}
+
+// Golden bugs given to Agitha (the insect screen's butterfly mark).
+void write_bugs_given(JsonWriter& w) {
+    w.key("bugsGiven").beginArray();
+    for (int i = dItemNo_M_BEETLE_e; i <= dItemNo_F_MAYFLY_e; ++i) {
+        if (dMenu_Insect_c::isGiveInsect(static_cast<u8>(i))) w.value(bug_name(i - dItemNo_M_BEETLE_e));
+    }
+    w.endArray();
+}
+
 void write_items(JsonWriter& w) {
     const ItemCounts slots = scan_item_slots();
 
@@ -317,16 +335,12 @@ void write_items(JsonWriter& w) {
     w.member("Lanayru Twilight Tear", static_cast<int>(dComIfGs_getLightDropNum(2)));
     // Collectibles
     w.member("Poe Soul", static_cast<int>(dComIfGs_getPohSpiritNum()));
-    // Golden bugs: the count, and each bug by its logic item name (item numbers 0xC0-0xD7 run
-    // male, female for each kind in this order).
-    static constexpr const char* kBugKinds[] = {"Beetle", "Butterfly", "Stag Beetle", "Grasshopper",
-        "Phasmid", "Pill Bug", "Mantis", "Ladybug", "Snail", "Dragonfly", "Ant", "Dayfly"};
     int bugs = 0;
     for (int i = dItemNo_M_BEETLE_e; i <= dItemNo_F_MAYFLY_e; ++i) {
         const bool owned = have(static_cast<u8>(i));
         bugs += owned ? 1 : 0;
         const int n = i - dItemNo_M_BEETLE_e;
-        w.member(std::string{n % 2 == 0 ? "Male " : "Female "} + kBugKinds[n / 2], owned ? 1 : 0);
+        w.member(bug_name(n), owned ? 1 : 0);
     }
     w.member("Golden Bug", bugs);
     // Randomizer-only items: warp portals, open or not.
@@ -505,6 +519,7 @@ std::string build_state_json() {
         write_inventory(w);
         write_flags(w);
         write_dungeons(w);
+        write_bugs_given(w);
     }
     tracker::found::write_json(w);
     w.endObject();

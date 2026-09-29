@@ -297,6 +297,7 @@ let bugPanelOpen = false;
 function buildBugPanel() {
   const items = state?.items ?? {};
   const owned = GOLDEN_BUGS.filter((bug) => (items[bug] ?? 0) > 0).length;
+  const given = new Set(state?.bugsGiven ?? []);
   const close = document.createElement("button");
   close.type = "button";
   close.className = "tool";
@@ -329,6 +330,15 @@ function buildBugPanel() {
       name.className = "bug-name";
       name.textContent = sex === "Male" ? "♂" : "♀";
       cell.append(iconImg(bugIcon(bug), "bug-icon", (img) => img.replaceWith(Object.assign(document.createElement("span"), { className: "bug-text", textContent: kind })), item), name);
+      // Given to Agitha: her butterfly mark at the top left, as on the game's insect screen.
+      if (given.has(bug)) {
+        const mark = document.createElement("span");
+        mark.className = "bug-agitha";
+        mark.title = `${bug}: given to Agitha`;
+        Object.assign(mark.dataset, { icon: "Agitha_Mark", iconLabel: "Agitha's mark", iconItem: "" });
+        mark.append(iconImg("Agitha_Mark", "", null));
+        cell.append(mark);
+      }
       pair.append(cell);
     }
     grid.append(pair);

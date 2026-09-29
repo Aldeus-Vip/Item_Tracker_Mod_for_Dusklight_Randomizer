@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="wing" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff9ccd"/>
+      <stop offset="1" stop-color="#e0468f"/>
+    </linearGradient>
+  </defs>
+  <g stroke="#7a1f4a" stroke-width="2" stroke-linejoin="round" fill="url(#wing)">
+    <path d="M31 30C24 14 10 8 5 14c-5 7 3 18 26 17z"/>
+    <path d="M33 30C40 14 54 8 59 14c5 7-3 18-26 17z"/>
+    <path d="M31 33C18 34 10 42 14 50c4 6 13 1 17-15z"/>
+    <path d="M33 33C46 34 54 42 50 50c-4 6-13 1-17-15z"/>
+  </g>
+  <g fill="#fff4fa" opacity="0.9">
+    <circle cx="15" cy="17" r="3"/><circle cx="22" cy="23" r="2"/>
+    <circle cx="49" cy="17" r="3"/><circle cx="42" cy="23" r="2"/>
+    <circle cx="19" cy="44" r="2"/><circle cx="45" cy="44" r="2"/>
+  </g>
+  <path d="M32 22v26" stroke="#5a1636" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M32 22c-2-6-5-10-9-12M32 22c2-6 5-10 9-12" stroke="#5a1636" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+</svg>

@@ -439,6 +439,7 @@ export const GAME_ICON_IDS = {
   Shadow_Crystal: "art/Shadow_Crystal.png",
   Fused_Shadow: "art/Fused_Shadow.png",
   Mirror_Shard: "art/Mirror_Shard.png",
+  Agitha_Mark: "art/Agitha_Mark.svg", // golden bug given to Agitha (Golden Bugs panel)
   // Textures without an item: "<archive>/#<index>" in the item icon archive.
   Hidden_Skill: "itemicon/#61", // NI_ITEM_ICON_MAKIMONO
   Small_Key: 0x20, Boss_Key: 0x26, Boss_KeyHC: 0x26,

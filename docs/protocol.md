@@ -51,6 +51,7 @@ data: {"protocol":1,"inGame":true,...}
   "inGame": true,         // false on the title screen / file select (no other fields then)
   "stage": "F_SP103",     // current stage name
   "room": 0,              // room Link is in (marks the logic region as reachable)
+  "bugsGiven": ["Male Ant"], // golden bugs given to Agitha
   "found": {              // found without collecting, kept with the save: seed hash and entries
     "seed": "Epona Lantern Goron",
     "entries": ["hint:Ordon Sword", "check:freestanding:F_SP103:128", "loc:Sera Shop Slingshot"]
