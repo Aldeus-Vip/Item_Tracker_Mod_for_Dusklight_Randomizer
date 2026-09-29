@@ -4,7 +4,7 @@
 
 import yaml from "./vendor/js-yaml.mjs";
 import { World, Search, itemsFromState, routeSatisfied, routeEntrySatisfied, routeEntryLabel, trackerEntry, parseDisplay, atomLabel, BOSS_NAMES } from "./logic.js";
-import { REGION_GROUPS, STAGE_NAMES, FlagReader, buildLocationList, buildRoomRegions, isObtained } from "./locations.js";
+import { REGION_GROUPS, OTHER_GROUP, STAGE_NAMES, FlagReader, buildLocationList, buildRoomRegions, isObtained } from "./locations.js";
 import { TILE_ITEMS, OTHER_ITEM_GROUPS, DUNGEON_ICONS, isDungeonKey, dungeonKeyIcon } from "./layout.js";
 
 const DATA_FILES = [
@@ -524,7 +524,8 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     if (!state) toolbar.append(el("span", { className: "loc-note", textContent: "Waiting for the game…" }));
 
     const groups = el("div", { className: "loc-groups" });
-    for (const g of REGION_GROUPS) {
+    const shownGroups = locations.some((l) => l.group === OTHER_GROUP.name) ? [...REGION_GROUPS, OTHER_GROUP] : REGION_GROUPS;
+    for (const g of shownGroups) {
       const c = counts(g.name);
       groups.append(el("button", {
         type: "button",

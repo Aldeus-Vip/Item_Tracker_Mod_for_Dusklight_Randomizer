@@ -58,7 +58,7 @@ export const REGION_GROUPS = [
   {
     name: "Eldin",
     categories: ["Eldin Province", "Hyrule Field - Eldin", "Hyrule Field - Eldin Province", "Eldin Lantern Cave",
-      "Eldin Stockcave", "Death Mountain", "Kakariko Village", "Kakariko Graveyard"],
+      "Eldin Stockcave", "Death Mountain", "Kakariko Village", "Kakariko Graveyard", "Hidden Village"],
   },
   {
     name: "Lanayru",
@@ -79,7 +79,11 @@ export const REGION_GROUPS = [
 ];
 
 // Categories every location in this list must not have (never item checks the player tracks).
-const ALWAYS_HIDDEN = ["Warp Portal", "Twilit Insect", "Hint Sign", "Non-Item Location"];
+const ALWAYS_HIDDEN = ["Warp Portal", "Twilit Insect", "Hint Sign", "Non-Item Location", "Placeholder"];
+
+// Group for checks no region group names (e.g. a new area in a randomizer update); shown only when
+// it has checks, so nothing randomized goes missing.
+export const OTHER_GROUP = { name: "Other", categories: [] };
 
 /**
  * Builds the tracked location list from locations.yaml, filtered by the randomizer settings the
