@@ -932,22 +932,39 @@ body.rule-window { margin: 0; min-height: 100vh; }
 .bug-count { flex: 1; color: var(--muted); font-size: 13px; }
 .bug-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 18px; }
 .bug-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+/* Same frame as the Items tiles: themed fill and grain masked to the frame shape, rims on top */
 .bug-cell {
   position: relative;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--rim-lo);
-  border-radius: 8px;
-  background: linear-gradient(180deg, var(--plate-top), var(--plate-bottom));
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+  --slot-glow: transparent;
 }
-.bug-pair .bug-cell:first-child { border-right-color: var(--gold-dim); }
-.bug-icon { width: 78%; height: 78%; object-fit: contain; filter: grayscale(1) brightness(0.45); opacity: 0.55; }
-.bug-cell.on { border-color: var(--owned); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 6px var(--owned-soft); }
+.bug-cell::before,
+.bug-cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.bug-cell::before {
+  background:
+    url("frame-grain.svg") center / 100% 100% no-repeat,
+    radial-gradient(circle, var(--slot-glow), transparent 70%),
+    radial-gradient(circle at 50% 45%, var(--slot-hi) 0%, var(--slot-mid) 55%, var(--slot-lo) 100%);
+  -webkit-mask: url("frame-mask.svg") center / 100% 100% no-repeat;
+  mask: url("frame-mask.svg") center / 100% 100% no-repeat;
+}
+.bug-cell::after {
+  background: url("frame.svg") center / 100% 100% no-repeat;
+  z-index: 1;
+}
+.bug-icon { position: relative; width: 70%; height: 70%; object-fit: contain; filter: grayscale(1) brightness(0.55); opacity: 0.55; }
+.bug-cell.on { --slot-glow: var(--owned-soft); filter: drop-shadow(0 0 3px var(--owned)) drop-shadow(0 0 1px var(--owned)); }
 .bug-cell.on .bug-icon { filter: none; opacity: 1; }
-.bug-name { position: absolute; top: 2px; left: 5px; font-size: 11px; color: var(--muted); }
+.bug-name { position: absolute; top: 9%; left: 12%; z-index: 2; font-size: 11px; color: var(--muted); }
 .bug-cell.on .bug-name { color: var(--text); }
-.bug-text { font-size: 10px; color: var(--muted); text-align: center; }
+.bug-text { position: relative; font-size: 10px; color: var(--muted); text-align: center; }
+.bug-cell.on .bug-text { color: var(--text); }
 .slot[data-tile="goldenBug"] { cursor: pointer; }
