@@ -339,6 +339,10 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
   // Lanayru, Gerudo Desert, Snowpeak, as the game numbers its regions), the dungeon files follow in
   // dungeon order. Within a province, regions keep the order they first appear in its file.
   function regionGroups(data) {
+    // A dungeon's region can first appear in an overworld file (its entrance area, e.g. Snowpeak
+    // Ruins in Snowpeak Province); dungeons always go to the Dungeons group.
+    const dungeonRegions = new Set(DATA_FILES.filter((f) => f.startsWith("world/dungeons/"))
+      .flatMap((f) => (data[f] ?? []).map((a) => a?.Region).filter(Boolean)));
     const seen = new Set();
     const groups = [];
     for (const f of DATA_FILES.filter((f) => f.startsWith("world/"))) {
@@ -347,6 +351,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       for (const area of data[f] ?? []) {
         const r = area?.Region;
         if (!r || r === "None" || seen.has(r)) continue;
+        if (dungeonRegions.has(r) && !f.startsWith("world/dungeons/")) continue;
         seen.add(r);
         if (!group) groups.push((group = { title, regions: [] }));
         group.regions.push(r);
