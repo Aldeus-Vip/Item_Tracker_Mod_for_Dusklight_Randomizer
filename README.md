@@ -58,6 +58,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | Click a check | Show its requirement: parts joined by "and" side by side, alternatives stacked, met parts outlined |
 | Locations | **Customize** / **Edit** | Replace the randomizer logic for that check with your own routes (see below) |
 | Locations | Click a **Map** entry in a requirement | Mark that region reachable, or unmark it, for every check |
+| Locations | Select a check, **Ctrl+C**; select another, **Ctrl+V** | Copy a custom requirement to another check. A popup shows it first; OK has the focus, so **Enter** pastes and **Esc** cancels |
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
 | Locations | **Rules ▾** | Export or import your custom requirements as JSON; pick the seed |
@@ -95,6 +96,8 @@ it opens in the panel). The window closes when you press **Save**.
 
 - The top frame shows the requirement as it will look when saved, one row per route. Every part
   of a route is needed; any one route is enough. Click a route to add to it.
+- Drag a part to move it (within a route or into another route or option), and drag a route's
+  or option's label to reorder them.
 - **+ Or group** adds a part met by any one of its options, so a route can say `A and (B or C)`
   or `(A or B) and (C or D)`. Options can hold Or groups of their own. Click an option to add to
   it; the picker's heading shows where new conditions go.

@@ -771,7 +771,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       el("p", { className: "loc-note", textContent: "Every part of a route is needed; any one route is enough. \"+ Or group\" adds a part that is met by any one of its options, e.g. A and (B or C). Click a route or option to add to it." }));
     editing.routes.forEach((route, ri) => {
       if (ri) current.append(el("div", { className: "req-op req-op-block", textContent: "or" }));
-      current.append(renderAndList(route, `Route ${ri + 1}`, editing.routes.length > 1 ? () => editing.routes.splice(ri, 1) : null, "Remove route"));
+      current.append(renderAndList(route, `Route ${ri + 1}`, editing.routes.length > 1 ? () => editing.routes.splice(ri, 1) : null, "Remove route", editing.routes, ri));
     });
     current.append(el("button", { className: "tool", type: "button", textContent: "+ Route (or)",
       onclick: () => { editing.routes.push([]); editing.target = editing.routes.at(-1); redrawEditor(true); } }));
@@ -807,29 +807,102 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     return null;
   }
 
+  // ---- Drag and drop: parts move within or between routes/options; routes and options reorder
+  // within their list (drag a row by its label). ----
+
+  let drag = null; // { kind: "part", list, index } | { kind: "row", owner, index }
+
+  // Whether `list` lies inside the Or group `group` (a group cannot be dropped into itself).
+  function groupContains(group, list) {
+    return group.or.some((option) => option === list || option.some((e) => Array.isArray(e.or) && groupContains(e, list)));
+  }
+
+  function canDropPart(list) {
+    if (drag?.kind !== "part") return false;
+    const entry = drag.list[drag.index];
+    return !(Array.isArray(entry?.or) && groupContains(entry, list));
+  }
+
+  function movePart(list, index) {
+    const [entry] = drag.list.splice(drag.index, 1);
+    if (list === drag.list && index > drag.index) index--;
+    list.splice(index, 0, entry);
+    drag = null;
+    redrawEditor();
+  }
+
+  function moveRow(owner, index) {
+    const [row] = drag.owner.splice(drag.index, 1);
+    if (index > drag.index) index--;
+    owner.splice(index, 0, row);
+    drag = null;
+    redrawEditor();
+  }
+
+  // Drop handlers for an element: `accepts` decides, `apply` moves; the element is outlined while
+  // something droppable is over it.
+  function dropTarget(node, accepts, apply) {
+    node.addEventListener("dragover", (e) => {
+      if (!accepts()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      node.classList.add("drag-over");
+    });
+    node.addEventListener("dragleave", (e) => { e.stopPropagation(); node.classList.remove("drag-over"); });
+    node.addEventListener("drop", (e) => {
+      node.classList.remove("drag-over");
+      if (!accepts()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      apply();
+    });
+    return node;
+  }
+
+  function draggable(node, start) {
+    node.draggable = true;
+    node.addEventListener("dragstart", (e) => {
+      e.stopPropagation();
+      start();
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "requirement");
+      node.classList.add("dragging");
+    });
+    node.addEventListener("dragend", () => { node.classList.remove("dragging"); drag = null; });
+    return node;
+  }
+
   // Parts that are all needed (a route, or one option of an Or group), in one framed row.
-  function renderAndList(list, label, remove, removeLabel) {
+  // owner/ownerIndex: the list of routes or options the row belongs to.
+  function renderAndList(list, label, remove, removeLabel, owner, ownerIndex) {
     const active = list === targetList();
     const row = el("div", { className: "rule-route" + (active ? " active" : ""), title: active ? "" : "Click to add here",
       onclick: (e) => {
         e.stopPropagation();
         if (editing.target !== list) { editing.target = list; redrawEditor(true); }
       } },
-    el("span", { className: "loc-route-label", textContent: label }));
+    draggable(el("span", { className: "loc-route-label rule-handle", textContent: label, title: "Drag to reorder" }),
+      () => { drag = { kind: "row", owner, index: ownerIndex }; }));
+    // A part dropped on the row goes to its end; a row dropped on a row of the same list goes before it.
+    dropTarget(row, () => canDropPart(list) || (drag?.kind === "row" && drag.owner === owner && drag.index !== ownerIndex),
+      () => (drag.kind === "part" ? movePart(list, list.length) : moveRow(owner, ownerIndex)));
     const parts = el("div", { className: "req-and" });
     list.forEach((entry, ci) => {
       if (ci) parts.append(el("span", { className: "req-op", textContent: "and" }));
       const drop = (e) => { e.stopPropagation(); list.splice(ci, 1); redrawEditor(); };
+      // Each part can be dragged, and a part dropped on it goes before it.
+      const part = (node) => dropTarget(draggable(node, () => { drag = { kind: "part", list, index: ci }; }),
+        () => canDropPart(list) && !(drag.list === list && drag.index === ci), () => movePart(list, ci));
       if (Array.isArray(entry.or)) {
-        parts.append(renderOrGroup(entry, drop));
+        parts.append(part(renderOrGroup(entry, drop)));
         return;
       }
       const met = search ? entryMet(entry) : null;
       const map = trackerEntry(entry.item)?.kind === "map";
-      parts.append(el("span", { className: "req-part" + (met === true ? " met" : met === false ? " unmet" : ""), title: met === false ? "Not met yet" : "" },
+      parts.append(part(el("span", { className: "req-part" + (met === true ? " met" : met === false ? " unmet" : ""), title: met === false ? "Not met yet" : "Drag to move" },
         map ? mapCheck(met) : null,
         `${routeEntryLabel(entry.item)}${entry.n > 1 ? ` ×${entry.n}` : ""}`,
-        el("button", { type: "button", className: "chip-x", textContent: "×", title: "Remove", onclick: drop })));
+        el("button", { type: "button", className: "chip-x", textContent: "×", title: "Remove", onclick: drop }))));
     });
     if (!list.length) parts.append(el("span", { className: "loc-note", textContent: "(empty: always met)" }));
     row.append(parts, el("span", { className: "rule-route-tools" },
@@ -856,7 +929,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
         el("button", { type: "button", className: "chip-x", textContent: "×", title: "Remove this Or group", onclick: drop })));
     group.or.forEach((option, oi) => {
       if (oi) box.append(el("div", { className: "req-op", textContent: "or" }));
-      box.append(renderAndList(option, `Option ${oi + 1}`, group.or.length > 1 ? () => group.or.splice(oi, 1) : null, "×"));
+      box.append(renderAndList(option, `Option ${oi + 1}`, group.or.length > 1 ? () => group.or.splice(oi, 1) : null, "×", group.or, oi));
     });
     box.append(el("button", { type: "button", className: "tool rule-small", textContent: "+ Option (or)",
       onclick: (e) => { e.stopPropagation(); group.or.push([]); editing.target = group.or.at(-1); redrawEditor(true); } }));
@@ -1057,6 +1130,71 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     evaluate();
     openDetail(name);
   }
+
+  // ---- Copy and paste a check's custom requirement: Ctrl+C on the selected check, then select
+  // another check and Ctrl+V (confirmed in a popup whose OK has the focus, so Enter pastes). ----
+
+  let clipboard = null; // { from, routes }
+
+  function toast(text) {
+    // On the body: the tab re-renders on every state update.
+    document.querySelector(".loc-toast")?.remove();
+    const note = el("div", { className: "loc-toast", textContent: text, role: "status" });
+    document.body.append(note);
+    setTimeout(() => note.remove(), 2500);
+  }
+
+  function copyRequirement() {
+    if (!focused) return toast("Select a check first (click it), then press Ctrl+C.");
+    const routes = getOverrides()[focused];
+    if (!routes) return toast(`${focused} uses the randomizer logic: nothing custom to copy.`);
+    clipboard = { from: focused, routes: structuredClone(routes) };
+    toast(`Copied the requirement of ${focused}.`);
+  }
+
+  function pasteRequirement() {
+    if (!clipboard) return toast("Nothing copied yet: select a check with a custom requirement and press Ctrl+C.");
+    if (!focused) return toast("Select the check to paste to (click it), then press Ctrl+V.");
+    const target = focused;
+    const replaces = Boolean(getOverrides()[target]);
+    const close = () => backdrop.remove();
+    const ok = el("button", { type: "button", className: "tool primary", textContent: "OK", onclick: async () => {
+      close();
+      await saveOverrides({ ...getOverrides(), [target]: structuredClone(clipboard.routes) });
+      evaluate();
+      render();
+      toast(`Pasted to ${target}.`);
+    } });
+    const dialog = el("div", { className: "loc-modal", role: "dialog", ariaModal: "true", ariaLabel: "Paste requirement" },
+      el("h3", { textContent: "Paste this requirement?" }),
+      el("p", { className: "loc-note" }, "From ", el("b", { textContent: clipboard.from }), " to ", el("b", { textContent: target }),
+        replaces ? " (replaces its current custom requirement)." : "."),
+      el("div", { className: "req-tree" }, renderReq(routesTree(clipboard.routes))),
+      el("div", { className: "loc-custom-actions" },
+        el("button", { type: "button", className: "tool", textContent: "Cancel", onclick: close }), ok));
+    const backdrop = el("div", { className: "loc-modal-backdrop", onclick: (e) => { if (e.target === backdrop) close(); } }, dialog);
+    backdrop.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+      }
+    });
+    document.body.append(backdrop);
+    ok.focus(); // Enter confirms right away
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || root.closest("[hidden]") || !world) return;
+    const key = e.key.toLowerCase();
+    if (key !== "c" && key !== "v") return;
+    // Leave text fields, text selections and an open dialog alone.
+    const t = e.target;
+    if (t?.closest?.("input, textarea, select, [contenteditable], .loc-modal-backdrop")) return;
+    if (key === "c" && String(window.getSelection?.() ?? "")) return;
+    e.preventDefault();
+    if (key === "c") copyRequirement();
+    else pasteRequirement();
+  });
 
   function exportOverrides() {
     const blob = new Blob([JSON.stringify({ version: 1, overrides: getOverrides() }, null, 2)], { type: "application/json" });

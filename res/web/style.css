@@ -968,3 +968,49 @@ body.rule-window { margin: 0; min-height: 100vh; }
 .bug-text { position: relative; font-size: 10px; color: var(--muted); text-align: center; }
 .bug-cell.on .bug-text { color: var(--text); }
 .slot[data-tile="goldenBug"] { cursor: pointer; }
+
+/* Requirement editor drag and drop */
+.rule-handle { cursor: grab; user-select: none; }
+.rule-route .req-part[draggable="true"], .rule-orgroup[draggable="true"] { cursor: grab; }
+.dragging { opacity: 0.45; }
+.drag-over { outline: 2px dashed var(--gold); outline-offset: 2px; }
+
+/* Copy / paste of custom requirements */
+.loc-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 20;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 8px 14px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  background: var(--bar);
+  color: var(--text);
+  font-size: 13px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+.loc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.loc-modal {
+  width: min(560px, 100%);
+  max-height: 80vh;
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  background: var(--bar);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+.loc-modal h3 { margin: 0 0 6px; font-size: 15px; color: var(--gold); }
+.loc-modal .loc-custom-actions { justify-content: flex-end; margin-top: 12px; }
+.loc-modal .tool:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
