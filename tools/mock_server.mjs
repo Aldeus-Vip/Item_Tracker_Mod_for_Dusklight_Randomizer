@@ -106,6 +106,7 @@ const script = [
   () => (state.items["Gale Boomerang"] = 1),
   () => (state.time = { hour: 21, night: true }),
   () => state.found.entries.push("hint:Ordon Sword"), // read a hint sign
+  () => Object.assign(state.items, { "Male Ant": 1, "Female Beetle": 1, "Golden Bug": 2 }),
   () => state.found.entries.push("check:freestanding:F_SP103:128"), // walked past Ordon Bo Cliff Rupee
   () => Object.assign(state, { stage: "R_SP01", room: 1 }), // Sera's shop
   () => Object.assign(state, { stage: "F_SP108", room: 0 }), // South Faron Woods

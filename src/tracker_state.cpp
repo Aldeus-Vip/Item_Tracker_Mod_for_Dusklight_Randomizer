@@ -317,9 +317,16 @@ void write_items(JsonWriter& w) {
     w.member("Lanayru Twilight Tear", static_cast<int>(dComIfGs_getLightDropNum(2)));
     // Collectibles
     w.member("Poe Soul", static_cast<int>(dComIfGs_getPohSpiritNum()));
+    // Golden bugs: the count, and each bug by its logic item name (item numbers 0xC0-0xD7 run
+    // male, female for each kind in this order).
+    static constexpr const char* kBugKinds[] = {"Beetle", "Butterfly", "Stag Beetle", "Grasshopper",
+        "Phasmid", "Pill Bug", "Mantis", "Ladybug", "Snail", "Dragonfly", "Ant", "Dayfly"};
     int bugs = 0;
     for (int i = dItemNo_M_BEETLE_e; i <= dItemNo_F_MAYFLY_e; ++i) {
-        bugs += have(static_cast<u8>(i)) ? 1 : 0;
+        const bool owned = have(static_cast<u8>(i));
+        bugs += owned ? 1 : 0;
+        const int n = i - dItemNo_M_BEETLE_e;
+        w.member(std::string{n % 2 == 0 ? "Male " : "Female "} + kBugKinds[n / 2], owned ? 1 : 0);
     }
     w.member("Golden Bug", bugs);
     // Randomizer-only items: warp portals, open or not.

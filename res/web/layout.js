@@ -149,6 +149,14 @@ const ILIA_QUEST = [
 ];
 const ILIA_QUEST_VARIANTS = ILIA_QUEST.map(([, label, icon]) => ({ icon, label }));
 
+// Golden bugs in item number order (0xC0-0xD7): male, female of each kind.
+export const GOLDEN_BUGS = ["Beetle", "Butterfly", "Stag Beetle", "Grasshopper", "Phasmid", "Pill Bug", "Mantis", "Ladybug",
+  "Snail", "Dragonfly", "Ant", "Dayfly"].flatMap((bug) => [`Male ${bug}`, `Female ${bug}`]);
+// Icon name of a golden bug ("Bug_Male_Ant"); the game icon comes from its item number.
+export const bugIcon = (bug) => `Bug_${bug.replaceAll(" ", "_")}`;
+// Kinds in the order of the game's insect screen (left to right, top to bottom; male then female).
+export const BUG_SCREEN_ORDER = ["Ant", "Dayfly", "Beetle", "Mantis", "Stag Beetle", "Pill Bug",
+  "Butterfly", "Ladybug", "Snail", "Phasmid", "Grasshopper", "Dragonfly"];
 // ---- Tile catalogue ----
 
 export const TILES = {
@@ -277,13 +285,15 @@ export const TILES = {
   },
   hiddenSkills: counted("Progressive Hidden Skill", "Hidden Skills", "Hidden_Skill", 7),
   poeSoul: counted("Poe Soul", "Poe Souls", "Poe_Soul"),
-  goldenBug: counted("Golden Bug", "Golden Bugs", "Bug0"),
+  goldenBug: {
+    ...counted("Golden Bug", "Golden Bugs", "Bug0"),
+    // Left click opens the bug panel (each bug, as on the game's insect screen).
+    variants: [{ icon: "Bug0", label: "Golden Bugs" }, ...GOLDEN_BUGS.map((bug, i) => ({ icon: bugIcon(bug), label: bug, item: 0xc0 + i }))],
+  },
 };
 
 // Randomizer items behind each tile, for the requirement editor's item list:
 // [item name, icon name, game item id for icons that need one].
-const GOLDEN_BUGS = ["Beetle", "Butterfly", "Stag Beetle", "Grasshopper", "Phasmid", "Pill Bug", "Mantis", "Ladybug",
-  "Snail", "Dragonfly", "Ant", "Dayfly"].flatMap((bug) => [`Male ${bug}`, `Female ${bug}`]);
 const BOMB_BAG_ITEMS = [["Bomb Bag", "Bomb_Bag", ITEM.BOMB_BAG], ["Giant Bomb Bag", "Giant_Bomb_Bag"]];
 const BOTTLE_ITEMS = [
   ["Empty Bottle", bottleIcon("Empty Bottle"), 0x60], ["Bottle with Half Milk", bottleIcon("Half Milk"), 0x65],
@@ -323,7 +333,7 @@ export const TILE_ITEMS = {
   wallet: [["Progressive Wallet", "Progressive_Wallet0"]],
   hiddenSkills: [["Progressive Hidden Skill", "Hidden_Skill"]],
   poeSoul: [["Poe Soul", "Poe_Soul"]],
-  goldenBug: GOLDEN_BUGS.map((bug, i) => [bug, "Bug0", 0xc0 + i]),
+  goldenBug: GOLDEN_BUGS.map((bug, i) => [bug, bugIcon(bug), 0xc0 + i]),
 };
 
 // Items no tile shows, grouped after the tracker's sections; matched by name. Dungeon keys and

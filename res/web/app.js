@@ -1,4 +1,4 @@
-import { COLUMNS, DEFAULT_LAYOUT, DUNGEON_EXTRAS, DUNGEON_ICONS, GAME_ICON_BACKGROUNDS, GAME_ICON_IDS, GAME_ICON_TINTS, TILES, normalizeLayout } from "./layout.js";
+import { BUG_SCREEN_ORDER, GOLDEN_BUGS, bugIcon, COLUMNS, DEFAULT_LAYOUT, DUNGEON_EXTRAS, DUNGEON_ICONS, GAME_ICON_BACKGROUNDS, GAME_ICON_IDS, GAME_ICON_TINTS, TILES, normalizeLayout } from "./layout.js";
 import { createLocationsView, normalizeOverrides } from "./locations_view.js";
 
 const PROTOCOL_VERSION = 1;
@@ -287,6 +287,58 @@ function renderItems() {
   });
   views.items.replaceChildren(frag);
   fitCaptions(views.items);
+  if (bugPanelOpen && !editing) views.items.append(buildBugPanel());
+}
+
+// ---- Golden bug panel: every bug, laid out like the game's insect screen ----
+
+let bugPanelOpen = false;
+
+function buildBugPanel() {
+  const items = state?.items ?? {};
+  const owned = GOLDEN_BUGS.filter((bug) => (items[bug] ?? 0) > 0).length;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "tool";
+  close.textContent = "Close";
+  close.addEventListener("click", () => { bugPanelOpen = false; renderItems(); });
+  const head = document.createElement("div");
+  head.className = "bug-head";
+  const title = document.createElement("h3");
+  title.textContent = "Golden Bugs";
+  const count = document.createElement("span");
+  count.className = "bug-count";
+  count.textContent = `${owned} / ${GOLDEN_BUGS.length}`;
+  head.append(title, count, close);
+
+  // Three kinds per row, each a male | female pair.
+  const grid = document.createElement("div");
+  grid.className = "bug-grid";
+  for (const kind of BUG_SCREEN_ORDER) {
+    const pair = document.createElement("div");
+    pair.className = "bug-pair";
+    for (const sex of ["Male", "Female"]) {
+      const bug = `${sex} ${kind}`;
+      const item = 0xc0 + GOLDEN_BUGS.indexOf(bug);
+      const cell = document.createElement("div");
+      cell.className = "bug-cell" + ((items[bug] ?? 0) > 0 ? " on" : "");
+      cell.title = bug;
+      // Right click: the icon editor, with every bug in its dropdown.
+      Object.assign(cell.dataset, { icon: bugIcon(bug), iconLabel: bug, iconItem: String(item), tile: "goldenBug" });
+      const name = document.createElement("span");
+      name.className = "bug-name";
+      name.textContent = sex === "Male" ? "♂" : "♀";
+      cell.append(iconImg(bugIcon(bug), "bug-icon", (img) => img.replaceWith(Object.assign(document.createElement("span"), { className: "bug-text", textContent: kind })), item), name);
+      pair.append(cell);
+    }
+    grid.append(pair);
+  }
+  const panel = document.createElement("div");
+  panel.className = "bug-panel";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Golden Bugs");
+  panel.append(head, grid);
+  return panel;
 }
 
 // ---- Edit mode: click two slots (or drag one onto another) to swap them ----
@@ -303,7 +355,15 @@ function slotRef(el) {
 }
 
 views.items.addEventListener("click", (e) => {
-  if (!editing) return;
+  if (!editing) {
+    // Left click on the Golden Bugs tile opens the bug panel; a click outside the panel closes it.
+    const onBugTile = e.target.closest(".slot")?.dataset.tile === "goldenBug";
+    if (onBugTile || (bugPanelOpen && !e.target.closest(".bug-panel"))) {
+      bugPanelOpen = onBugTile ? !bugPanelOpen : false;
+      renderItems();
+    }
+    return;
+  }
   const ref = slotRef(e.target);
   if (!ref) return;
   if (!selected) {
