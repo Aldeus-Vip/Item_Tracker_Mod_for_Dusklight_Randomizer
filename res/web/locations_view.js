@@ -81,6 +81,7 @@ const el = (tag, props = {}, ...children) => {
 /**
  * @param root      container element
  * @param options.getOverrides  () => { [location]: [[{item, n}], ...] }
+ * @param options.getPresetOverrides () => Promise of the custom requirements bundled with the mod
  * @param options.saveOverrides (overrides) => Promise
  * @param options.getLogic      () => boolean, whether reachability is evaluated
  * @param options.saveLogic     (enabled) => Promise
@@ -96,7 +97,7 @@ const el = (tag, props = {}, ...children) => {
 // Below this width the region list and the check list are shown one at a time.
 const NARROW_WIDTH = 560;
 
-export function createLocationsView(root, { getOverrides, saveOverrides, getLogic, saveLogic, getMapFlags, saveMapFlags, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, getMapFlags, saveMapFlags, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -516,6 +517,7 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
       el("div", { className: "loc-menu-items" },
         el("button", { className: "tool", type: "button", textContent: "Export rules", onclick: exportOverrides }),
         el("label", { className: "tool" }, "Import rules", el("input", { type: "file", accept: "application/json,.json", hidden: true, onchange: importOverrides })),
+        el("button", { className: "tool", type: "button", textContent: "Load preset", onclick: loadPreset }),
         el("button", { className: "tool", type: "button", textContent: "Reload data", onclick: load }),
         seedPicker));
     toolbar.append(
@@ -1203,6 +1205,50 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     if (key === "c") copyRequirement();
     else pasteRequirement();
   });
+
+  // Custom requirements bundled with the mod: replace the current ones, or only fill in the checks
+  // that have none.
+  async function loadPreset(e) {
+    e.target.closest("details")?.removeAttribute("open");
+    let preset;
+    try {
+      preset = await getPresetOverrides();
+    } catch (err) {
+      return setStatus("offline", `Could not load the preset (${err.message})`);
+    }
+    const current = getOverrides();
+    const presetCount = Object.keys(preset).length;
+    const own = Object.keys(current).length;
+    const missing = Object.keys(preset).filter((name) => !current[name]).length;
+    const close = () => backdrop.remove();
+    const apply = (next, text) => async () => {
+      close();
+      await saveOverrides(next);
+      evaluate();
+      render();
+      toast(text);
+    };
+    const replace = el("button", { type: "button", className: "tool primary", textContent: "Replace all",
+      onclick: apply(structuredClone(preset), `Loaded the preset (${presetCount} checks).`) });
+    const dialog = el("div", { className: "loc-modal", role: "dialog", ariaModal: "true", ariaLabel: "Load preset" },
+      el("h3", { textContent: "Load the preset rules?" }),
+      el("p", { className: "loc-note" }, `The preset has custom requirements for ${presetCount} checks. `,
+        own ? `You have ${own} of your own; export them first (Export rules) to keep a copy.` : "You have none of your own yet."),
+      el("div", { className: "loc-custom-actions" },
+        el("button", { type: "button", className: "tool", textContent: "Cancel", onclick: close }),
+        own ? el("button", { type: "button", className: "tool", textContent: `Only add missing (${missing})`, disabled: !missing,
+          onclick: apply({ ...structuredClone(preset), ...current }, `Added the preset to ${missing} checks.`) }) : null,
+        replace));
+    const backdrop = el("div", { className: "loc-modal-backdrop", onclick: (ev) => { if (ev.target === backdrop) close(); } }, dialog);
+    backdrop.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        close();
+      }
+    });
+    document.body.append(backdrop);
+    replace.focus();
+  }
 
   function exportOverrides() {
     const blob = new Blob([JSON.stringify({ version: 1, overrides: getOverrides() }, null, 2)], { type: "application/json" });

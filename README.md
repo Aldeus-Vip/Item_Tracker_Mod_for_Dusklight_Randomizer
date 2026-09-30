@@ -61,7 +61,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | Select a check, **Ctrl+C**; select another, **Ctrl+V** | Copy a custom requirement to another check. A popup shows it first; OK has the focus, so **Enter** pastes and **Esc** cancels |
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
-| Locations | **Rules ▾** | Export or import your custom requirements as JSON; pick the seed |
+| Locations | **Rules ▾** | Export or import your custom requirements as JSON, load the preset, pick the seed |
 | Locations | **Show found items** | Off by default. Show what a found check held (see below). Nothing else of the seed is shown |
 
 ### Icon editor
@@ -97,6 +97,10 @@ The page font is [Nunito](https://github.com/googlefonts/nunito) by Vernon Adams
 SIL Open Font License 1.1 (`res/web/fonts/Nunito-OFL.txt`).
 
 ### Custom requirements
+
+The mod comes with preset custom requirements for 575 checks. A new install starts with them;
+**Rules ▾ > Load preset** loads them again, either replacing yours or only filling in the checks
+you have not customized (export yours first to keep a copy).
 
 **Customize** opens the requirement editor in its own window (in OBS, where windows can't open,
 it opens in the panel). The window closes when you press **Save**.
@@ -165,7 +169,7 @@ first configure downloads the Dusklight sources.
 | Trigger | Builds |
 |---|---|
 | Pull request | Linux x86_64 (plus the host tests) and Windows x64; the Windows `.dusk` is attached to the run |
-| Tag (e.g. `v0.1.0`) | All 8 platforms, merged into one `.dusk` and attached to a GitHub release |
+| Tag (e.g. `v1.0.0`) | All 8 platforms, merged into one `.dusk` and attached to a GitHub release |
 | Manual (Actions → Build → Run workflow) | `full` (all platforms and the merged `.dusk`) or `quick` (the pull request check) |
 
 ### Mod manager images
@@ -217,3 +221,8 @@ without running Dusklight. Optional environment variables:
 | `GAME_ICON_DIR` | A folder of `<item number>.png` that stands in for the game-built icons |
 
 The state and event format is described in [docs/protocol.md](docs/protocol.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE). The Nunito font is under the SIL Open Font License 1.1.
+Changes are listed in [CHANGELOG.md](CHANGELOG.md).

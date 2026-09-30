@@ -59,7 +59,7 @@ English: [README.md](README.md)
 | Locations | チェックを選んで **Ctrl+C**、別のチェックを選んで **Ctrl+V** | 自分で設定した条件を別のチェックにコピー。貼り付ける内容を確認するポップアップが出る(OK にフォーカスがあるので **Enter** で貼り付け、**Esc** で取り消し) |
 | Locations | 右クリック | チェックや地域を強調する |
 | Locations | **Logic ON/OFF** | 到達判定の ON/OFF |
-| Locations | **Rules ▾** | 自分で設定した条件を JSON で書き出し・読み込み、シードの選択 |
+| Locations | **Rules ▾** | 自分で設定した条件を JSON で書き出し・読み込み、プリセットの読み込み、シードの選択 |
 | Locations | **Show found items** | 初期値は OFF。見つけたチェックの中身を表示(下記)。それ以外のシードの中身は表示しない |
 
 ### アイコン編集
@@ -93,6 +93,10 @@ English: [README.md](README.md)
 `res/web/fonts/Nunito-OFL.txt`)です。
 
 ### 自分で設定する条件
+
+この Mod には 575 チェック分のプリセット条件が付いています。新規インストール時はこれが最初から入っています。
+**Rules ▾ > Load preset** でいつでも読み込み直せます(すべて置き換える/自分で設定していないチェックだけ追加する、を選択。
+自分の設定を残したいときは先に Export rules で保存してください)。
 
 **Customize** を押すと、条件の編集画面が別ウィンドウで開きます(ウィンドウを開けない OBS ではパネル内)。
 **Save** を押すとウィンドウは自動で閉じます。
@@ -160,7 +164,7 @@ cmake --build build
 | トリガー | ビルド内容 |
 |---|---|
 | Pull request | Linux x86_64(ホストテスト付き)と Windows x64。Windows 用の `.dusk` を実行結果に添付 |
-| タグ(例:`v0.1.0`) | 全 8 プラットフォームをまとめた `.dusk` を作り、GitHub のリリースに添付 |
+| タグ(例:`v1.0.0`) | 全 8 プラットフォームをまとめた `.dusk` を作り、GitHub のリリースに添付 |
 | 手動(Actions → Build → Run workflow) | `full`(全プラットフォームとまとめた `.dusk`)または `quick`(PR と同じチェック) |
 
 ### Mod 管理画面用の画像
@@ -210,3 +214,8 @@ node tools/mock_server.mjs
 | `GAME_ICON_DIR` | ゲームから作るアイコンの代わりに使う `<アイテム番号>.png` のフォルダ |
 
 状態データとイベントの形式は [docs/protocol.md](docs/protocol.md) にあります。
+
+## ライセンス
+
+MIT([LICENSE](LICENSE))。フォントの Nunito は SIL Open Font License 1.1 です。
+変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。

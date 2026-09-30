@@ -547,10 +547,26 @@ async function saveSettings() {
   }
 }
 
+// Custom requirements bundled with the mod (Rules > Load preset). A new install, whose settings
+// have never held custom requirements, starts with them.
+async function fetchPresetOverrides() {
+  const res = await fetch("preset-rules.json", { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const parsed = await res.json();
+  return normalizeOverrides(parsed.overrides ?? parsed);
+}
+
 async function loadSettings() {
   try {
     const res = await fetch("settings", { cache: "no-store" });
-    if (res.ok) settings = normalizeSettings(await res.json());
+    let raw = null;
+    if (res.ok) raw = await res.json();
+    else if (res.status !== 404) throw new Error(`HTTP ${res.status}`);
+    settings = normalizeSettings(raw);
+    if (!raw || !("logicOverrides" in raw)) {
+      settings.logicOverrides = await fetchPresetOverrides();
+      await saveSettings();
+    }
   } catch {}
   applySettings();
   locationsView.refresh();
@@ -858,6 +874,7 @@ function renderDungeons(dungeons) {
 
 const locationsView = createLocationsView(views.locations, {
   getOverrides: () => settings.logicOverrides,
+  getPresetOverrides: fetchPresetOverrides,
   saveOverrides: async (overrides) => {
     settings.logicOverrides = overrides;
     await saveSettings();
