@@ -86,6 +86,12 @@ English: [README.md](README.md)
 `res/web/art/` にある Shadow Crystal、影の結晶石、陰りの鏡の欠片 のアイコン、フィールドのカギの背景、昼・夜のアイコン、Agitha の蝶のマークは、
 作者がこの Mod のために作ったオリジナルのアートです。ゲームの画像は含みません。
 
+`res/web/art/ui/` のメニュー装飾(金の角飾り、見出しの巻物、テクスチャ)も、Twilight Princess のメニューを参考に
+この Mod のために作ったオリジナルのアートです。
+
+ページのフォントは [Nunito](https://github.com/googlefonts/nunito)(Vernon Adams ほか、SIL Open Font License 1.1、
+`res/web/fonts/Nunito-OFL.txt`)です。
+
 ### 自分で設定する条件
 
 **Customize** を押すと、条件の編集画面が別ウィンドウで開きます(ウィンドウを開けない OBS ではパネル内)。

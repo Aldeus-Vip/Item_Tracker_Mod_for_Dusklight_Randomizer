@@ -1,0 +1,409 @@
+/* Twilight Princess look for the page chrome, layered over style.css: brushed metal buttons with a
+   gold corner cursor on the selected one, olive panels framed in gold with scroll corners, title
+   banners with scroll ends, name plates with gold hairlines, and bullseye markers like the map's.
+   All art in art/ui is original SVG; theme colors still come from style.css. */
+
+@font-face {
+  font-family: "TP Nunito";
+  src: url("fonts/Nunito.ttf") format("truetype");
+  font-weight: 200 1000;
+  font-display: swap;
+}
+
+:root, body {
+  --tp-gold: #d8c47c;
+  --tp-gold-hi: #f2e3a6;
+  --tp-gold-lo: #8f7c3e;
+  --tp-gold-line: rgba(216, 196, 124, 0.38);
+  --tp-name: #e8f29a;        /* item name plates ("Dominion Rod") */
+  --tp-cream: #f6f0d4;
+  --tp-ink: #0b0a05;
+  --tp-outline: 0 0 2px #000, 0 1px 1px #000, 0 0 1px #000;
+  --tp-metal:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #a3a296 0%, #75746b 44%, #5a5952 52%, #45443e 100%);
+  --tp-metal-lit:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #c4c2b3 0%, #8f8d80 44%, #6f6d63 52%, #55534a 100%);
+  --tp-metal-gold:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #e3cd85 0%, #b0913f 44%, #8a6f2c 52%, #634f1e 100%);
+  --tp-cursor-mask:
+    linear-gradient(#000 0 0) top left / 9px 9px no-repeat,
+    linear-gradient(#000 0 0) top right / 9px 9px no-repeat,
+    linear-gradient(#000 0 0) bottom left / 9px 9px no-repeat,
+    linear-gradient(#000 0 0) bottom right / 9px 9px no-repeat;
+}
+
+body {
+  font-family: "TP Nunito", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 600;
+  scrollbar-color: var(--tp-gold-lo) rgba(0, 0, 0, 0.5);
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.45); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #6d5e2c, #b39a52, #6d5e2c);
+  border: 2px solid rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+}
+
+/* ---- Buttons: brushed metal bars ---- */
+
+.tabs button, .tool, .rule-tab, .loc-back, .group-head button, .swatch {
+  position: relative;
+  background: var(--tp-metal);
+  color: var(--tp-cream);
+  border: 1px solid #14130d;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    inset 1px 0 0 rgba(255, 255, 255, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.7);
+  font-family: inherit;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-shadow: var(--tp-outline);
+  transition: filter 0.12s;
+}
+.tabs button:hover, .tool:hover:not(:disabled), .rule-tab:hover, .loc-back:hover,
+.group-head button:hover:not(:disabled), .swatch:hover {
+  border-color: #14130d;
+  filter: brightness(1.14);
+}
+.tabs button:active, .tool:active:not(:disabled), .rule-tab:active, .swatch:active { transform: translateY(1px); }
+.tool:focus-visible, .tabs button:focus-visible, .rule-tab:focus-visible, .swatch:focus-visible {
+  outline: 1px solid var(--tp-gold-hi);
+  outline-offset: 2px;
+}
+.tabs { gap: 8px; }
+.tabs button { padding: 5px 16px; }
+
+/* Selected: lit metal and the gold corner cursor */
+.tabs button[aria-selected="true"], .rule-tab.selected, .swatch[aria-pressed="true"], .loc-menu[open] > summary.tool {
+  background: var(--tp-metal-lit);
+  color: #fffbe6;
+  border-color: #14130d;
+}
+.tabs button[aria-selected="true"]::after, .rule-tab.selected::after,
+.swatch[aria-pressed="true"]::after, .loc-menu[open] > summary.tool::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--tp-gold);
+  border-radius: 2px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 2px rgba(255, 214, 110, 0.8));
+  -webkit-mask: var(--tp-cursor-mask);
+  mask: var(--tp-cursor-mask);
+}
+.tool.primary {
+  background: var(--tp-metal-gold);
+  color: #fffbe6;
+  border-color: #231a06;
+}
+
+.rule-tab { border-bottom: 1px solid #14130d; border-radius: 3px; margin-bottom: 6px; }
+.rule-tabs { gap: 8px; padding: 2px 4px 0; border-bottom: 0; }
+.rule-tab.selected { background: var(--tp-metal-lit); }
+.loc-back { border-radius: 3px; }
+.group-head button { padding: 2px 9px; }
+
+/* Theme choices: metal buttons with a gold-rimmed color gem */
+.swatch i { border: 1px solid var(--tp-gold-lo); box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25), 0 0 0 1px #000; }
+
+/* Logic ON/OFF lamp */
+.loc-logic-switch b {
+  display: inline-block;
+  min-width: 2.4em;
+  margin-left: 3px;
+  padding: 0 5px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 1px 2px #000, 0 1px 0 rgba(255, 255, 255, 0.25);
+  color: #ff7a66;
+  text-align: center;
+  text-shadow: 0 0 6px rgba(255, 80, 60, 0.9);
+}
+.loc-logic-switch.on b { color: #9dff8c; text-shadow: 0 0 6px rgba(110, 255, 110, 0.9); }
+
+/* ---- Header: dark stone with a gold rule ---- */
+
+.bar {
+  background:
+    linear-gradient(rgba(10, 10, 6, 0.55), rgba(10, 10, 6, 0.7)),
+    url("art/ui/stone.svg") center / 240px 120px,
+    linear-gradient(var(--bar), var(--bar-2));
+  border-bottom: 0;
+  box-shadow:
+    inset 0 -1px 0 #000,
+    0 1px 0 var(--tp-gold-lo),
+    0 2px 0 #000,
+    0 3px 8px rgba(0, 0, 0, 0.6);
+  padding: 9px 14px;
+}
+.edit-bar {
+  background:
+    url("art/ui/noise.svg"),
+    linear-gradient(var(--plate-top), var(--plate-bottom));
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 #000, 0 1px 0 var(--tp-gold-line), 0 2px 0 #000;
+  color: var(--text);
+  padding: 10px 14px;
+  margin-top: 3px;
+}
+.theme-row > .label { color: var(--tp-gold); font-weight: 800; text-shadow: var(--tp-outline); }
+
+/* Live status: a glowing gem */
+.status { color: var(--text); text-shadow: var(--tp-outline); }
+.status .dot {
+  width: 11px;
+  height: 11px;
+  background: radial-gradient(circle at 35% 30%, #fff6c8 0 18%, var(--warn) 45%, #5a3c08 100%);
+  box-shadow: 0 0 0 1px #000, 0 0 0 2px var(--tp-gold-lo), 0 0 6px var(--warn);
+}
+.status[data-state="live"] .dot {
+  background: radial-gradient(circle at 35% 30%, #eaffe0 0 18%, #5ee06e 45%, #0d4a17 100%);
+  box-shadow: 0 0 0 1px #000, 0 0 0 2px var(--tp-gold-lo), 0 0 8px #5ee06e;
+  animation: tp-pulse 2.4s ease-in-out infinite;
+}
+.status[data-state="idle"] .dot {
+  background: radial-gradient(circle at 35% 30%, #fff 0 15%, #9c9a88 45%, #2e2d26 100%);
+  box-shadow: 0 0 0 1px #000, 0 0 0 2px var(--tp-gold-lo);
+}
+.status[data-state="offline"] .dot {
+  background: radial-gradient(circle at 35% 30%, #ffe0d8 0 18%, #e04836 45%, #4a0a05 100%);
+  box-shadow: 0 0 0 1px #000, 0 0 0 2px var(--tp-gold-lo), 0 0 6px #e04836;
+}
+@keyframes tp-pulse { 50% { box-shadow: 0 0 0 1px #000, 0 0 0 2px var(--tp-gold-lo), 0 0 14px #5ee06e; } }
+
+/* ---- Section titles: "Collection" banner with scroll ends ---- */
+
+.group-head h2 {
+  position: relative;
+  isolation: isolate;
+  flex: 0 1 auto;
+  padding: 4px 38px 4px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  color: var(--tp-cream);
+  text-shadow: var(--tp-outline);
+}
+.group-head h2::before {
+  content: "";
+  position: absolute;
+  inset: 3px 22px;
+  z-index: -1;
+  background:
+    url("art/ui/noise.svg"),
+    linear-gradient(180deg, #4a4a2a, #2a2a16 55%, #1b1b0e);
+  border-top: 1px solid var(--tp-gold-lo);
+  border-bottom: 1px solid var(--tp-gold-lo);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.7);
+}
+.group-head h2::after {
+  flex: none;
+  position: absolute;
+  inset: 0;
+  height: auto;
+  background:
+    url("art/ui/scroll-left.svg") left center / auto 100% no-repeat,
+    url("art/ui/scroll-right.svg") right center / auto 100% no-repeat;
+  pointer-events: none;
+}
+.group-head::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--tp-gold-lo), transparent);
+}
+.group-head > button { order: 1; }
+
+/* ---- Name plates: dark band with gold hairlines, yellow-green text ---- */
+
+.loc-banner, .loc-detail-head h3, .icon-editor-head h3, .bug-head h3, .loc-modal h3 {
+  background:
+    linear-gradient(90deg, transparent, var(--tp-gold) 12%, var(--tp-gold) 88%, transparent) top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, var(--tp-gold) 12%, var(--tp-gold) 88%, transparent) bottom / 100% 1px no-repeat,
+    linear-gradient(90deg, rgba(4, 4, 2, 0.15), rgba(4, 4, 2, 0.88) 10%, rgba(4, 4, 2, 0.88) 90%, rgba(4, 4, 2, 0.15));
+  color: var(--tp-name);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-shadow: var(--tp-outline);
+}
+.loc-detail-head h3, .icon-editor-head h3, .bug-head h3, .loc-modal h3 { padding: 5px 16px; }
+.loc-banner { border: 0; border-radius: 0; box-shadow: none; padding: 8px 18px; }
+.loc-banner-title { color: var(--tp-name); font-weight: 800; }
+
+/* ---- Panels: olive fill framed in gold, scroll corners ---- */
+
+.loc-detail, .loc-modal, .icon-editor, .texture-browser, .bug-panel, .loc-menu-items, .loc-toast,
+.rule-window-panel.loc-detail {
+  background:
+    url("art/ui/corner-tl.svg") top 4px left 4px / 30px 30px no-repeat,
+    url("art/ui/corner-tr.svg") top 4px right 4px / 30px 30px no-repeat,
+    url("art/ui/corner-bl.svg") bottom 4px left 4px / 30px 30px no-repeat,
+    url("art/ui/corner-br.svg") bottom 4px right 4px / 30px 30px no-repeat,
+    url("art/ui/noise.svg"),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 240, 180, 0.07), transparent 60%),
+    linear-gradient(180deg, var(--plate-top), var(--plate-bottom));
+  border: 1px solid #000;
+  border-radius: 6px;
+  box-shadow:
+    inset 0 0 0 1px var(--tp-gold-lo),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.65),
+    inset 0 0 0 4px var(--tp-gold-line),
+    inset 0 0 24px rgba(0, 0, 0, 0.5),
+    0 12px 32px rgba(0, 0, 0, 0.65);
+}
+.loc-detail, .icon-editor, .bug-panel, .loc-modal { padding: 16px 20px; }
+.texture-browser { padding: 18px 22px; }
+.rule-window-panel.loc-detail { border: 0; border-radius: 0; padding: 20px 24px; }
+/* Small panels: plain gold frame, no corner scrolls */
+.loc-menu-items, .loc-toast {
+  background:
+    url("art/ui/noise.svg"),
+    linear-gradient(180deg, var(--plate-top), var(--plate-bottom));
+  padding: 8px;
+}
+.loc-toast { padding: 9px 16px; color: var(--tp-cream); text-shadow: var(--tp-outline); }
+.loc-modal-backdrop { background: rgba(0, 0, 0, 0.62); }
+
+.loc-detail h4, .rule-group {
+  color: var(--tp-gold);
+  font-weight: 800;
+  text-shadow: var(--tp-outline);
+  border-bottom: 0;
+  background: linear-gradient(90deg, var(--tp-gold-lo), transparent 70%) bottom / 100% 1px no-repeat;
+  padding-bottom: 3px;
+}
+.rule-frame {
+  border: 1px solid var(--tp-gold-line);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 14px rgba(0, 0, 0, 0.45);
+}
+.loc-status {
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.5);
+  font-weight: 800;
+  text-shadow: var(--tp-outline);
+}
+.loc-status.reachable { box-shadow: 0 0 6px rgba(126, 217, 140, 0.45); }
+.loc-status.blocked { box-shadow: 0 0 6px rgba(224, 108, 108, 0.45); }
+
+/* Requirement chips: small dark plates with a gold rim */
+.req-part {
+  border-color: #5f5329;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.65), inset 0 1px 0 1px rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.req-part.met { border-color: var(--owned); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 6px var(--owned-soft); }
+.req-or { border-left-color: var(--tp-gold-lo); }
+.req-op { color: var(--tp-gold); }
+.rule-orgroup { border-color: var(--tp-gold-lo); border-radius: 4px; }
+.rule-route.active { border-color: var(--tp-gold); box-shadow: 0 0 8px rgba(216, 196, 124, 0.25); }
+.rule-row.checked { border-color: var(--owned); background: linear-gradient(90deg, rgba(80, 200, 120, 0.16), rgba(80, 200, 120, 0.04)); }
+
+/* ---- Inputs ---- */
+
+.rule-search, .rule-count, .texture-filter, .icon-variant, .theme-row select, .loc-seed select {
+  background: linear-gradient(180deg, #050503, #16150d);
+  color: var(--tp-cream);
+  border: 1px solid #5c5230;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.06);
+  font-family: inherit;
+  font-weight: 700;
+}
+.rule-search:focus, .rule-count:focus, .texture-filter:focus, .icon-variant:focus,
+.theme-row select:focus, .loc-seed select:focus {
+  outline: none;
+  border-color: var(--tp-gold);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 6px rgba(216, 196, 124, 0.45);
+}
+.theme-row input[type="range"] { accent-color: var(--tp-gold); }
+
+/* Check boxes: gold-framed box, a green gem when checked */
+.loc-toggle input[type="checkbox"], .icon-choice input {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin: 0 3px 0 0;
+  border: 1px solid var(--tp-gold);
+  border-radius: 3px;
+  background: linear-gradient(180deg, #050503, #1a190f);
+  box-shadow: 0 0 0 1px #000, inset 0 1px 3px #000;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.icon-choice input { border-radius: 50%; }
+.loc-toggle input[type="checkbox"]:checked, .icon-choice input:checked {
+  background:
+    radial-gradient(circle at 38% 32%, #eaffe0 0 14%, transparent 15%),
+    radial-gradient(circle, #6cef7a 0 30%, #1e8a33 58%, #0b3a14 64%, transparent 66%),
+    linear-gradient(180deg, #050503, #1a190f);
+  box-shadow: 0 0 0 1px #000, 0 0 6px rgba(110, 240, 120, 0.55);
+}
+.icon-choice input:disabled { opacity: 0.4; cursor: default; }
+.loc-toggle { color: var(--tp-cream); text-shadow: var(--tp-outline); }
+
+/* ---- Reachability markers: bullseyes like the map's ---- */
+
+.loc-dot {
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle, #ffd8c8 0 10%, #e3402c 12% 34%, #3a0804 36% 48%, #d63a29 50% 70%, #2a0503 72%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8), 0 0 5px rgba(227, 64, 44, 0.55);
+}
+.loc-row.reachable .loc-dot {
+  background: radial-gradient(circle, #f0ffe8 0 10%, #58e06a 12% 34%, #07360f 36% 48%, #3fc454 50% 70%, #062a0b 72%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8), 0 0 7px rgba(90, 230, 110, 0.75);
+}
+.loc-row.unknown .loc-dot {
+  background: radial-gradient(circle, #fff6d0 0 10%, #d8b44c 12% 34%, #3a2e08 36% 48%, #b9973e 50% 70%, #231b04 72%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8);
+}
+.loc-row.obtained .loc-dot {
+  background: radial-gradient(circle, #d9d7c8 0 10%, #7d7b6c 12% 34%, #1f1e18 36% 48%, #6b695c 50% 70%, #161510 72%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8);
+}
+.loc-row.excluded .loc-dot {
+  background: radial-gradient(circle, transparent 0 48%, var(--muted) 50% 60%, transparent 62%);
+  border: 0;
+  box-shadow: none;
+}
+
+/* Found item text: the name plate color */
+.loc-found { color: var(--tp-name); text-shadow: var(--tp-outline); }
+.loc-summary { text-shadow: var(--tp-outline); }
+
+/* Dungeons table headings */
+table.dungeons th {
+  color: var(--tp-gold);
+  font-weight: 800;
+  text-shadow: var(--tp-outline);
+  border-bottom: 1px solid var(--tp-gold-lo);
+}
+table.dungeons td { border-bottom-color: rgba(143, 124, 62, 0.28); }
+table.dungeons {
+  background:
+    url("art/ui/noise.svg"),
+    linear-gradient(180deg, var(--plate-top), var(--plate-bottom));
+  box-shadow:
+    0 0 0 1px var(--tp-gold-lo),
+    0 0 0 3px rgba(0, 0, 0, 0.65),
+    0 0 0 4px var(--tp-gold-line),
+    0 8px 24px rgba(0, 0, 0, 0.55);
+  border-radius: 2px;
+  margin: 4px;
+  width: calc(100% - 8px);
+}
+table.dungeons th { background: rgba(0, 0, 0, 0.45); }
+table.dungeons .mark, table.dungeons .na { color: rgba(216, 196, 124, 0.4); }
+table.dungeons .mark.on { color: var(--owned); }

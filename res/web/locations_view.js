@@ -723,7 +723,9 @@ export function createLocationsView(root, { getOverrides, saveOverrides, getLogi
     d.write("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body class=\"rule-window\"></body></html>");
     d.close();
     d.title = `Requirement: ${editing.name}`;
-    d.head.append(Object.assign(d.createElement("link"), { rel: "stylesheet", href: new URL("style.css", location.href).href }));
+    for (const css of ["style.css", "tp-ui.css"]) {
+      d.head.append(Object.assign(d.createElement("link"), { rel: "stylesheet", href: new URL(css, location.href).href }));
+    }
     d.body.dataset.theme = document.body.dataset.theme ?? "";
     // Closing the window cancels the edit.
     const watch = setInterval(() => {

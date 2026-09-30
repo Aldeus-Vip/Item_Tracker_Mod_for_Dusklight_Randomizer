@@ -90,6 +90,12 @@ The Shadow Crystal, Fused Shadow and Mirror Shard icons, the field key backgroun
 Night icons and Agitha's butterfly mark in
 `res/web/art/` are original art made by the author for this mod. They contain no game images.
 
+The menu ornaments in `res/web/art/ui/` (gold corners, banner scroll ends, textures) are original
+art made for this mod, in the style of Twilight Princess menus.
+
+The page font is [Nunito](https://github.com/googlefonts/nunito) by Vernon Adams et al., under the
+SIL Open Font License 1.1 (`res/web/fonts/Nunito-OFL.txt`).
+
 ### Custom requirements
 
 **Customize** opens the requirement editor in its own window (in OBS, where windows can't open,

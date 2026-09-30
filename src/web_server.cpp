@@ -93,6 +93,8 @@ std::string_view content_type_for(std::string_view path) {
     if (ext == "png") return "image/png";
     if (ext == "webp") return "image/webp";
     if (ext == "ico") return "image/x-icon";
+    if (ext == "ttf") return "font/ttf";
+    if (ext == "woff2") return "font/woff2";
     return "application/octet-stream";
 }
 
