@@ -37,6 +37,7 @@ function showView(name) {
     button.setAttribute("aria-selected", String(button.dataset.view === name));
   }
   editButton.hidden = name !== "items" || editing;
+  if (name === "items") fitCaptions(views.items);
   try { localStorage.setItem("tracker.view", name); } catch {}
 }
 
@@ -54,6 +55,7 @@ showView(initialView || "items");
 function setStatus(kind, text) {
   statusEl.dataset.state = kind;
   statusText.textContent = text;
+  statusEl.title = text; // the text is hidden on a narrow page unless live
 }
 
 // ---- Icons ----
@@ -137,6 +139,8 @@ function iconImg(name, className, onMissing, itemId) {
 // it off. Captions are measured after they are in the document.
 function fitCaptions(root) {
   for (const caption of root.querySelectorAll(".caption")) {
+    // A hidden tab has no width to measure; it is fitted again when shown.
+    if (!caption.clientWidth) continue;
     caption.style.fontSize = "";
     const full = parseFloat(getComputedStyle(caption).fontSize);
     // scrollWidth is rounded, so a text a fraction of a pixel too wide still gets an ellipsis;
@@ -151,6 +155,9 @@ function fitCaptions(root) {
     }
   }
 }
+
+// Captions measured with the fallback font are refitted once the page font has loaded.
+document.fonts?.ready.then(() => fitCaptions(views.items));
 
 function renderTile(id) {
   const ctx = {

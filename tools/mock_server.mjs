@@ -67,7 +67,7 @@ const DUNGEONS = [
 
 const state = {
   protocol: 1,
-  inGame: true,
+  inGame: !process.env.MOCK_IDLE, // MOCK_IDLE=1: title screen (no save loaded)
   stage: "F_SP103",
   room: 0,
   maxLife: 15,

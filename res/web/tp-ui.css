@@ -407,3 +407,29 @@ table.dungeons {
 table.dungeons th { background: rgba(0, 0, 0, 0.45); }
 table.dungeons .mark, table.dungeons .na { color: rgba(216, 196, 124, 0.4); }
 table.dungeons .mark.on { color: var(--owned); }
+
+/* ---- Narrow pages (OBS docks): keep the header on one line and the Dungeons table inside ---- */
+
+.bar-right { min-width: 0; }
+.status { min-width: 0; }
+.status .dot { flex: none; }
+#status-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 600px) {
+  .bar { gap: 8px; padding: 8px 10px; }
+  .bar-right { gap: 8px; }
+  .tabs { gap: 6px; }
+  .tabs button, .bar .tool { padding: 4px 9px; letter-spacing: 0.02em; }
+  /* The gem shows the state; the text stays for Live and is on hover otherwise */
+  .status:not([data-state="live"]) #status-text { display: none; }
+}
+
+@media (max-width: 640px) {
+  main { padding: 10px 8px; }
+  table.dungeons th, table.dungeons td { padding: 5px 3px; }
+  table.dungeons th { font-size: 9px; letter-spacing: 0.03em; white-space: normal; }
+  table.dungeons td:first-child { white-space: normal; font-size: 12px; }
+  table.dungeons .mark-icon { height: 20px; }
+  table.dungeons .mark .boss-icon { width: 22px; height: 22px; }
+  table.dungeons .shards { margin-left: 2px; font-size: 11px; }
+}
