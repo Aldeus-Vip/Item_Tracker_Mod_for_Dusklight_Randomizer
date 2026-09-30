@@ -3,7 +3,8 @@ name: Build
 # GitHub Actions minutes are limited for private repositories (macOS runners count 10x, Windows
 # 2x), so the full 8-platform build runs only for releases:
 #   pull_request       -> quick check: linux-x86_64 (+ host tests) and windows-amd64
-#   tag push           -> full build, combined bundle attached to a release
+#   tag push           -> full build, combined bundle attached to a release (also when the
+#                         release is published on GitHub, which creates the tag)
 #   manual run         -> full build ("Run workflow" in the Actions tab); choose "quick" for a check
 on:
   pull_request:
@@ -109,6 +110,8 @@ jobs:
   combine:
     name: Combine bundles
     needs: [plan, build]
+    permissions:
+      contents: write # attach the bundle to the release
     if: needs.plan.outputs.full == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -143,4 +146,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{github.token}}
-        run: gh release create "$GITHUB_REF_NAME" combined/*.dusk --verify-tag --generate-notes
+        # A release published on GitHub creates its tag and starts this run: add the bundle to it.
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" combined/*.dusk --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" combined/*.dusk --verify-tag --generate-notes --repo "$GITHUB_REPOSITORY"
+          fi

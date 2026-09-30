@@ -169,7 +169,7 @@ first configure downloads the Dusklight sources.
 | Trigger | Builds |
 |---|---|
 | Pull request | Linux x86_64 (plus the host tests) and Windows x64; the Windows `.dusk` is attached to the run |
-| Tag (e.g. `v1.0.0`) | All 8 platforms, merged into one `.dusk` and attached to a GitHub release |
+| Tag (e.g. `v1.0.0`), or a release published on GitHub with a new tag | All 8 platforms, merged into one `.dusk` and attached to that GitHub release |
 | Manual (Actions → Build → Run workflow) | `full` (all platforms and the merged `.dusk`) or `quick` (the pull request check) |
 
 ### Mod manager images

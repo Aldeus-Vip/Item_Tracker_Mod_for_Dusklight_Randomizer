@@ -164,7 +164,7 @@ cmake --build build
 | トリガー | ビルド内容 |
 |---|---|
 | Pull request | Linux x86_64(ホストテスト付き)と Windows x64。Windows 用の `.dusk` を実行結果に添付 |
-| タグ(例:`v1.0.0`) | 全 8 プラットフォームをまとめた `.dusk` を作り、GitHub のリリースに添付 |
+| タグ(例:`v1.0.0`)、または GitHub で新しいタグ付きのリリースを公開 | 全 8 プラットフォームをまとめた `.dusk` を作り、そのリリースに添付 |
 | 手動(Actions → Build → Run workflow) | `full`(全プラットフォームとまとめた `.dusk`)または `quick`(PR と同じチェック) |
 
 ### Mod 管理画面用の画像
