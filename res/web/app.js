@@ -543,7 +543,7 @@ async function saveSettings() {
   }
 }
 
-// Custom requirements bundled with the mod (Req. > Load Preset Custom Requirements). A new install, whose settings
+// Custom requirements bundled with the mod (Requirements > Load Preset Custom Requirements). A new install, whose settings
 // have never held custom requirements, starts with them.
 async function fetchPresetOverrides() {
   const res = await fetch("preset-rules.json", { cache: "no-store" });

@@ -11,9 +11,9 @@
 - **Use Randomizer Logic for All** removes every custom requirement.
 
 ### Changed
-- The Locations toolbar is three rows: counts and Reachable Regions; Logic, Sort and **Req. ▾**
-  (was Rules: Export / Import / Load Preset Custom Requirements); Hide obtained, Show found items
-  and **Seed ▾** (the seed and Reload Data).
+- The Locations toolbar is three rows: counts and Reachable Regions; Logic, **Requirements ▾**
+  (was Rules: Export / Import / Load Preset Custom Requirements) and **Seed ▾** (the seed and
+  Reload Data); Sort, Hide obtained and Show found items.
 - Region reachable marks and checked marks are kept with the game save, so every save and
   seed has its own (they used to be shared by all saves).
 - Found items show as they look when only seen: "Small Key" for any small or field key, maps,

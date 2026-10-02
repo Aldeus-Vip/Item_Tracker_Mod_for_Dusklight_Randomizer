@@ -62,7 +62,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
 | Locations | **Reachable Regions ▾** | The logic regions by province, each marked reachable or not (marked when Link enters it). Switch one, or a whole province with **All on / All off**. Used by Map entries of custom requirements; kept with the game save |
-| Locations | **Req. ▾** | **Export / Import Custom Requirements** as JSON, **Load Preset Custom Requirements**, or **Use Randomizer Logic for All** (removes every custom requirement) |
+| Locations | **Requirements ▾** | **Export / Import Custom Requirements** as JSON, **Load Preset Custom Requirements**, or **Use Randomizer Logic for All** (removes every custom requirement) |
 | Locations | **Seed ▾** | Pick the seed whose spoiler log is used for found items; **Reload Data** reads the seeds and the logic data again |
 | Locations | **Show found items** | Off by default. Show what a found check held (see below). Nothing else of the seed is shown |
 | Locations | **Sort** | Game order, or reachable checks first |
@@ -103,7 +103,7 @@ SIL Open Font License 1.1 (`res/web/fonts/Nunito-OFL.txt`).
 ### Custom requirements
 
 The mod comes with preset custom requirements for 575 checks. A new install starts with them;
-**Req. ▾ > Load Preset Custom Requirements** loads them again, either replacing yours or only filling in the checks
+**Requirements ▾ > Load Preset Custom Requirements** loads them again, either replacing yours or only filling in the checks
 you have not customized (export yours first to keep a copy).
 
 **Customize** opens the requirement editor in its own window (in OBS, where windows can't open,

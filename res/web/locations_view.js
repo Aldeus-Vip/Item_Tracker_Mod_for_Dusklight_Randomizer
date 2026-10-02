@@ -559,8 +559,22 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     details.addEventListener("toggle", () => {
       if (details.open) openMenu = id;
       else if (openMenu === id) openMenu = null;
+      if (details.open) placeMenu(details);
     });
+    if (details.open) requestAnimationFrame(() => placeMenu(details));
     return details;
+  }
+
+  // Opens a menu's list under its button, toward whichever side has room in the window.
+  function placeMenu(details) {
+    const items = details.querySelector(".loc-menu-items");
+    if (!items) return;
+    items.style.left = "0";
+    items.style.right = "auto";
+    if (items.getBoundingClientRect().right > document.documentElement.clientWidth - 8) {
+      items.style.left = "auto";
+      items.style.right = "0";
+    }
   }
 
   // Reachable regions: the logic regions by province, each marked reachable or not. Kept with the
@@ -665,7 +679,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         render();
       },
     }, "Logic ", el("b", { textContent: logic ? "ON" : "OFF" }));
-    const reqMenu = menu("req", "Req. ▾", "Custom requirements",
+    const reqMenu = menu("req", "Requirements ▾", "Custom requirements",
       el("button", { className: "tool", type: "button", textContent: "Export Custom Requirements", onclick: exportOverrides }),
       el("label", { className: "tool" }, "Import Custom Requirements", el("input", { type: "file", accept: "application/json,.json", hidden: true, onchange: importOverrides })),
       el("button", { className: "tool", type: "button", textContent: "Load Preset Custom Requirements", onclick: loadPreset }),
@@ -679,8 +693,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
           : [el("b", { textContent: String(total.obtained) }), " obtained · "]),
         el("b", { textContent: String(total.remaining) }), " remaining"),
         regionsMenu()),
-      el("div", { className: "loc-bar-row" }, logicSwitch, sort, el("span", { className: "loc-bar-end" }, reqMenu)),
-      el("div", { className: "loc-bar-row" }, hide, found, el("span", { className: "loc-bar-end" }, seedMenu)),
+      el("div", { className: "loc-bar-row" }, logicSwitch, reqMenu, seedMenu),
+      el("div", { className: "loc-bar-row" }, sort, hide, found),
     );
     if (settingsNote && logic) toolbar.append(el("span", { className: "loc-note", textContent: settingsNote }));
     if (!state) toolbar.append(el("span", { className: "loc-note", textContent: "Waiting for the game…" }));

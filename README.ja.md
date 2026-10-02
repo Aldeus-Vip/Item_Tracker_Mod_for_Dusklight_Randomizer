@@ -60,7 +60,7 @@ English: [README.md](README.md)
 | Locations | 右クリック | チェックや地域を強調する |
 | Locations | **Logic ON/OFF** | 到達判定の ON/OFF |
 | Locations | **Reachable Regions ▾** | ロジックの地域を地方ごとに表示し、「到達可能」を ON/OFF(リンクが入ると自動で ON)。地方ごとに **All on / All off** も可能。自分で設定した条件の Map 項目で使い、セーブデータと一緒に保存 |
-| Locations | **Req. ▾** | 自分で設定した条件の **Export / Import Custom Requirements**(JSON)、**Load Preset Custom Requirements**、**Use Randomizer Logic for All**(自分で設定した条件をすべて削除) |
+| Locations | **Requirements ▾** | 自分で設定した条件の **Export / Import Custom Requirements**(JSON)、**Load Preset Custom Requirements**、**Use Randomizer Logic for All**(自分で設定した条件をすべて削除) |
 | Locations | **Seed ▾** | 見つけたチェックの中身に使うシードの選択と、**Reload Data**(シードとロジックデータの再読み込み) |
 | Locations | **Show found items** | 初期値は OFF。見つけたチェックの中身を表示(下記)。それ以外のシードの中身は表示しない |
 | Locations | **Sort** | ゲーム順、または取れるチェックを上に |
@@ -99,7 +99,7 @@ English: [README.md](README.md)
 ### 自分で設定する条件
 
 この Mod には 575 チェック分のプリセット条件が付いています。新規インストール時はこれが最初から入っています。
-**Req. ▾ > Load Preset Custom Requirements** でいつでも読み込み直せます(すべて置き換える/自分で設定していないチェックだけ追加する、を選択。
+**Requirements ▾ > Load Preset Custom Requirements** でいつでも読み込み直せます(すべて置き換える/自分で設定していないチェックだけ追加する、を選択。
 自分の設定を残したいときは先に Export rules で保存してください)。
 
 **Customize** を押すと、条件の編集画面が別ウィンドウで開きます(ウィンドウを開けない OBS ではパネル内)。

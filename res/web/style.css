@@ -1088,3 +1088,4 @@ select option:checked { background: #5c5230; color: #fff; }
 /* Region list: room for the selected plate's corner cursor, no sideways scrolling */
 #view-locations .loc-groups { overflow-x: hidden; padding: 7px; }
 .loc-narrow .loc-groups { overflow: visible; }
+.loc-menu-items > .tool { text-align: center; }
