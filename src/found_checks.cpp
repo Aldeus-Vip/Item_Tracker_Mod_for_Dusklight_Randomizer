@@ -12,6 +12,7 @@
 #include "d/d_bg_s_lin_chk.h"
 #include "d/d_com_inf_game.h"
 #include "f_op/f_op_actor_mng.h"
+#include "f_op/f_op_camera_mng.h"
 
 #include <cstdio>
 #include <cstring>
@@ -119,6 +120,13 @@ bool on_check_resolved(ModContext*, const ItemCheckInfo* info, ItemCheckResoluti
     return false;
 }
 
+// True when level or object collision lies between the two points.
+bool blocked(cXyz from, cXyz to, fopAc_ac_c* self) {
+    dBgS_LinChk line;
+    line.Set(&from, &to, self);
+    return dComIfG_Bgsp().LineCross(&line);
+}
+
 // "\t<hex>" with the item the check is drawn as, when the item service can tell.
 std::string display_suffix(const Watched& w) {
     if (!SERVICE_HAS(svc_item, ItemService, resolve_check_full)) return "";
@@ -144,12 +152,14 @@ void check_watched() {
         fopAc_ac_c* actor = fopAcM_SearchByID(w.actor);
         if (actor == nullptr) return true;  // collected or unloaded
         if (fopAcM_searchActorDistance(actor, link) > kSeeDistance) return false;
-        // Hidden from Link's eyes (under a boulder, behind a wall): not seen yet.
+        // Hidden (under a boulder, behind a wall): not seen yet. Seen means in sight from Link's
+        // eyes and from the camera: pressed into a boulder, Link's eyes are inside it and the
+        // line from them misses its surface, but the camera behind him is still outside.
         cXyz target = actor->current.pos;
         target.y += 20.0f;
-        dBgS_LinChk line;
-        line.Set(&link->eyePos, &target, link);
-        if (dComIfG_Bgsp().LineCross(&line)) return false;
+        if (blocked(link->eyePos, target, link)) return false;
+        camera_process_class* camera = dComIfGp_getCamera(0);
+        if (camera != nullptr && blocked(camera->view.lookat.eye, target, link)) return false;
         add("check:" + w.check + display_suffix(w));
         return true;
     });

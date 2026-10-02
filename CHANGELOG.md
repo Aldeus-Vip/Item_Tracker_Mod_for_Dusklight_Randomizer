@@ -19,7 +19,8 @@
 - Found items show as they look when only seen: "Small Key" for any small or field key, maps,
   compasses and big keys without their dungeon, and a foolish item as the item it is disguised as.
   Collecting it shows the real item.
-- An item is seen only when Link can see it, not under a boulder or behind a wall.
+- An item is seen only when it is in sight from both Link and the camera, not under a boulder or
+  behind a wall (even with Link pressed into the boulder).
 - Charlo's reward shows when you enter Castle Town West (he names it); the Castle Town arrow Goron
   shows with the Goron shop, where he is reached.
 - The Locations toolbar, region list and check list title stay in view while the list scrolls.
