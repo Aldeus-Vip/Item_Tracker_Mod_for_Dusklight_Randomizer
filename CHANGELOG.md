@@ -3,14 +3,18 @@
 ## 1.1.0 — 2026-10-02
 
 ### New
-- **Map tab**: every logic region by province, where Link is (the map follows him), the regions
-  next to each region (click to go there), its checks (click to open them in Locations), a
-  reachable mark per region with **All on / All off**, and a ★ mark and a note per region.
+- **Reachable Regions ▾**: the logic regions by province, each marked reachable or not, with
+  **All on / All off** per province.
 - **Sort** the check list by reachable first.
-- **Mark checked** by hand (✓): for checks you will not take; they count as done.
+- **Check off by hand**: click the marker left of a check you will not take; it shows the shop's
+  red sold-out cross and counts as done.
+- **Use Randomizer Logic for All** removes every custom requirement.
 
 ### Changed
-- Region reachable marks, checked marks and notes are kept with the game save, so every save and
+- The Locations toolbar is three rows: counts and Reachable Regions; Logic, Sort and **Req. ▾**
+  (was Rules: Export / Import / Load Preset Custom Requirements); Hide obtained, Show found items
+  and **Seed ▾** (the seed and Reload Data).
+- Region reachable marks and checked marks are kept with the game save, so every save and
   seed has its own (they used to be shared by all saves).
 - Found items show as they look when only seen: "Small Key" for any small or field key, maps,
   compasses and big keys without their dungeon, and a foolish item as the item it is disguised as.

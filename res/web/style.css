@@ -1018,26 +1018,8 @@ body.rule-window { margin: 0; min-height: 100vh; }
 .loc-modal .tool:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 /* Checks marked checked by hand */
-.loc-row.checked { opacity: 0.45; }
-.loc-row.checked .loc-name { text-decoration: line-through; }
-.loc-row.checked .loc-dot { background: var(--line); }
-.loc-mark {
-  flex: none;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1;
-  opacity: 0;
-  cursor: pointer;
-}
-.loc-row:hover .loc-mark, .loc-row.selected .loc-mark, .loc-mark.on { opacity: 1; }
-.loc-mark:hover { border-color: var(--gold); color: var(--text); }
-.loc-mark.on { border-color: var(--owned); color: var(--owned); }
+.loc-row.checked { color: var(--muted); }
+.loc-row.checked .loc-name, .loc-row.checked .loc-found { opacity: 0.55; text-decoration: line-through; }
 .loc-sort { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); white-space: nowrap; }
 .loc-sort select { background: var(--bar-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font: inherit; font-size: 12px; }
 
@@ -1069,91 +1051,40 @@ body.rule-window { margin: 0; min-height: 100vh; }
 select option { background: #16150d; color: #f6f0d4; }
 select option:checked { background: #5c5230; color: #fff; }
 
-/* ---- Map ---- */
-.map-toolbar {
-  position: sticky;
-  top: var(--bar-h, 0px);
-  z-index: 3;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  margin: -12px -12px 10px;
-  padding: 10px 12px 8px;
-  background: var(--bg);
+/* Locations toolbar: three rows, menus at the right end */
+#view-locations .loc-toolbar { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.loc-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.loc-bar-row > .loc-menu:last-child, .loc-bar-end { margin-left: auto; }
+.loc-bar-row .loc-note { flex-basis: auto; }
+.loc-menu-items { max-width: calc(100vw - 24px); }
+.loc-regions { max-height: min(60vh, 460px); overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 4px; min-width: 260px; }
+.loc-regions .loc-note { white-space: normal; max-width: 300px; margin: 0 0 6px; }
+.loc-regions-head { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--gold); font-weight: 700; }
+.loc-regions-head span:first-child { flex: 1; }
+.loc-region { padding-left: 6px; }
+.loc-seed select { max-width: min(260px, calc(100vw - 60px)); }
+
+/* The marker left of a check: click it to mark the check checked (the shop's sold-out cross) */
+.loc-dot.clickable { cursor: pointer; }
+.loc-dot { position: relative; }
+.loc-dot.clickable::after { content: ""; position: absolute; inset: -7px; }
+.loc-row.checked .loc-dot { background: none; box-shadow: none; }
+.loc-row.checked .loc-dot::before,
+.loc-row.checked .loc-dot::after {
+  content: "";
+  position: absolute;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: 17px;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(#ff6a52, #c8261a);
+  box-shadow: 0 0 0 1px #3a0804, 0 0 5px rgba(226, 59, 43, 0.75);
+  transform: translate(-50%, -50%) rotate(45deg);
 }
-.map-where { color: var(--muted); }
-.map-where b { color: var(--text); }
-.map-body { display: grid; grid-template-columns: minmax(200px, 280px) 1fr; gap: 14px; align-items: start; }
-.map-groups {
-  position: sticky;
-  top: calc(var(--bar-h, 0px) + 54px);
-  max-height: calc(100vh - var(--bar-h, 0px) - 64px);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-right: 4px;
-}
-.map-group-head { display: flex; align-items: center; gap: 6px; }
-.map-group-title {
-  flex: 1;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  color: var(--gold);
-  font: inherit;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  padding: 4px 2px;
-}
-.map-row { display: flex; align-items: center; gap: 6px; padding: 2px 4px 2px 8px; border: 1px solid transparent; border-radius: 4px; }
-.map-row.selected { border-color: var(--gold-dim); background: rgba(255, 255, 255, 0.04); }
-.map-row-name {
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 3px 0;
-}
-.map-link { color: #7ef08a; margin-right: 5px; }
-.map-node text.map-node-link { fill: #7ef08a; }
-.map-pin { color: var(--warn); margin-right: 5px; }
-.map-card { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-.map-here-tag { font-size: 12px; color: #7ef08a; }
-.map-diagram { width: 100%; max-height: 380px; }
-.map-edge { stroke: var(--gold-dim); stroke-width: 1.5; stroke-dasharray: 4 4; }
-.map-edge.on { stroke: var(--owned); stroke-dasharray: none; }
-.map-node rect { fill: var(--plate-bottom); stroke: var(--rim-lo); stroke-width: 1.5; }
-.map-node text { fill: var(--muted); font-size: 12px; font-weight: 700; }
-.map-node.on rect { stroke: var(--owned); }
-.map-node.on text { fill: var(--text); }
-.map-node:not(.center) { cursor: pointer; }
-.map-node:not(.center):hover rect, .map-node:focus-visible rect { stroke: var(--gold); }
-.map-node.center rect { fill: var(--sel-bottom); stroke: var(--gold); stroke-width: 2; }
-.map-node.center text { fill: var(--text); font-size: 13px; }
-.map-node.here rect { filter: drop-shadow(0 0 4px #7ef08a); }
-.map-actions { display: flex; flex-wrap: wrap; gap: 6px 16px; }
-.map-note {
-  width: 100%;
-  resize: vertical;
-  background: var(--bar-2);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 6px 8px;
-  font: inherit;
-}
-.map-checks-title { margin: 4px 0 0; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
-@media (max-width: 640px) {
-  .map-body { grid-template-columns: 1fr; }
-  .map-groups { position: static; max-height: none; }
-}
+.loc-row.checked .loc-dot::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+/* Region list: room for the selected plate's corner cursor, no sideways scrolling */
+#view-locations .loc-groups { overflow-x: hidden; padding: 7px; }
+.loc-narrow .loc-groups { overflow: visible; }

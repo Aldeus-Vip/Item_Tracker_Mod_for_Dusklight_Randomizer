@@ -24,8 +24,6 @@ a Browser Source. You don't need to install any separate application.
   - You can give any check your own requirement.
   - Turn the logic off when it doesn't fit your seed (e.g. entrance randomizer); the tab then
     shows only obtained and not obtained.
-- **Map**: the regions of the world, where Link is, which regions are marked reachable, and your
-  notes. Click a neighboring region to go there; the map follows Link as he moves.
 - **Icons from your game**: the mod builds item icons from your own game data while the game
   runs. The mod ships no game images.
 - **Fitted names**: long item names in the Items tab shrink to fit their tile.
@@ -63,14 +61,12 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | Select a check, **Ctrl+C**; select another, **Ctrl+V** | Copy a custom requirement to another check. A popup shows it first; OK has the focus, so **Enter** pastes and **Esc** cancels |
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
-| Locations | **Rules ▾** | Export or import your custom requirements as JSON, load the preset, pick the seed |
+| Locations | **Reachable Regions ▾** | The logic regions by province, each marked reachable or not (marked when Link enters it). Switch one, or a whole province with **All on / All off**. Used by Map entries of custom requirements; kept with the game save |
+| Locations | **Req. ▾** | **Export / Import Custom Requirements** as JSON, **Load Preset Custom Requirements**, or **Use Randomizer Logic for All** (removes every custom requirement) |
+| Locations | **Seed ▾** | Pick the seed whose spoiler log is used for found items; **Reload Data** reads the seeds and the logic data again |
 | Locations | **Show found items** | Off by default. Show what a found check held (see below). Nothing else of the seed is shown |
 | Locations | **Sort** | Game order, or reachable checks first |
-| Locations | **✓** on a check (or **Mark checked** in its panel) | Mark a check you will not take (a shop item not worth buying, an item you can see but not reach). It counts as done; kept with the game save |
-| Map | Click a region (list or diagram) | Show it with the regions next to it and its checks; click a check to open it in Locations |
-| Map | **Current position** | Back to the region Link is in. The map also switches by itself when Link enters another region |
-| Map | Check box / **All on** / **All off** | Mark regions reachable (used by Map entries of custom requirements) |
-| Map | **Mark ★** / note | Mark a region and write a note for it; kept with the game save |
+| Locations | Click the marker left of a check | Mark a check you will not take (a shop item not worth buying, an item you can see but not reach): it shows the shop's red sold-out cross and counts as done. Click again to undo; kept with the game save |
 
 ### Icon editor
 
@@ -107,7 +103,7 @@ SIL Open Font License 1.1 (`res/web/fonts/Nunito-OFL.txt`).
 ### Custom requirements
 
 The mod comes with preset custom requirements for 575 checks. A new install starts with them;
-**Rules ▾ > Load preset** loads them again, either replacing yours or only filling in the checks
+**Req. ▾ > Load Preset Custom Requirements** loads them again, either replacing yours or only filling in the checks
 you have not customized (export yours first to keep a copy).
 
 **Customize** opens the requirement editor in its own window (in OBS, where windows can't open,
@@ -133,7 +129,7 @@ it opens in the panel). The window closes when you press **Save**.
 | Portals | Gerudo Desert, Mirror Chamber, Snowpeak, Sacred Grove, Bridge of Eldin and Upper Zoras River portals | The portal is open in the game |
 | Time | Day, Night | The game's clock shows that time (night is 19:00–6:00) |
 | Rand Settings | On/off settings such as Faron Twilight Cleared or Open Door of Time | The setting is on. The three twilights are also read from your save, so a twilight you cleared counts |
-| Map Reachable | Regions of the randomizer logic (Faron Woods, North Eldin, …) | The region is marked reachable. It is marked when you enter it in the game; switch it in the Map tab or by clicking a Map entry in a check's requirement. Marks are kept with the game save, so each save (and seed) has its own |
+| Map Reachable | Regions of the randomizer logic (Faron Woods, North Eldin, …) | The region is marked reachable. It is marked when you enter it in the game; switch it in **Reachable Regions ▾** or by clicking a Map entry in a check's requirement. Marks are kept with the game save, so each save (and seed) has its own |
 
 ### Found items
 
@@ -155,7 +151,7 @@ Town Goron selling arrows shows with the Goron shop, where he is reached.
 The placements come from the seed's spoiler log in the randomizer's seeds folder, so the seed must
 have one. What you found is kept with your game save: it is saved when the game saves, and
 loading a save shows what was known at that save (quick saves are not supported). The save also
-remembers its seed; a new save uses the newest seed, or the one picked in **Rules ▾**.
+remembers its seed; a new save uses the newest seed, or the one picked in **Seed ▾**.
 
 ### OBS
 

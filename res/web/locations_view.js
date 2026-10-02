@@ -85,7 +85,6 @@ const el = (tag, props = {}, ...children) => {
  * @param options.saveOverrides (overrides) => Promise
  * @param options.getLogic      () => boolean, whether reachability is evaluated
  * @param options.saveLogic     (enabled) => Promise
- * @param options.onUpdate      () => void, after the checks were evaluated again (the Map tab redraws)
  * @param options.saveEntries   (lines) => Promise; changes the per-save "map:", "mark:" and "note:"
  *                              entries the mod keeps with the save (state.found.entries)
  * @param options.getLayoutSections () => the Items tab's sections ({ title, slots: [tile id] })
@@ -127,7 +126,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, onUpdate = () => {} }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -154,6 +153,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let highlightedGroup = null; // the one highlighted region (left or right click)
   let showChecks = false; // narrow layout: the check list of selectedGroup is open
   let sortReachable = false; // check list: reachable checks first
+  let openMenu = null; // toolbar menu kept open across redraws ("regions", "req", "seed")
+  let regionsScroll = 0; // scroll position of the Reachable regions menu
 
   // Per-save entries of one kind ("map", "mark"), from the mod's state.
   const entriesOf = (kind) => (state?.found?.entries ?? []).filter((e) => e.startsWith(`${kind}:`)).map((e) => e.slice(kind.length + 1));
@@ -550,6 +551,64 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       : [el("b", { textContent: String(c.remaining) }), " left"];
   }
 
+  // A toolbar drop-down that stays open across redraws (the state updates every few seconds).
+  function menu(id, label, title, ...items) {
+    const details = el("details", { className: "loc-menu", open: openMenu === id },
+      el("summary", { className: "tool", textContent: label, title }),
+      el("div", { className: "loc-menu-items" }, ...items));
+    details.addEventListener("toggle", () => {
+      if (details.open) openMenu = id;
+      else if (openMenu === id) openMenu = null;
+    });
+    return details;
+  }
+
+  // Reachable regions: the logic regions by province, each marked reachable or not. Kept with the
+  // game save; a region is marked when Link enters it. Map entries of custom requirements use them.
+  function regionsMenu() {
+    const on = new Set(getMapFlags());
+    const inGame = Boolean(state?.inGame);
+    const body = el("div", { className: "loc-regions" });
+    body.append(el("p", { className: "loc-note", textContent: inGame
+      ? "Marked when Link enters a region; kept with the game save. Used by Map entries of custom requirements."
+      : "Load a save file to mark regions (the marks are kept with the save)." }));
+    for (const g of mapGroups) {
+      const count = g.regions.filter((r) => on.has(r)).length;
+      const all = count === g.regions.length;
+      body.append(el("div", { className: "loc-regions-head" },
+        el("span", { textContent: g.title }),
+        el("span", { className: "loc-count", textContent: `${count} / ${g.regions.length}` }),
+        el("button", { type: "button", className: "tool rule-small", textContent: all ? "All off" : "All on", disabled: !inGame,
+          onclick: async () => {
+            await saveEntries(g.regions.filter((r) => on.has(r) === all).map((r) => (all ? `-map:${r}` : `map:${r}`)));
+            evaluate();
+            render();
+          } })));
+      for (const r of g.regions) {
+        body.append(el("label", { className: "loc-toggle loc-region" },
+          el("input", { type: "checkbox", checked: on.has(r), disabled: !inGame, onchange: () => toggleMap(r) }), ` ${r}`));
+      }
+    }
+    body.addEventListener("scroll", () => { regionsScroll = body.scrollTop; });
+    const details = menu("regions", "Reachable Regions ▾", "Map regions marked reachable", body);
+    queueMicrotask(() => { body.scrollTop = regionsScroll; });
+    return details;
+  }
+
+  // The marker left of a check. Clicking it marks a check you will not take (a shop item not worth
+  // buying, an item seen but out of reach) as checked: it then shows the shop's red sold-out cross.
+  function checkDot(name, r) {
+    const can = Boolean(state?.inGame) && r !== "obtained";
+    return el("span", {
+      className: "loc-dot" + (can ? " clickable" : ""),
+      title: !can ? "" : r === "checked" ? "Click: not checked any more" : "Click: mark as checked (kept with the game save)",
+      onclick: can ? (e) => {
+        e.stopPropagation();
+        toggleChecked(name);
+      } : null,
+    });
+  }
+
   function render() {
     const toolbar = el("div", { className: "loc-toolbar" });
     if (loadError) {
@@ -574,7 +633,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         await saveSeedView({ ...getSeedView(), show: e.target.checked });
         render();
       } }), " Show found items") : null;
-    const seedPicker = el("label", { className: "loc-seed", title: "Seed whose items are shown for found checks" }, "Seed ",
+    const seedPicker = el("label", { className: "loc-seed", title: "Seed whose items are shown for found checks" },
       seeds.length
         ? el("select", {
           onchange: async (e) => {
@@ -586,7 +645,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
             load();
           },
         }, ...seeds.map((s) => el("option", { value: s.hash, textContent: s.hash, selected: s.hash === seedHash })))
-        : el("span", { className: "loc-note", textContent: "no spoiler log found" }));
+        : el("span", { className: "loc-note", textContent: "No spoiler log found" }));
     const sort = el("label", { className: "loc-sort", title: "Order of the check list" }, "Sort ",
       el("select", {
         onchange: (e) => {
@@ -606,19 +665,22 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         render();
       },
     }, "Logic ", el("b", { textContent: logic ? "ON" : "OFF" }));
-    const menu = el("details", { className: "loc-menu" }, el("summary", { className: "tool", textContent: "Rules ▾" }),
-      el("div", { className: "loc-menu-items" },
-        el("button", { className: "tool", type: "button", textContent: "Export rules", onclick: exportOverrides }),
-        el("label", { className: "tool" }, "Import rules", el("input", { type: "file", accept: "application/json,.json", hidden: true, onchange: importOverrides })),
-        el("button", { className: "tool", type: "button", textContent: "Load preset", onclick: loadPreset }),
-        el("button", { className: "tool", type: "button", textContent: "Reload data", onclick: load }),
-        seedPicker));
+    const reqMenu = menu("req", "Req. ▾", "Custom requirements",
+      el("button", { className: "tool", type: "button", textContent: "Export Custom Requirements", onclick: exportOverrides }),
+      el("label", { className: "tool" }, "Import Custom Requirements", el("input", { type: "file", accept: "application/json,.json", hidden: true, onchange: importOverrides })),
+      el("button", { className: "tool", type: "button", textContent: "Load Preset Custom Requirements", onclick: loadPreset }),
+      el("button", { className: "tool", type: "button", textContent: "Use Randomizer Logic for All", onclick: clearOverrides }));
+    const seedMenu = menu("seed", "Seed ▾", "Seed and logic data", seedPicker,
+      el("button", { className: "tool", type: "button", textContent: "Reload Data", title: "Read the seeds' spoiler logs and the logic data again", onclick: load }));
     toolbar.append(
-      el("span", { className: "loc-summary" }, ...(logic
-        ? [el("b", { className: "reach", textContent: String(total.reachable) }), " reachable · "]
-        : [el("b", { textContent: String(total.obtained) }), " obtained · "]),
-      el("b", { textContent: String(total.remaining) }), " remaining"),
-      el("span", { className: "loc-actions" }, logicSwitch, sort, hide, found, menu),
+      el("div", { className: "loc-bar-row" },
+        el("span", { className: "loc-summary" }, ...(logic
+          ? [el("b", { className: "reach", textContent: String(total.reachable) }), " reachable · "]
+          : [el("b", { textContent: String(total.obtained) }), " obtained · "]),
+        el("b", { textContent: String(total.remaining) }), " remaining"),
+        regionsMenu()),
+      el("div", { className: "loc-bar-row" }, logicSwitch, sort, el("span", { className: "loc-bar-end" }, reqMenu)),
+      el("div", { className: "loc-bar-row" }, hide, found, el("span", { className: "loc-bar-end" }, seedMenu)),
     );
     if (settingsNote && logic) toolbar.append(el("span", { className: "loc-note", textContent: settingsNote }));
     if (!state) toolbar.append(el("span", { className: "loc-note", textContent: "Waiting for the game…" }));
@@ -676,22 +738,12 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
           setFocus(focused === loc.name ? null : loc.name);
           render();
         },
-      }, el("span", { className: "loc-dot" }), el("span", { className: "loc-name", textContent: loc.name }),
+      }, checkDot(loc.name, r), el("span", { className: "loc-name", textContent: loc.name }),
       (() => {
         const item = foundItem(loc);
         return item ? el("span", { className: "loc-found", textContent: item, title: `Holds: ${item}` }) : null;
       })(),
-      overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null,
-      r === "obtained" || !state?.inGame ? null : el("span", {
-        className: "loc-mark" + (r === "checked" ? " on" : ""),
-        role: "button",
-        title: r === "checked" ? "Unmark (kept with the game save)" : "Mark as checked: a check you will not take (kept with the game save)",
-        textContent: "✓",
-        onclick: (e) => {
-          e.stopPropagation();
-          toggleChecked(loc.name);
-        },
-      })));
+      overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null));
     }
     if (!list.childElementCount) list.append(el("p", { className: "empty", textContent: "Nothing left here." }));
 
@@ -703,7 +755,6 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const body = el("div", { className: "loc-body" + (showChecks ? " show-checks" : "") }, groups, checks);
     const searching = document.activeElement?.classList.contains("rule-search") && root.contains(document.activeElement);
     root.replaceChildren(toolbar, body);
-    onUpdate();
     toolbarSize.disconnect();
     toolbarSize.observe(toolbar);
     if (editing) root.append(renderDetail());
@@ -782,10 +833,6 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     panel.append(el("div", { className: "loc-detail-head" },
       el("h3", { textContent: name }),
       el("span", { className: `loc-status ${status}`, textContent: { obtained: "Obtained", checked: "Marked checked", reachable: "Reachable", blocked: "Not reachable", excluded: "Excluded", unknown: "Logic off" }[status] }),
-      status === "obtained" || !state?.inGame ? null : el("button", { className: "tool", type: "button",
-        textContent: status === "checked" ? "Unmark" : "Mark checked",
-        title: "A check you will not take (a shop item not worth buying, an item out of reach). Kept with the game save.",
-        onclick: () => toggleChecked(name) }),
       el("button", { className: "tool", type: "button", textContent: "Close", onclick: () => { closePopup(); editing = null; render(); } })));
 
     const req = el("div", { className: "loc-req" });
@@ -1227,7 +1274,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     box.append(el("div", { className: "rule-search-row" }, input), list);
     if (tab === "map") {
       box.append(el("p", { className: "loc-note" },
-        "ON/OFF: whether the region is marked reachable (kept with the game save). A region is marked when you enter it in the game; switch regions by hand in the Map tab or with a Map entry of a check's requirement. ",
+        "ON/OFF: whether the region is marked reachable (kept with the game save). A region is marked when you enter it in the game; switch them in Reachable Regions or with a Map entry of a check's requirement. ",
         el("button", { type: "button", className: "tool rule-small", textContent: "Unmark all", title: "For a new seed: clear every region mark",
           onclick: async () => {
             await saveEntries(getMapFlags().map((r) => `-map:${r}`));
@@ -1323,10 +1370,42 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     else pasteRequirement();
   });
 
+  // Drops every custom requirement: every check uses the randomizer logic again.
+  function clearOverrides(e) {
+    e.target.closest("details")?.removeAttribute("open");
+    openMenu = null;
+    const own = Object.keys(getOverrides()).length;
+    if (!own) return toast("Every check already uses the randomizer logic.");
+    const close = () => backdrop.remove();
+    const ok = el("button", { type: "button", className: "tool primary", textContent: "Use Randomizer Logic", onclick: async () => {
+      close();
+      await saveOverrides({});
+      evaluate();
+      render();
+      toast(`Removed ${own} custom requirements.`);
+    } });
+    const dialog = el("div", { className: "loc-modal", role: "dialog", ariaModal: "true", ariaLabel: "Use randomizer logic for all" },
+      el("h3", { textContent: "Use the randomizer logic for every check?" }),
+      el("p", { className: "loc-note", textContent: `This removes your ${own} custom requirements. Export them first (Export Custom Requirements) to keep a copy.` }),
+      el("div", { className: "loc-custom-actions" },
+        el("button", { type: "button", className: "tool", textContent: "Cancel", onclick: close }), ok));
+    const backdrop = el("div", { className: "loc-modal-backdrop", onclick: (ev) => { if (ev.target === backdrop) close(); } }, dialog);
+    backdrop.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        close();
+      }
+    });
+    document.body.append(backdrop);
+    // Cancel has the focus: Enter must not remove everything by accident.
+    dialog.querySelector(".tool").focus();
+  }
+
   // Custom requirements bundled with the mod: replace the current ones, or only fill in the checks
   // that have none.
   async function loadPreset(e) {
     e.target.closest("details")?.removeAttribute("open");
+    openMenu = null;
     let preset;
     try {
       preset = await getPresetOverrides();
@@ -1347,10 +1426,10 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     };
     const replace = el("button", { type: "button", className: "tool primary", textContent: "Replace all",
       onclick: apply(structuredClone(preset), `Loaded the preset (${presetCount} checks).`) });
-    const dialog = el("div", { className: "loc-modal", role: "dialog", ariaModal: "true", ariaLabel: "Load preset" },
-      el("h3", { textContent: "Load the preset rules?" }),
+    const dialog = el("div", { className: "loc-modal", role: "dialog", ariaModal: "true", ariaLabel: "Load preset custom requirements" },
+      el("h3", { textContent: "Load the preset custom requirements?" }),
       el("p", { className: "loc-note" }, `The preset has custom requirements for ${presetCount} checks. `,
-        own ? `You have ${own} of your own; export them first (Export rules) to keep a copy.` : "You have none of your own yet."),
+        own ? `You have ${own} of your own; export them first (Export Custom Requirements) to keep a copy.` : "You have none of your own yet."),
       el("div", { className: "loc-custom-actions" },
         el("button", { type: "button", className: "tool", textContent: "Cancel", onclick: close }),
         own ? el("button", { type: "button", className: "tool", textContent: `Only add missing (${missing})`, disabled: !missing,
@@ -1405,22 +1484,6 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     refresh() {
       evaluate();
       render();
-    },
-    // For the Map tab: the logic data, what each check's state is, and the region marks.
-    mapData() {
-      return world ? { world, mapGroups, locations, results, roomRegion, mapFlags: getMapFlags() } : null;
-    },
-    toggleMap,
-    // Shows one check: its region's list, highlighted, with its requirement open.
-    showCheck(name) {
-      const loc = locations.find((l) => l.name === name);
-      if (!loc) return;
-      selectedGroup = loc.group;
-      highlightedGroup = loc.group;
-      showChecks = true;
-      setFocus(name);
-      openDetail(name);
-      root.querySelector(".loc-row.selected")?.scrollIntoView({ block: "center" });
     },
   };
 }

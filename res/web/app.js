@@ -1,6 +1,5 @@
 import { BUG_SCREEN_ORDER, GOLDEN_BUGS, bugIcon, COLUMNS, DEFAULT_LAYOUT, DUNGEON_EXTRAS, DUNGEON_ICONS, GAME_ICON_BACKGROUNDS, GAME_ICON_IDS, GAME_ICON_TINTS, TILES, normalizeLayout } from "./layout.js";
 import { createLocationsView, normalizeOverrides } from "./locations_view.js";
-import { createMapView } from "./map_view.js";
 
 const PROTOCOL_VERSION = 1;
 const params = new URLSearchParams(location.search);
@@ -20,9 +19,7 @@ const views = {
   items: document.getElementById("view-items"),
   dungeons: document.getElementById("view-dungeons"),
   locations: document.getElementById("view-locations"),
-  map: document.getElementById("view-map"),
 };
-let mapView = null; // created with the Locations view, which it reads
 
 let state = null;          // last state from the mod
 let lastRendered = {};     // tile id -> signature, to flash changed tiles
@@ -41,7 +38,6 @@ function showView(name) {
   }
   editButton.hidden = name !== "items" || editing;
   if (name === "items") fitCaptions(views.items);
-  if (name === "map") mapView?.render();
   try { localStorage.setItem("tracker.view", name); } catch {}
 }
 
@@ -547,7 +543,7 @@ async function saveSettings() {
   }
 }
 
-// Custom requirements bundled with the mod (Rules > Load preset). A new install, whose settings
+// Custom requirements bundled with the mod (Req. > Load Preset Custom Requirements). A new install, whose settings
 // have never held custom requirements, starts with them.
 async function fetchPresetOverrides() {
   const res = await fetch("preset-rules.json", { cache: "no-store" });
@@ -893,21 +889,6 @@ const locationsView = createLocationsView(views.locations, {
   makeIcon: (name, itemId) => iconImg(name, "", null, itemId),
   saveEntries,
   setStatus,
-  onUpdate: () => mapView?.render(),
-});
-
-// ---- Map view ----
-
-mapView = createMapView(views.map, {
-  getData: () => locationsView.mapData(),
-  getState: () => state,
-  toggleMap: (region) => locationsView.toggleMap(region),
-  saveEntries,
-  showCheck: (name) => {
-    showView("locations");
-    locationsView.showCheck(name);
-  },
-  refresh: () => locationsView.refresh(),
 });
 let locationsLoaded = false;
 
