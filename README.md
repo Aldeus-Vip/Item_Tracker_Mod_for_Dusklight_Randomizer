@@ -66,7 +66,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | **Seed ▾** | Pick the seed whose spoiler log is used for found items; **Reload Data** reads the seeds and the logic data again |
 | Locations | **Show found items** | Off by default. Show what a found check held (see below). Nothing else of the seed is shown |
 | Locations | **Sort** | Game order, or reachable checks first |
-| Locations | Click the marker left of a check | Mark a check you will not take (a shop item not worth buying, an item you can see but not reach): it shows the shop's red sold-out cross and counts as done. Click again to undo; kept with the game save |
+| Locations | Click the marker left of a check | Mark a check you will not take (a shop item not worth buying, an item you can see but not reach): it shows a sold-out sign and counts as done. Click again to undo; kept with the game save |
 
 ### Icon editor
 
@@ -143,9 +143,10 @@ With **Show found items** on, a check shows what it holds once you have found it
 | A shop | You entered the shop |
 | An NPC | Charlo names his reward when you enter Castle Town West |
 
-What you only saw is shown as it looks, as in the game: any small key (and the field keys, which
-look the same) shows as "Small Key", maps, compasses and big keys without their dungeon, and a
-foolish item as the item it is disguised as. Once you collect it, the real item shows. The Castle
+An item you only saw lying around is shown as it looks: any small key (and the field keys, which
+look the same) shows as "Small Key", maps, compasses and big keys without their dungeon. Shops,
+hints and Charlo name the item, so those show it. A foolish item shows as the item it is disguised
+as wherever you found it, until you collect it. The Castle
 Town Goron selling arrows shows with the Goron shop, where he is reached.
 
 The placements come from the seed's spoiler log in the randomizer's seeds folder, so the seed must

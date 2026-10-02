@@ -6,8 +6,8 @@
 - **Reachable Regions ▾**: the logic regions by province, each marked reachable or not, with
   **All on / All off** per province.
 - **Sort** the check list by reachable first.
-- **Check off by hand**: click the marker left of a check you will not take; it shows the shop's
-  red sold-out cross and counts as done.
+- **Check off by hand**: click the marker left of a check you will not take; it shows a sold-out
+  sign and counts as done.
 - **Use Randomizer Logic for All** removes every custom requirement.
 
 ### Changed
@@ -16,9 +16,10 @@
   Reload Data); Sort, Hide obtained and Show found items.
 - Region reachable marks and checked marks are kept with the game save, so every save and
   seed has its own (they used to be shared by all saves).
-- Found items show as they look when only seen: "Small Key" for any small or field key, maps,
-  compasses and big keys without their dungeon, and a foolish item as the item it is disguised as.
-  Collecting it shows the real item.
+- Found items lying around show as they look: "Small Key" for any small or field key, maps,
+  compasses and big keys without their dungeon (shops, hints and Charlo name the item). A foolish
+  item shows as the item it is disguised as until collected, wherever it was found.
+- Turning Logic off sets Sort back to game order.
 - An item is seen only when it is in sight from both Link and the camera, not under a boulder or
   behind a wall (even with Link pressed into the boulder).
 - Charlo's reward shows when you enter Castle Town West (he names it); the Castle Town arrow Goron

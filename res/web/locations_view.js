@@ -97,9 +97,10 @@ const el = (tag, props = {}, ...children) => {
 // Below this width the region list and the check list are shown one at a time.
 const NARROW_WIDTH = 560;
 
-// Found items are shown as the player would know them. An item seen lying around or in a shop
-// shows what it looks like: every small key (and the field keys, which share its model) is just a
-// small key, a foolish item looks like the real item the randomizer disguised it as.
+// Found items are shown as the player would know them. An item only seen lying around shows what it
+// looks like: every small key (and the field keys, which share its model) is just a small key.
+// Shops, hints and NPCs name the item. A foolish item looks like the real item the randomizer
+// disguised it as until it is collected.
 const LOOKS_LIKE = [
   [/Small Key$|^(Gerudo Desert Bulblin Camp Key|North Faron Woods Gate Key|Gate Keys|Faron Woods Coro Key)$/, "Small Key"],
   [/Big Key$/, "Big Key"],
@@ -325,21 +326,32 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     if (results.get(loc.name) === "obtained") return item;
     const info = foundLocations().get(loc.name);
     if (!info) return null;
-    if (info.told) return item;
+    // A foolish item keeps its disguise until collected, wherever it was found (a shop or a hint
+    // too): that is the joke.
     if (item === "Foolish Item") {
       const look = info.look !== undefined ? itemById.get(info.look) : foolishModel(loc);
       return look && look !== "Foolish Item" ? look : item;
     }
-    return LOOKS_LIKE.find(([re]) => re.test(item))?.[1] ?? item;
+    // Shops, hints and NPCs name the item; only an item seen lying around is just its model.
+    if (info.seen && !info.told && !info.shop) return LOOKS_LIKE.find(([re]) => re.test(item))?.[1] ?? item;
+    return item;
   }
 
-  // The randomizer's check name of a freestanding item or shop slot.
+  // The randomizer's check name (mods/items.h prefixes) of a check, for the kinds whose metadata
+  // gives it.
   function checkName(loc) {
     const first = (v) => (Array.isArray(v) ? v[0] : v);
-    const f = first(loc.metadata["Freestanding Item"]);
+    const m = loc.metadata;
+    const f = first(m["Freestanding Item"]);
     if (f) return `freestanding:${STAGE_NAMES[f.Stage]}:${Number(f.Flag)}`;
-    const shop = first(loc.metadata.Shop);
+    const shop = first(m.Shop);
     if (shop) return `shop:${STAGE_NAMES[shop.Stage]}:${Number(shop.Room)}:${Number(shop.Item)}`;
+    const chest = first(m.Chest);
+    if (chest) return `chest:${STAGE_NAMES[chest.Stage]}:${Number(chest["Tbox Id"])}`;
+    const poe = first(m.Poe);
+    if (poe) return `poe:${STAGE_NAMES[poe.Stage]}:${Number(poe.Flag)}`;
+    const wolf = first(m["Golden Wolf"]);
+    if (wolf) return `golden_wolf:${Number(wolf.Flag)}`;
     return null;
   }
 
@@ -366,7 +378,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       const colon = entry.indexOf(":");
       const kind = entry.slice(0, colon);
       const value = entry.slice(colon + 1);
-      if (kind === "loc") add(value, {});
+      if (kind === "loc") add(value, { shop: true });
       else if (kind === "told") add(value, { told: true });
       else if (kind === "hint") {
         // The hint names the location as its text calls it; match the location list by name.
@@ -375,7 +387,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         if (name) add(name, { told: true });
       } else if (kind === "check") {
         const [check, look] = value.split("\t");
-        for (const name of checkLocations(check)) add(name, look ? { look: parseInt(look, 16) } : {});
+        for (const name of checkLocations(check)) add(name, look ? { seen: true, look: parseInt(look, 16) } : { seen: true });
       }
     }
     foundCache = { key, map };
@@ -635,6 +647,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       return;
     }
     const logic = getLogic();
+    // Logic off (also when switched off on another page): back to game order.
+    if (!logic && sortReachable) {
+      sortReachable = false;
+      remember("tracker.locSort", null);
+    }
     const total = counts(null);
     const hide = el("label", { className: "loc-toggle" },
       el("input", { type: "checkbox", checked: hideObtained, onchange: (e) => {
@@ -660,8 +677,9 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
           },
         }, ...seeds.map((s) => el("option", { value: s.hash, textContent: s.hash, selected: s.hash === seedHash })))
         : el("span", { className: "loc-note", textContent: "No spoiler log found" }));
-    const sort = el("label", { className: "loc-sort", title: "Order of the check list" }, "Sort ",
+    const sort = el("label", { className: "loc-sort", title: logic ? "Order of the check list" : "Turn Logic on to sort by reachable" }, "Sort ",
       el("select", {
+        disabled: !logic,
         onchange: (e) => {
           sortReachable = e.target.value === "reachable";
           remember("tracker.locSort", sortReachable ? "reachable" : null);
@@ -684,7 +702,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       el("label", { className: "tool" }, "Import Custom Requirements", el("input", { type: "file", accept: "application/json,.json", hidden: true, onchange: importOverrides })),
       el("button", { className: "tool", type: "button", textContent: "Load Preset Custom Requirements", onclick: loadPreset }),
       el("button", { className: "tool", type: "button", textContent: "Use Randomizer Logic for All", onclick: clearOverrides }));
-    const seedMenu = menu("seed", "Seed ▾", "Seed and logic data", seedPicker,
+    const seedMenu = menu("seed", "Seed ▾", "Seed used to show found items", seedPicker,
       el("button", { className: "tool", type: "button", textContent: "Reload Data", title: "Read the seeds' spoiler logs and the logic data again", onclick: load }));
     toolbar.append(
       el("div", { className: "loc-bar-row" },

@@ -1064,26 +1064,19 @@ select option:checked { background: #5c5230; color: #fff; }
 .loc-region { padding-left: 6px; }
 .loc-seed select { max-width: min(260px, calc(100vw - 60px)); }
 
-/* The marker left of a check: click it to mark the check checked (the shop's sold-out cross) */
+/* The marker left of a check: click it to mark the check checked (the shop's sold-out sign) */
 .loc-dot.clickable { cursor: pointer; }
 .loc-dot { position: relative; }
 .loc-dot.clickable::after { content: ""; position: absolute; inset: -7px; }
-.loc-row.checked .loc-dot { background: none; box-shadow: none; }
-.loc-row.checked .loc-dot::before,
-.loc-row.checked .loc-dot::after {
-  content: "";
-  position: absolute;
-  inset: auto;
-  left: 50%;
-  top: 50%;
-  width: 17px;
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(#ff6a52, #c8261a);
-  box-shadow: 0 0 0 1px #3a0804, 0 0 5px rgba(226, 59, 43, 0.75);
-  transform: translate(-50%, -50%) rotate(45deg);
+.loc-row.checked .loc-dot {
+  width: 20px;
+  height: 20px;
+  margin: -3px;
+  border: 0;
+  background: url("art/ui/sold-out.svg") center / 100% 100% no-repeat;
+  box-shadow: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
 }
-.loc-row.checked .loc-dot::after { transform: translate(-50%, -50%) rotate(-45deg); }
 
 /* Region list: room for the selected plate's corner cursor, no sideways scrolling */
 #view-locations .loc-groups { overflow-x: hidden; padding: 7px; }

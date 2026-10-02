@@ -448,7 +448,7 @@ table.dungeons .mark.on { color: var(--owned); }
   font-weight: 700;
 }
 
-/* Checked by hand: the red sold-out cross instead of the bullseye */
-.loc-row.checked .loc-dot { background: none; box-shadow: none; }
+/* Checked by hand: the shop's sold-out sign instead of the bullseye */
+.loc-row.checked .loc-dot { background: url("art/ui/sold-out.svg") center / 100% 100% no-repeat; box-shadow: none; }
 .loc-dot.clickable:hover { filter: brightness(1.3) drop-shadow(0 0 3px var(--tp-gold)); }
 .loc-regions-head { color: var(--tp-gold); text-shadow: var(--tp-outline); }
