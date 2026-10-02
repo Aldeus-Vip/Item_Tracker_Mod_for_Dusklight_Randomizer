@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <!-- Sold-out sign: a small wooden board on two legs with a painted cross (original art) -->
+  <!-- Sold-out sign: a small wooden board on two legs with a brush-painted cross (original art) -->
   <defs>
     <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ecbb76"/>
@@ -14,9 +14,13 @@
   <rect x="2" y="2" width="2.2" height="16" fill="#7c6a55" opacity="0.85"/>
   <rect x="19.8" y="2" width="2.2" height="16" fill="#7c6a55" opacity="0.85"/>
   <g fill="#d9cdb4"><circle cx="3.1" cy="4.5" r="0.6"/><circle cx="3.1" cy="10" r="0.6"/><circle cx="3.1" cy="15.5" r="0.6"/><circle cx="20.9" cy="4.5" r="0.6"/><circle cx="20.9" cy="10" r="0.6"/><circle cx="20.9" cy="15.5" r="0.6"/></g>
-  <g fill="none" stroke-linecap="round">
-    <path d="M7 5.2C9.6 8 12.4 11 16.8 15" stroke="#6e2a12" stroke-width="2.6"/>
-    <path d="M17 4.8C13.6 8.4 10.8 11.4 7.4 15.4" stroke="#6e2a12" stroke-width="2.4"/>
-    <path d="M7.6 5.8C10 8.4 12.6 11 16.2 14.4M16.4 5.4C13.4 8.6 10.8 11.4 8 14.8" stroke="#9a3e1c" stroke-width="0.9" opacity="0.7"/>
+  <!-- Painted cross: each brush stroke is heavy at its right end and sweeps out thin to the left -->
+  <g fill="#6e2a12" stroke="#4a1808" stroke-width="0.3" stroke-linejoin="round">
+    <path d="M5.6 4.4C9.4 7.6 13.6 11 17.6 13.6C18.7 14.4 18.6 15.9 17.5 16.4C16.7 16.8 15.9 16.4 15.4 15.8C12 12.4 8.8 8.6 5.6 4.4Z"/>
+    <path d="M15.9 3.8C16.9 3.2 18.3 3.5 18.6 4.6C18.9 5.5 18.4 6.2 17.6 6.8C13.8 10 10.2 13.2 5.8 16.7C9.2 12.6 12.4 8.2 15.9 3.8Z"/>
+  </g>
+  <g fill="none" stroke="#a5481f" stroke-linecap="round" opacity="0.65">
+    <path d="M8.4 7.3C11.4 9.9 14.2 12.4 16.8 14.6" stroke-width="0.7"/>
+    <path d="M17.1 5.1C14 7.8 11.4 10.4 8.6 13.4" stroke-width="0.6"/>
   </g>
 </svg>
