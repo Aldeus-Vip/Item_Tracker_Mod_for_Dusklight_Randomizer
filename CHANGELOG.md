@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.0 — 2026-10-02
+
+### New
+- **Map tab**: every logic region by province, where Link is (the map follows him), the regions
+  next to each region (click to go there), its checks (click to open them in Locations), a
+  reachable mark per region with **All on / All off**, and a ★ mark and a note per region.
+- **Sort** the check list by reachable first.
+- **Mark checked** by hand (✓): for checks you will not take; they count as done.
+
+### Changed
+- Region reachable marks, checked marks and notes are kept with the game save, so every save and
+  seed has its own (they used to be shared by all saves).
+- Found items show as they look when only seen: "Small Key" for any small or field key, maps,
+  compasses and big keys without their dungeon, and a foolish item as the item it is disguised as.
+  Collecting it shows the real item.
+- An item is seen only when Link can see it, not under a boulder or behind a wall.
+- Charlo's reward shows when you enter Castle Town West (he names it); the Castle Town arrow Goron
+  shows with the Goron shop, where he is reached.
+- The Locations toolbar, region list and check list title stay in view while the list scrolls.
+- Drop-down lists use the page colors.
+
 ## 1.0.0 — 2026-09-30
 
 First release.

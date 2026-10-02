@@ -1,5 +1,6 @@
 import { BUG_SCREEN_ORDER, GOLDEN_BUGS, bugIcon, COLUMNS, DEFAULT_LAYOUT, DUNGEON_EXTRAS, DUNGEON_ICONS, GAME_ICON_BACKGROUNDS, GAME_ICON_IDS, GAME_ICON_TINTS, TILES, normalizeLayout } from "./layout.js";
 import { createLocationsView, normalizeOverrides } from "./locations_view.js";
+import { createMapView } from "./map_view.js";
 
 const PROTOCOL_VERSION = 1;
 const params = new URLSearchParams(location.search);
@@ -19,7 +20,9 @@ const views = {
   items: document.getElementById("view-items"),
   dungeons: document.getElementById("view-dungeons"),
   locations: document.getElementById("view-locations"),
+  map: document.getElementById("view-map"),
 };
+let mapView = null; // created with the Locations view, which it reads
 
 let state = null;          // last state from the mod
 let lastRendered = {};     // tile id -> signature, to flash changed tiles
@@ -38,6 +41,7 @@ function showView(name) {
   }
   editButton.hidden = name !== "items" || editing;
   if (name === "items") fitCaptions(views.items);
+  if (name === "map") mapView?.render();
   try { localStorage.setItem("tracker.view", name); } catch {}
 }
 
@@ -466,7 +470,6 @@ const DEFAULT_SETTINGS = {
   background: { enabled: false, fit: "cover", dim: 0.35, rev: 0 },
   logicOverrides: {}, // custom per-check requirements (Locations tab)
   logic: true, // Locations tab evaluates reachability
-  mapReachable: [], // logic regions marked reachable (on entry or by hand; Map entries of custom requirements)
   // Found items in the Locations tab: seed picked in Rules (null = the save's seed, else the
   // newest) and whether found items are shown (off unless turned on). What was found is kept
   // with the game's save by the mod.
@@ -491,9 +494,6 @@ function normalizeSettings(raw) {
   }
   out.logicOverrides = normalizeOverrides(raw?.logicOverrides);
   out.logic = raw?.logic !== false;
-  out.mapReachable = Array.isArray(raw?.mapReachable)
-    ? [...new Set(raw.mapReachable.filter((r) => typeof r === "string" && r.length <= 64))].slice(0, 200)
-    : [];
   const sv = raw?.seedView;
   if (sv && typeof sv === "object") {
     out.seedView.hash = typeof sv.hash === "string" && sv.hash.length <= 100 ? sv.hash : null;
@@ -891,14 +891,50 @@ const locationsView = createLocationsView(views.locations, {
   },
   getLayoutSections: () => savedLayout.sections,
   makeIcon: (name, itemId) => iconImg(name, "", null, itemId),
-  getMapFlags: () => settings.mapReachable,
-  saveMapFlags: async (regions) => {
-    settings.mapReachable = regions;
-    await saveSettings();
-  },
+  saveEntries,
   setStatus,
+  onUpdate: () => mapView?.render(),
+});
+
+// ---- Map view ----
+
+mapView = createMapView(views.map, {
+  getData: () => locationsView.mapData(),
+  getState: () => state,
+  toggleMap: (region) => locationsView.toggleMap(region),
+  saveEntries,
+  showCheck: (name) => {
+    showView("locations");
+    locationsView.showCheck(name);
+  },
+  refresh: () => locationsView.refresh(),
 });
 let locationsLoaded = false;
+
+// Height of the sticky header bar, for the sticky parts of the views below it.
+new ResizeObserver(([entry]) => document.documentElement.style.setProperty("--bar-h", `${entry.target.offsetHeight}px`))
+  .observe(document.querySelector(".bar"));
+
+// ---- Per-save marks ----
+// Regions marked reachable, checks marked checked by hand and notes are kept by the mod with the
+// game save, next to the found items (docs/protocol.md): "map:<region>", "mark:<location>",
+// "note:<key>\t<text>". Lines starting with "-" remove an entry; a note replaces its key's note.
+// The change shows at once; the mod's next state confirms it.
+function saveEntries(lines) {
+  if (!state?.inGame || !state.found || !lines.length) return Promise.resolve();
+  let entries = state.found.entries;
+  const drop = (key) => (entries = entries.filter((e) => e !== key && !e.startsWith(`${key}\t`)));
+  for (const line of lines) {
+    if (line.startsWith("-")) drop(line.slice(1));
+    else if (line.startsWith("note:")) {
+      const tab = line.indexOf("\t");
+      drop(line.slice(0, tab));
+      if (tab + 1 < line.length) entries = [...entries, line];
+    } else if (!entries.includes(line)) entries = [...entries, line];
+  }
+  state.found = { ...state.found, entries };
+  return fetch("found", { method: "POST", headers: { "Content-Type": "text/plain" }, body: lines.join("\n") }).catch(() => {});
+}
 
 // ---- State ----
 

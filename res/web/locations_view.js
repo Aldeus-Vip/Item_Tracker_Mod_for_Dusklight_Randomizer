@@ -85,8 +85,9 @@ const el = (tag, props = {}, ...children) => {
  * @param options.saveOverrides (overrides) => Promise
  * @param options.getLogic      () => boolean, whether reachability is evaluated
  * @param options.saveLogic     (enabled) => Promise
- * @param options.getMapFlags   () => [region], the regions marked reachable by hand
- * @param options.saveMapFlags  ([region]) => Promise
+ * @param options.onUpdate      () => void, after the checks were evaluated again (the Map tab redraws)
+ * @param options.saveEntries   (lines) => Promise; changes the per-save "map:", "mark:" and "note:"
+ *                              entries the mod keeps with the save (state.found.entries)
  * @param options.getLayoutSections () => the Items tab's sections ({ title, slots: [tile id] })
  * @param options.makeIcon      (icon name, game item id?) => <img> drawn as in the Items tab
  * @param options.getSeedView   () => { hash, show }: seed picked in Rules (null = the save's seed,
@@ -97,10 +98,40 @@ const el = (tag, props = {}, ...children) => {
 // Below this width the region list and the check list are shown one at a time.
 const NARROW_WIDTH = 560;
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, getMapFlags, saveMapFlags, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus }) {
+// Found items are shown as the player would know them. An item seen lying around or in a shop
+// shows what it looks like: every small key (and the field keys, which share its model) is just a
+// small key, a foolish item looks like the real item the randomizer disguised it as.
+const LOOKS_LIKE = [
+  [/Small Key$|^(Gerudo Desert Bulblin Camp Key|North Faron Woods Gate Key|Gate Keys|Faron Woods Coro Key)$/, "Small Key"],
+  [/Big Key$/, "Big Key"],
+  [/Compass$/, "Compass"],
+  [/Dungeon Map$/, "Dungeon Map"],
+  [/Key Shard$/, "Key Shard"],
+];
+// The models a foolish item can wear (randomizer_getRandomFoolishItemModelID), as item ids.
+const FOOLISH_MODELS = [0x30, 0x3f, 0x2a, 0x2c, 0x32, 0x4a, 0x3e, 0x40, 0x41, 0x42, 0x43, 0x46, 0x44, 0x45, 0x4b, 0x50, 0xe9];
+// Rooms where an NPC names a check's item before it is given (stage index, room).
+const TOLD_ON_ENTER = [{ loc: "Charlo Donation Blessing", stage: 53, room: 2 }];
+// Shop slots shown with another room of the same shop: the Castle Town Goron selling arrows stands
+// in the central square, but is only reached from the Goron shop.
+const SHOP_ROOM = { "Castle Town Goron Shop Arrow Refill": { Stage: 73, Room: 4 } };
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, i) => {
+  let c = i;
+  for (let j = 0; j < 8; j++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+function crc32(bytes, previous = 0) {
+  let crc = ~previous >>> 0;
+  for (const b of bytes) crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ b) & 0xff];
+  return ~crc >>> 0;
+}
+
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, onUpdate = () => {} }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
+  let itemById = new Map(); // item id -> name (items.yaml)
   let itemMax = new Map(); // item -> how many the item pool holds (the vanilla placement count)
   let mapGroups = []; // [{ title: province, regions }] in the order of the randomizer's world files
   let randoFlags = [];
@@ -113,7 +144,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let settingsNote = "";
   let loadError = "";
   let state = null;
-  let results = new Map(); // location -> "obtained" | "reachable" | "blocked" | "excluded" | "unknown"
+  let results = new Map(); // location -> "obtained" | "checked" (by hand) | "reachable" | "blocked" | "excluded" | "unknown"
   let search = null; // last finished logic search
   let selectedGroup = REGION_GROUPS[0].name;
   let hideObtained = false;
@@ -122,15 +153,24 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let focused = null; // highlighted check (left click, or right click to toggle)
   let highlightedGroup = null; // the one highlighted region (left or right click)
   let showChecks = false; // narrow layout: the check list of selectedGroup is open
+  let sortReachable = false; // check list: reachable checks first
+
+  // Per-save entries of one kind ("map", "mark"), from the mod's state.
+  const entriesOf = (kind) => (state?.found?.entries ?? []).filter((e) => e.startsWith(`${kind}:`)).map((e) => e.slice(kind.length + 1));
+  const getMapFlags = () => entriesOf("map");
+  const markedChecked = () => new Set(entriesOf("mark"));
 
   new ResizeObserver(() => root.classList.toggle("loc-narrow", root.clientWidth > 0 && root.clientWidth < NARROW_WIDTH))
     .observe(root);
+  // Height of the sticky toolbar, for the sticky region list and check list title below it.
+  const toolbarSize = new ResizeObserver(([entry]) => root.style.setProperty("--loc-toolbar-h", `${entry.target.offsetHeight}px`));
 
   try {
     hideObtained = localStorage.getItem("tracker.hideObtained") === "1";
     selectedGroup = localStorage.getItem("tracker.locGroup") || selectedGroup;
     focused = localStorage.getItem("tracker.locFocus") || null;
     highlightedGroup = localStorage.getItem("tracker.locMark") || null;
+    sortReachable = localStorage.getItem("tracker.locSort") === "reachable";
   } catch {}
 
   // ---- Data ----
@@ -189,6 +229,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       if (world.errors.length) console.warn("logic parse errors", world.errors);
       locations = buildLocationList(data["locations.yaml"], world.settings);
       excluded = new Set(settings["Excluded Locations"] ?? []);
+      itemById = new Map((data["items.yaml"] ?? []).filter((i) => i?.Name && i.Id !== undefined).map((i) => [Number(i.Id), i.Name]));
       pickableItems = (data["items.yaml"] ?? [])
         .filter((i) => i?.Name && i.Importance !== "Junk")
         .map((i) => i.Name)
@@ -274,38 +315,70 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     return { placements, settings };
   }
 
-  // Item placed at a check, when the player has found it: obtained it, read it in a hint, saw it
-  // lying near Link, or entered its shop.
+  // What a found check holds, as the player knows it: the item itself once obtained, named in a
+  // hint or by an NPC; what it looks like when only seen (lying around or in a shop).
   function foundItem(loc) {
     if (!spoiler || !getSeedView().show) return null;
-    const seen = results.get(loc.name) === "obtained" || foundLocations().has(loc.name);
-    return seen ? spoiler.placements.get(loc.name) ?? null : null;
+    const item = spoiler.placements.get(loc.name);
+    if (!item) return null;
+    if (results.get(loc.name) === "obtained") return item;
+    const info = foundLocations().get(loc.name);
+    if (!info) return null;
+    if (info.told) return item;
+    if (item === "Foolish Item") {
+      const look = info.look !== undefined ? itemById.get(info.look) : foolishModel(loc);
+      return look && look !== "Foolish Item" ? look : item;
+    }
+    return LOOKS_LIKE.find(([re]) => re.test(item))?.[1] ?? item;
   }
 
-  // Locations of the mod's found entries ("loc:", "hint:", "check:"), cached per entry list.
-  let foundCache = { key: null, set: new Set() };
+  // The randomizer's check name of a freestanding item or shop slot.
+  function checkName(loc) {
+    const first = (v) => (Array.isArray(v) ? v[0] : v);
+    const f = first(loc.metadata["Freestanding Item"]);
+    if (f) return `freestanding:${STAGE_NAMES[f.Stage]}:${Number(f.Flag)}`;
+    const shop = first(loc.metadata.Shop);
+    if (shop) return `shop:${STAGE_NAMES[shop.Stage]}:${Number(shop.Room)}:${Number(shop.Item)}`;
+    return null;
+  }
+
+  // The real item a foolish item is disguised as: picked from the seed hash and the check name.
+  function foolishModel(loc) {
+    const name = checkName(loc);
+    if (!name || !seedHash) return null;
+    const enc = new TextEncoder();
+    const hash = crc32(enc.encode(name), crc32([0], crc32(enc.encode(seedHash))));
+    return itemById.get(FOOLISH_MODELS[hash % FOOLISH_MODELS.length]) ?? null;
+  }
+
+  // Found checks from the mod's entries: location -> { told: item named, look: item id it looks
+  // like (when the mod could tell) }, cached per entry list.
+  let foundCache = { key: null, map: new Map() };
   function foundLocations() {
     const entries = state?.found?.entries ?? [];
     const key = entries.join("\n");
-    if (foundCache.key === key) return foundCache.set;
-    const set = new Set();
+    if (foundCache.key === key) return foundCache.map;
+    const map = new Map();
     const lower = new Map(locations.map((l) => [l.name.toLowerCase(), l.name]));
+    const add = (name, info) => map.set(name, { ...map.get(name), ...info, told: map.get(name)?.told || info.told });
     for (const entry of entries) {
       const colon = entry.indexOf(":");
       const kind = entry.slice(0, colon);
       const value = entry.slice(colon + 1);
-      if (kind === "loc") set.add(value);
+      if (kind === "loc") add(value, {});
+      else if (kind === "told") add(value, { told: true });
       else if (kind === "hint") {
         // The hint names the location as its text calls it; match the location list by name.
         const v = value.toLowerCase();
         const name = lower.get(v) ?? (v.length >= 8 ? locations.find((l) => l.name.toLowerCase().includes(v))?.name : undefined);
-        if (name) set.add(name);
+        if (name) add(name, { told: true });
       } else if (kind === "check") {
-        for (const name of checkLocations(value)) set.add(name);
+        const [check, look] = value.split("\t");
+        for (const name of checkLocations(check)) add(name, look ? { look: parseInt(look, 16) } : {});
       }
     }
-    foundCache = { key, set };
-    return set;
+    foundCache = { key, map };
+    return map;
   }
 
   // Item check names ("freestanding:<stage>:<bit>", "boss:<stage>") -> locations, from their metadata.
@@ -321,17 +394,20 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     return out;
   }
 
-  // Entering a shop's room shows what each of its slots holds.
+  // Entering a shop's room shows what each of its slots holds; entering some rooms has an NPC
+  // name a check's item.
   function markSeenShops() {
     if (!spoiler || !state?.inGame) return;
-    const known = new Set((state.found?.entries ?? []).filter((e) => e.startsWith("loc:")).map((e) => e.slice(4)));
+    const known = new Set(state.found?.entries ?? []);
+    const here = (s) => STAGE_NAMES[s?.Stage] === state.stage && Number(s?.Room) === state.room;
     const added = [];
     for (const loc of locations) {
-      const shop = loc.metadata.Shop;
+      const shop = SHOP_ROOM[loc.name] ?? loc.metadata.Shop;
       const entries = Array.isArray(shop) ? shop : shop ? [shop] : [];
-      if (!known.has(loc.name) && entries.some((s) => STAGE_NAMES[s?.Stage] === state.stage && s?.Room === state.room)) {
-        added.push(`loc:${loc.name}`);
-      }
+      if (!known.has(`loc:${loc.name}`) && entries.some(here)) added.push(`loc:${loc.name}`);
+    }
+    for (const t of TOLD_ON_ENTER) {
+      if (!known.has(`told:${t.loc}`) && here({ Stage: t.stage, Room: t.room })) added.push(`told:${t.loc}`);
     }
     if (added.length) sendFound(added);
   }
@@ -371,8 +447,10 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const reader = new FlagReader(state.flags);
     if (!getLogic()) {
       // Logic off: only obtained / not obtained (e.g. entrance randomizer seeds).
+      const marked = markedChecked();
       for (const loc of locations) {
         if (reader.ok && isObtained(loc, reader)) results.set(loc.name, "obtained");
+        else if (marked.has(loc.name)) results.set(loc.name, "checked");
         else results.set(loc.name, excluded.has(loc.name) ? "excluded" : "unknown");
       }
       return;
@@ -380,8 +458,10 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const inv = itemsFromState(state);
     search = new Search(world, inv).run();
     const overrides = getOverrides();
+    const marked = markedChecked();
     for (const loc of locations) {
       if (reader.ok && isObtained(loc, reader)) results.set(loc.name, "obtained");
+      else if (marked.has(loc.name)) results.set(loc.name, "checked");
       else if (excluded.has(loc.name)) results.set(loc.name, "excluded");
       else {
         const custom = overrides[loc.name];
@@ -427,7 +507,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const region = roomRegion(state.stage, state.room);
     if (!region || region === lastRegion) return;
     lastRegion = region;
-    if (!getMapFlags().includes(region)) saveMapFlags([...getMapFlags(), region].sort()).then(() => { evaluate(); render(); });
+    if (!getMapFlags().includes(region)) saveEntries([`map:${region}`]).then(() => { evaluate(); render(); });
   }
 
   function entryMet(entry) {
@@ -435,10 +515,14 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   }
 
   async function toggleMap(region) {
-    const on = new Set(getMapFlags());
-    if (on.has(region)) on.delete(region);
-    else on.add(region);
-    await saveMapFlags([...on].sort());
+    await saveEntries([getMapFlags().includes(region) ? `-map:${region}` : `map:${region}`]);
+    evaluate();
+    render();
+  }
+
+  // A check marked checked by hand (a shop item not worth buying, an item seen but out of reach).
+  async function toggleChecked(name) {
+    await saveEntries([markedChecked().has(name) ? `-mark:${name}` : `mark:${name}`]);
     evaluate();
     render();
   }
@@ -503,6 +587,15 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
           },
         }, ...seeds.map((s) => el("option", { value: s.hash, textContent: s.hash, selected: s.hash === seedHash })))
         : el("span", { className: "loc-note", textContent: "no spoiler log found" }));
+    const sort = el("label", { className: "loc-sort", title: "Order of the check list" }, "Sort ",
+      el("select", {
+        onchange: (e) => {
+          sortReachable = e.target.value === "reachable";
+          remember("tracker.locSort", sortReachable ? "reachable" : null);
+          render();
+        },
+      }, el("option", { value: "game", textContent: "Game order", selected: !sortReachable }),
+      el("option", { value: "reachable", textContent: "Reachable first", selected: sortReachable })));
     const logicSwitch = el("button", {
       type: "button",
       className: "tool loc-logic-switch" + (logic ? " on" : ""),
@@ -525,7 +618,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         ? [el("b", { className: "reach", textContent: String(total.reachable) }), " reachable · "]
         : [el("b", { textContent: String(total.obtained) }), " obtained · "]),
       el("b", { textContent: String(total.remaining) }), " remaining"),
-      el("span", { className: "loc-actions" }, logicSwitch, hide, found, menu),
+      el("span", { className: "loc-actions" }, logicSwitch, sort, hide, found, menu),
     );
     if (settingsNote && logic) toolbar.append(el("span", { className: "loc-note", textContent: settingsNote }));
     if (!state) toolbar.append(el("span", { className: "loc-note", textContent: "Waiting for the game…" }));
@@ -558,13 +651,20 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
 
     const overrides = getOverrides();
     const list = el("div", { className: "loc-list" });
-    for (const loc of locations.filter((l) => l.group === selectedGroup)) {
+    let shown = locations.filter((l) => l.group === selectedGroup);
+    if (sortReachable) {
+      // Stable: reachable first, then not yet known, blocked, excluded, done.
+      const rank = { reachable: 0, unknown: 1, blocked: 2, excluded: 3, checked: 4, obtained: 5 };
+      shown = shown.map((l, i) => [l, i]).sort(([a, i], [b, j]) =>
+        (rank[results.get(a.name)] ?? 1) - (rank[results.get(b.name)] ?? 1) || i - j).map(([l]) => l);
+    }
+    for (const loc of shown) {
       const r = results.get(loc.name) ?? "unknown";
-      if (hideObtained && r === "obtained") continue;
+      if (hideObtained && (r === "obtained" || r === "checked")) continue;
       list.append(el("button", {
         type: "button",
         className: `loc-row plate ${r}` + (loc.name === focused ? " selected" : ""),
-        title: { obtained: "Obtained", reachable: "Reachable now", blocked: "Not reachable yet", excluded: "Excluded location", unknown: "Not obtained" }[r],
+        title: { obtained: "Obtained", checked: "Marked as checked", reachable: "Reachable now", blocked: "Not reachable yet", excluded: "Excluded location", unknown: "Not obtained" }[r],
         // Left click highlights the check and opens its requirement.
         onclick: () => {
           setFocus(loc.name);
@@ -581,7 +681,17 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         const item = foundItem(loc);
         return item ? el("span", { className: "loc-found", textContent: item, title: `Holds: ${item}` }) : null;
       })(),
-      overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null));
+      overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null,
+      r === "obtained" || !state?.inGame ? null : el("span", {
+        className: "loc-mark" + (r === "checked" ? " on" : ""),
+        role: "button",
+        title: r === "checked" ? "Unmark (kept with the game save)" : "Mark as checked: a check you will not take (kept with the game save)",
+        textContent: "✓",
+        onclick: (e) => {
+          e.stopPropagation();
+          toggleChecked(loc.name);
+        },
+      })));
     }
     if (!list.childElementCount) list.append(el("p", { className: "empty", textContent: "Nothing left here." }));
 
@@ -593,6 +703,9 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const body = el("div", { className: "loc-body" + (showChecks ? " show-checks" : "") }, groups, checks);
     const searching = document.activeElement?.classList.contains("rule-search") && root.contains(document.activeElement);
     root.replaceChildren(toolbar, body);
+    onUpdate();
+    toolbarSize.disconnect();
+    toolbarSize.observe(toolbar);
     if (editing) root.append(renderDetail());
     if (searching) root.querySelector(".rule-search")?.focus();
   }
@@ -668,7 +781,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const panel = el("div", { className: "loc-detail" });
     panel.append(el("div", { className: "loc-detail-head" },
       el("h3", { textContent: name }),
-      el("span", { className: `loc-status ${status}`, textContent: { obtained: "Obtained", reachable: "Reachable", blocked: "Not reachable", excluded: "Excluded", unknown: "Logic off" }[status] }),
+      el("span", { className: `loc-status ${status}`, textContent: { obtained: "Obtained", checked: "Marked checked", reachable: "Reachable", blocked: "Not reachable", excluded: "Excluded", unknown: "Logic off" }[status] }),
+      status === "obtained" || !state?.inGame ? null : el("button", { className: "tool", type: "button",
+        textContent: status === "checked" ? "Unmark" : "Mark checked",
+        title: "A check you will not take (a shop item not worth buying, an item out of reach). Kept with the game save.",
+        onclick: () => toggleChecked(name) }),
       el("button", { className: "tool", type: "button", textContent: "Close", onclick: () => { closePopup(); editing = null; render(); } })));
 
     const req = el("div", { className: "loc-req" });
@@ -1110,10 +1227,10 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     box.append(el("div", { className: "rule-search-row" }, input), list);
     if (tab === "map") {
       box.append(el("p", { className: "loc-note" },
-        "ON/OFF: whether the region is marked reachable. A region is marked when you enter it in the game; click a Map entry in a check's requirement to switch it by hand. ",
+        "ON/OFF: whether the region is marked reachable (kept with the game save). A region is marked when you enter it in the game; switch regions by hand in the Map tab or with a Map entry of a check's requirement. ",
         el("button", { type: "button", className: "tool rule-small", textContent: "Unmark all", title: "For a new seed: clear every region mark",
           onclick: async () => {
-            await saveMapFlags([]);
+            await saveEntries(getMapFlags().map((r) => `-map:${r}`));
             lastRegion = null;
             evaluate();
             render();
@@ -1274,6 +1391,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   return {
     load,
     setState(next) {
+      // Another save (or the title screen): its marks are its own.
+      if (!next?.inGame || next.found?.seed !== state?.found?.seed) lastRegion = null;
       state = next;
       markCurrentRegion();
       markSeenShops();
@@ -1286,6 +1405,22 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     refresh() {
       evaluate();
       render();
+    },
+    // For the Map tab: the logic data, what each check's state is, and the region marks.
+    mapData() {
+      return world ? { world, mapGroups, locations, results, roomRegion, mapFlags: getMapFlags() } : null;
+    },
+    toggleMap,
+    // Shows one check: its region's list, highlighted, with its requirement open.
+    showCheck(name) {
+      const loc = locations.find((l) => l.name === name);
+      if (!loc) return;
+      selectedGroup = loc.group;
+      highlightedGroup = loc.group;
+      showChecks = true;
+      setFocus(name);
+      openDetail(name);
+      root.querySelector(".loc-row.selected")?.scrollIntoView({ block: "center" });
     },
   };
 }

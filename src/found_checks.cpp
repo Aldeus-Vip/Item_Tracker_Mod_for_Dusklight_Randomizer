@@ -9,9 +9,11 @@
 #include <mods/svc/save.h>
 
 #include "JSystem/JMessage/control.h"
+#include "d/d_bg_s_lin_chk.h"
 #include "d/d_com_inf_game.h"
 #include "f_op/f_op_actor_mng.h"
 
+#include <cstdio>
 #include <cstring>
 #include <set>
 #include <string>
@@ -23,7 +25,8 @@ namespace {
 
 // Save blob: "seed\t<hash>\n" then one entry per line.
 constexpr const char* kBlobName = "found";
-constexpr size_t kMaxEntries = 2000;
+constexpr size_t kMaxEntries = 3000;
+constexpr size_t kMaxEntryBytes = 600;
 // A freestanding item counts as seen once Link is this close (game units, about centimeters).
 constexpr float kSeeDistance = 1500.0f;
 
@@ -34,13 +37,29 @@ std::string g_seed;               // seed hash the page is showing for this save
 struct Watched {
     std::string check;
     fpc_ProcID actor;
+    uint8_t vanillaItem;
 };
 std::vector<Watched> g_watched;
 std::string g_watchedStage;
 
 void add(std::string entry) {
-    if (entry.empty() || entry.size() > 200 || g_entries.size() >= kMaxEntries) return;
+    if (entry.empty() || entry.size() > kMaxEntryBytes || g_entries.size() >= kMaxEntries) return;
     g_entries.insert(std::move(entry));
+}
+
+// Removes every entry that is `key` or starts with `key` + tab (an entry with a value).
+void remove(const std::string& key) {
+    std::erase_if(g_entries, [&](const std::string& e) {
+        return e == key || (e.size() > key.size() && e.starts_with(key) && e[key.size()] == '\t');
+    });
+}
+
+// "check:<name>" entries also carry the item the check looks like ("\t<hex item>"), which is not
+// the item for foolish items (they look like a real item) and keys (all small keys look alike).
+bool has_check(const std::string& name) {
+    const std::string key = "check:" + name;
+    const auto it = g_entries.lower_bound(key);
+    return it != g_entries.end() && (*it == key || (it->starts_with(key) && (*it)[key.size()] == '\t'));
 }
 
 // ---- Save data ----
@@ -91,14 +110,25 @@ bool on_check_resolved(ModContext*, const ItemCheckInfo* info, ItemCheckResoluti
     if (info == nullptr || info->name == nullptr || info->giver_actor == nullptr) return false;
     const std::string_view name{info->name};
     if (!name.starts_with(ITEM_CHECK_FREESTANDING_PREFIX) && !name.starts_with(ITEM_CHECK_BOSS_PREFIX)) return false;
-    const std::string entry = "check:" + std::string{name};
-    if (g_entries.contains(entry)) return false;
+    if (has_check(std::string{name})) return false;
     const fpc_ProcID id = fopAcM_GetID(info->giver_actor);
     for (const Watched& w : g_watched) {
         if (w.actor == id) return false;
     }
-    g_watched.push_back({std::string{name}, id});
+    g_watched.push_back({std::string{name}, id, info->vanilla_item});
     return false;
+}
+
+// "\t<hex>" with the item the check is drawn as, when the item service can tell.
+std::string display_suffix(const Watched& w) {
+    if (!SERVICE_HAS(svc_item, ItemService, resolve_check_full)) return "";
+    ItemCheckResolution res{};
+    res.display_item = 0xFF;
+    if (svc_item->resolve_check_full(mod_ctx, w.check.c_str(), w.vanillaItem, &res) != MOD_OK) return "";
+    const uint8_t shown = res.display_item != 0xFF ? res.display_item : res.item;
+    char hex[8];
+    std::snprintf(hex, sizeof hex, "\t%02x", shown);
+    return hex;
 }
 
 void check_watched() {
@@ -114,7 +144,13 @@ void check_watched() {
         fopAc_ac_c* actor = fopAcM_SearchByID(w.actor);
         if (actor == nullptr) return true;  // collected or unloaded
         if (fopAcM_searchActorDistance(actor, link) > kSeeDistance) return false;
-        add("check:" + w.check);
+        // Hidden from Link's eyes (under a boulder, behind a wall): not seen yet.
+        cXyz target = actor->current.pos;
+        target.y += 20.0f;
+        dBgS_LinChk line;
+        line.Set(&link->eyePos, &target, link);
+        if (dComIfG_Bgsp().LineCross(&line)) return false;
+        add("check:" + w.check + display_suffix(w));
         return true;
     });
 }
@@ -206,8 +242,20 @@ void add_from_page(const std::string& body) {
         if (first && line.starts_with("seed\t")) {
             std::string seed = line.substr(5);
             if (seed.size() <= 100) g_seed = std::move(seed);
-        } else if (line.starts_with("loc:")) {
+        } else if (line.starts_with("-")) {
+            // Removal: "-<kind>:<key>" (map, mark and note entries are the page's to change).
+            const std::string key = line.substr(1);
+            if (key.starts_with("map:") || key.starts_with("mark:") || key.starts_with("note:")) remove(key);
+        } else if (line.starts_with("loc:") || line.starts_with("told:") || line.starts_with("map:") ||
+                   line.starts_with("mark:")) {
             add(std::move(line));
+        } else if (line.starts_with("note:")) {
+            // "note:<key>\t<text>" replaces the note of that key.
+            const size_t tab = line.find('\t');
+            if (tab != std::string::npos) {
+                remove(line.substr(0, tab));
+                if (tab + 1 < line.size()) add(std::move(line));
+            }
         }
         first = false;
     }

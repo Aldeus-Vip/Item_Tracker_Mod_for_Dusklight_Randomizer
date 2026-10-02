@@ -23,7 +23,7 @@ the mod's panel). Only loopback clients can connect, and requests whose `Host` h
 | GET | `/rando-settings.yaml` | The randomizer's current `settings.yaml` (404 if the randomizer never saved one) |
 | GET | `/rando-seeds/` | The randomizer's generated seeds, newest first: `[{"hash": "Epona Lantern Goron", "spoiler": true}]` |
 | GET | `/rando-seeds/<hash>` | That seed's spoiler log (text). The page shows only placements of checks the player has found |
-| POST | `/found` | `text/plain`: `seed\t<hash>` then `loc:<location>` lines. Kept with the game save (see `found` in the state) |
+| POST | `/found` | `text/plain`: an optional first line `seed\t<hash>`, then entry lines: `loc:<location>` (shop seen), `told:<location>` (an NPC named the item), `map:<region>` (marked reachable), `mark:<location>` (marked checked), `note:<key>\t<text>` (replaces that key's note), or `-map:…` / `-mark:…` / `-note:<key>` to remove one. Kept with the game save (see `found` in the state) |
 
 Writes are accepted only from the tracker page's own origin (or without `Origin`, e.g. curl) and
 only with `Content-Type: application/json` (layout, settings) or `image/*` (background). These
@@ -54,7 +54,9 @@ data: {"protocol":1,"inGame":true,...}
   "bugsGiven": ["Male Ant"], // golden bugs given to Agitha
   "found": {              // found without collecting, kept with the save: seed hash and entries
     "seed": "Epona Lantern Goron",
-    "entries": ["hint:Ordon Sword", "check:freestanding:F_SP103:128", "loc:Sera Shop Slingshot"]
+    // check: a seen item, with the item id it looks like (hex) when known
+    "entries": ["hint:Ordon Sword", "check:freestanding:F_SP103:128\t43", "loc:Sera Shop Slingshot",
+                "map:Ordon", "mark:Sera Shop Slingshot", "note:region/Ordon\tPortal leads to Kakariko"]
   },
   "items": {              // counts, keyed by randomizer logic item names
     "Progressive Sword": 1,         // 0-4: Wooden, Ordon, Master, Light

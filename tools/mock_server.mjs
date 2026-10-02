@@ -109,7 +109,7 @@ const script = [
   () => state.found.entries.push("hint:Ordon Sword"), // read a hint sign
   () => Object.assign(state.items, { "Male Ant": 1, "Female Beetle": 1, "Golden Bug": 2 }),
   () => (state.bugsGiven = ["Male Ant"]),
-  () => state.found.entries.push("check:freestanding:F_SP103:128"), // walked past Ordon Bo Cliff Rupee
+  () => state.found.entries.push("check:freestanding:F_SP103:128\t43"), // walked past Ordon Bo Cliff Rupee (looks like a bow)
   () => Object.assign(state, { stage: "R_SP01", room: 1 }), // Sera's shop
   () => Object.assign(state, { stage: "F_SP108", room: 0 }), // South Faron Woods
   () => (state.items["North Faron Woods Gate Key"] = 1),
@@ -186,7 +186,18 @@ createServer(async (req, res) => {
     for await (const chunk of req) body += chunk;
     for (const [i, line] of body.split("\n").entries()) {
       if (i === 0 && line.startsWith("seed\t")) state.found.seed = line.slice(5);
-      else if (line.startsWith("loc:") && !state.found.entries.includes(line)) state.found.entries.push(line);
+      else if (line.startsWith("-")) {
+        // Same rules as the mod (src/found_checks.cpp): page entries can be removed...
+        const key = line.slice(1);
+        if (/^(map|mark|note):/.test(key)) state.found.entries = state.found.entries.filter((e) => e !== key && !e.startsWith(key + "\t"));
+      } else if (line.startsWith("note:")) {
+        // ...and a note replaces the note of its key.
+        const tab = line.indexOf("\t");
+        if (tab < 0) continue;
+        const key = line.slice(0, tab);
+        state.found.entries = state.found.entries.filter((e) => !e.startsWith(key + "\t"));
+        if (tab + 1 < line.length) state.found.entries.push(line);
+      } else if (/^(loc|told|map|mark):/.test(line) && !state.found.entries.includes(line)) state.found.entries.push(line);
     }
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end('{"ok":true}');
