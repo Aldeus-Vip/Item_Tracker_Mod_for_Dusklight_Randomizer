@@ -1271,3 +1271,10 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-check-note { margin: 0; font-size: 12px; color: var(--muted); }
 .map-follow { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .map-follow:hover { color: var(--text); }
+/* Province and Hyrule views: dark, with the place (or province) under the cursor lit, as on the
+   game's map screen */
+.map-svg.field-select .map-shapes { filter: none; }
+.map-area { filter: brightness(0.42) saturate(0.55); transition: filter 0.15s; cursor: none; }
+.map-area.lit { filter: brightness(1.15) drop-shadow(0 0 4px rgba(150, 255, 220, 0.75)) drop-shadow(0 0 14px rgba(110, 240, 200, 0.35)); }
+.map-svg.field-select .map-outlines { opacity: 0.35; pointer-events: none; }
+.map-caption { display: block; min-height: 1.4em; text-align: center; font-weight: 700; color: var(--gold); letter-spacing: 0.04em; }

@@ -109,7 +109,8 @@ struct DoorInfo {
     float rawZ = 0;
     BE(Vec) pos;
     int angle = 0;
-    // "boss" (big key door), "key" (small key lock), "stop" (bars until a switch), "door".
+    // "boss" (big key door), "key" (small key lock), "stop" (bars until a switch), "switch" (a
+    // heavy door shut until a mechanism sets its switch), "door".
     const char* kind = "door";
     // 'L' locked, 'U' unlocked, 'C' barred, 'O' open, '?' unknown.
     char state = 'O';
@@ -144,6 +145,22 @@ DoorInfo door_info(const stage_tgsc_data_class& d, bool stageDoor, const std::ve
         out.kind = "key";
         const int s = switch_state(sw, out.front);
         out.state = s < 0 ? '?' : s == 0 ? 'L' : 'U';
+    } else if (std::strncmp(out.name, "L", 1) == 0 && std::strstr(out.name, "door") != nullptr &&
+               ((frontOpt == 0 && sw != 0xFF) || (backOpt == 0 && sw2 != 0xFF))) {
+        // The dungeons' heavy doors (L1Mdoor..., L5door, L7door: daMBdoorL1_c) also stay shut on a
+        // plain switch (checkFrontSw / checkBackSw): a mechanism in the room opens them.
+        out.kind = "switch";
+        bool known = false;
+        bool closed = false;
+        if (frontOpt == 0 && sw != 0xFF) {
+            const int s = switch_state(sw, out.front);
+            if (s >= 0) { known = true; closed = closed || s == 0; }
+        }
+        if (backOpt == 0 && sw2 != 0xFF) {
+            const int s = switch_state(sw2, out.back);
+            if (s >= 0) { known = true; closed = closed || s == 0; }
+        }
+        out.state = !known ? '?' : closed ? 'C' : 'O';
     } else {
         const bool stop = frontOpt == 1 || frontOpt == 3 || backOpt == 1 || backOpt == 3;
         if (stop) {
@@ -263,25 +280,34 @@ void parse_room(const std::string& stage, int roomNo, const u8* b, u32 size) {
     if (chunks > 256 || (size != 0 && 4 + chunks * 12 > size)) return;
     for (u32 c = 0; c < chunks; c++) {
         const u8* node = b + 4 + c * 12;
-        const bool actors = std::memcmp(node, "ACT", 3) == 0 || std::memcmp(node, "TRE", 3) == 0;
-        if (!actors) continue;
+        // Actors (ACTR, TRES and their layers ACT0.., TRE0..: 0x20 bytes each) and scaled objects
+        // (SCOB, TGSC, SCO0..: 0x24 bytes).
+        u32 stride = 0;
+        if (std::memcmp(node, "ACT", 3) == 0 || std::memcmp(node, "TRE", 3) == 0 || std::memcmp(node, "TGOB", 4) == 0) stride = 0x20;
+        else if (std::memcmp(node, "SCO", 3) == 0 || std::memcmp(node, "TGSC", 4) == 0) stride = 0x24;
+        if (stride == 0) continue;
         const u32 num = be32(node + 4);
         const u8* data = chunk_data(b, node);
         if (num > 1024) continue;
-        if (size != 0 && (data < b || data + num * 0x20 > b + size)) continue;
+        if (size != 0 && (data < b || data + num * stride > b + size)) continue;
         for (u32 i = 0; i < num; i++) {
-            const u8* e = data + i * 0x20;
+            const u8* e = data + i * stride;
             char name[9] = {};
             std::memcpy(name, e, 8);
             const u32 prm = be32(e + 8);
             char key[64] = {};
-            if (std::strncmp(name, "tbox", 4) == 0) {
+            // As the actors name their checks (item_give_tag_* in d_a_tbox, d_a_tbox2, d_a_obj_item,
+            // d_a_obj_life_container, d_a_obj_smallkey, d_a_e_hp, d_a_e_po).
+            if (std::strncmp(name, "tboxEL", 6) == 0) {
+                std::snprintf(key, sizeof(key), "chest:%s:%u", stage.c_str(), (prm >> 16) & 0xFF);
+            } else if (std::strncmp(name, "tbox", 4) == 0) {
                 std::snprintf(key, sizeof(key), "chest:%s:%u", stage.c_str(), (prm >> 6) & 0x3F);
-            } else if (std::strcmp(name, "item") == 0 || std::strcmp(name, "witem") == 0) {
+            } else if (std::strcmp(name, "item") == 0 || std::strcmp(name, "witem") == 0 || std::strcmp(name, "htPiece") == 0 ||
+                       std::strcmp(name, "htCase") == 0 || std::strcmp(name, "itemKey") == 0) {
                 const u32 bit = (prm >> 8) & 0xFF;
                 if (bit == 0xFF) continue;
                 std::snprintf(key, sizeof(key), "freestanding:%s:%u", stage.c_str(), bit);
-            } else if (std::strcmp(name, "E_hp") == 0) {
+            } else if (std::strcmp(name, "E_hp") == 0 || std::strcmp(name, "E_po") == 0) {
                 const u32 sw = (prm >> 8) & 0xFF;
                 if (sw == 0xFF) continue;
                 std::snprintf(key, sizeof(key), "poe:%s:%u", stage.c_str(), sw);
@@ -302,6 +328,10 @@ void parse_room(const std::string& stage, int roomNo, const u8* b, u32 size) {
 // (room.dzr), the stage archive (room<n>.dzs, stages whose rooms are all in it), or the field map
 // archive (<stage>/room<n>.dzs). Returns whether one was found.
 bool scan_room(const std::string& stage, int roomNo) {
+    // The stage's own file (actors placed for the whole stage) goes with room 0's turn, as room -1.
+    if (roomNo == 0) {
+        if (void* dzs = dComIfG_getStageRes("stage.dzs")) parse_room(stage, -1, static_cast<const u8*>(dzs), 0);
+    }
     if (void* dzr = dComIfG_getStageRes(dComIfG_getRoomArcName(roomNo), "room.dzr")) {
         parse_room(stage, roomNo, static_cast<const u8*>(dzr), 0);
         return true;

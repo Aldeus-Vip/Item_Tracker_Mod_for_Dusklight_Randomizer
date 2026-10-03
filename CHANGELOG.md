@@ -20,17 +20,24 @@
 - Map: zoom out of an overworld map to see its whole province, and once more for all of Hyrule,
   as on the game's map screen (the places you have been, read from the game's field map data);
   click to zoom back in.
-- **Checks on the map**: chests, items lying around and poes are placed where they are in the
+- **Checks on the map**: chests, items lying around (heart pieces, small keys too) and poes are placed where they are in the
   stage (read from the game's room files, also from rooms as they load), with the marker of the check list (reachable, not
   reachable, checked, ...). Boxes above the map choose which statuses are shown. Click a check
   for its requirement under the map; right-click to show it in Checks. With Checks + Map, a
   click shows it in the check list next to the map.
+- Province and Hyrule views look like the game's map screen: dark, with the place (or province)
+  under the cursor lit and named under the map. They are framed on the whole province (or
+  Hyrule), also where Link has not been. Clicking another place of a province opens its map (zoom
+  in and out on it; zooming out goes back to the province).
+- The map says how many of a place's checks were found in its rooms, and names the others on
+  hover.
 - When the overworld map cannot be shown yet, zooming out says why (still being read, or what
   went wrong).
 - Dungeon maps show the doors as the game does (white squares), a silver padlock on locked doors
   (a heavier one on the big key door, grayed out once opened), a "no entry" sign on barred doors,
   and the boss icon from the Dungeons tab in the boss's room. Doors update a few times a second,
-  including bars that drop behind Link until a room is cleared; hover a door for what the mod
+  including bars that drop behind Link until a room is cleared and the heavy doors that stay shut
+  until a mechanism in the room opens them (Snowpeak Ruins); hover a door for what the mod
   knows about it. Pits and rooms not yet opened are
   black, as in the game.
 
