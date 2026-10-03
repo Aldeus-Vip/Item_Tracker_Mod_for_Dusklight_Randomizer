@@ -6,6 +6,14 @@
 - **Map** in Locations (sub-tabs Checks / Map / Checks + Map): the map of the stage Link is in,
   drawn from the game's own map data, with Link's position and facing, following him between
   rooms and floors. Overworld maps are teal, dungeon maps green with the room Link is in glowing.
+- Dungeon maps on a worn parchment, with the dungeon's small keys, big key (or key shards), map
+  and compass in item frames, and floor buttons with Link's or the wolf's face beside his floor;
+  the overworld on a dark hand-drawn map (original art). The icons can be changed by right click.
+
+### Changed
+- Locations sub-tabs look like tabs (streaked plates), not like the other buttons.
+- Dungeons tab: the Goron Mines key shard icon can be changed for every stage (1/3, 2/3, 3/3) in
+  the icon editor, not only the one shown.
 
 ## 1.1.0 — 2026-10-02
 

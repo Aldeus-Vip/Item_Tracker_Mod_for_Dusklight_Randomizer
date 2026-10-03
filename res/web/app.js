@@ -783,18 +783,24 @@ async function openTextureBrowser(onPick) {
   draw();
 }
 
-for (const view of [views.items, views.dungeons]) {
-  view.addEventListener("contextmenu", (e) => {
-    const target = e.target.closest("[data-icon]");
-    if (!target) return;
-    e.preventDefault();
-    const variants = [...(TILES[target.dataset.tile]?.variants ?? [])];
-    if (!variants.some((v) => v.icon === target.dataset.icon)) {
-      variants.unshift({ icon: target.dataset.icon, label: target.dataset.iconLabel || target.dataset.icon, item: target.dataset.iconItem });
-    }
-    openIconEditor(target.dataset.icon, target.dataset.iconLabel || target.dataset.icon, target.dataset.iconItem, variants);
-  });
+// Icons that come in stages, editable whichever stage is shown: picked in the editor's dropdown.
+const ICON_SETS = {
+  keyShards: DUNGEON_ICONS.keyShards.map((icon, i) => ({ icon, label: `Key Shards ${i + 1}/3` })),
+};
+
+// Right click on an icon (data-icon) opens the icon editor.
+function onIconContextMenu(e) {
+  const target = e.target.closest("[data-icon]");
+  if (!target) return;
+  e.preventDefault();
+  const variants = [...(ICON_SETS[target.dataset.iconSet] ?? TILES[target.dataset.tile]?.variants ?? [])];
+  if (!variants.some((v) => v.icon === target.dataset.icon)) {
+    variants.unshift({ icon: target.dataset.icon, label: target.dataset.iconLabel || target.dataset.icon, item: target.dataset.iconItem });
+  }
+  const shown = variants.find((v) => v.icon === target.dataset.icon);
+  openIconEditor(target.dataset.icon, shown?.label || target.dataset.iconLabel || target.dataset.icon, target.dataset.iconItem, variants);
 }
+for (const view of [views.items, views.dungeons]) view.addEventListener("contextmenu", onIconContextMenu);
 
 // ---- Dungeons view ----
 
@@ -835,7 +841,9 @@ function renderDungeons(dungeons) {
     if (d.name === "Goron Mines") {
       // Key shards replace the big key: show the assembled pieces.
       const shards = items["Goron Mines Key Shard"] ?? 0;
-      bigKey.append(mark(shards > 0, `Key Shards ${shards}/3`, DUNGEON_ICONS.keyShards[Math.max(0, shards - 1)]));
+      const shardMark = mark(shards > 0, `Key Shards ${shards}/3`, DUNGEON_ICONS.keyShards[Math.max(0, shards - 1)]);
+      shardMark.dataset.iconSet = "keyShards"; // every stage editable, not only the one shown
+      bigKey.append(shardMark);
       const n = document.createElement("span");
       n.className = "shards" + (shards >= 3 ? " complete" : "");
       n.textContent = `${shards}/3`;
@@ -943,7 +951,9 @@ const locationsView = createLocationsView(locChecks, {
 mapView = createMapView(locMap, {
   getState: () => state,
   regionName: (stage, room) => locationsView.regionName(stage, room),
+  makeIcon: (name, className, fallback) => iconImg(name, className, (img) => img.replaceWith(fallback ?? "")),
 });
+locMap.addEventListener("contextmenu", onIconContextMenu);
 showLocTab(locTab);
 let locationsLoaded = false;
 

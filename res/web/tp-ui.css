@@ -454,26 +454,41 @@ table.dungeons .mark.on { color: var(--owned); }
 .loc-dot.clickable:hover { filter: brightness(1.3) drop-shadow(0 0 3px var(--tp-gold)); }
 .loc-regions-head { color: var(--tp-gold); text-shadow: var(--tp-outline); }
 
-/* Locations sub-tabs and the map */
+/* Locations sub-tabs: dark streaked plates; the open one lit, with a gold rule under it */
+.loc-subtabs { gap: 2px; border-bottom: 1px solid var(--tp-gold-lo); padding-bottom: 0; }
 .loc-subtab {
   position: relative;
-  background: var(--tp-metal);
-  color: var(--tp-cream);
-  border: 1px solid #14130d;
-  border-radius: 3px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 0 rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.7);
+  padding: 6px 16px 5px;
+  border: 1px solid #000;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #2c2b20, #15140d);
+  color: var(--muted);
   font-family: inherit;
   font-weight: 800;
+  letter-spacing: 0.06em;
   text-shadow: var(--tp-outline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-.loc-subtab[aria-selected="true"] { background: var(--tp-metal-lit); color: #fffbe6; border-color: #14130d; }
-.loc-subtab[aria-selected="true"]::after {
+.loc-subtab:hover:not(:disabled) { color: var(--tp-cream); }
+.loc-subtab[aria-selected="true"] {
+  color: var(--tp-name);
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #4d4a30, #23220f);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 180, 0.25), inset 0 -2px 0 var(--tp-gold);
+}
+.map-floor { font-family: inherit; text-shadow: var(--tp-outline); }
+.map-floor.selected::after {
   content: "";
   position: absolute;
-  inset: -5px;
+  inset: -5px -5px -5px 6px;
   border: 2px solid var(--tp-gold);
   border-radius: 2px;
   pointer-events: none;
+  filter: drop-shadow(0 0 2px rgba(255, 214, 110, 0.8));
   -webkit-mask: var(--tp-cursor-mask);
   mask: var(--tp-cursor-mask);
 }
@@ -494,14 +509,18 @@ table.dungeons .mark.on { color: var(--owned); }
     inset 0 0 40px rgba(0, 0, 0, 0.75);
   padding: 22px;
 }
-.map-floor.selected { background: var(--tp-metal-lit); color: #fffbe6; }
-.map-floor.selected::after {
-  content: "";
-  position: absolute;
-  inset: -5px;
-  border: 2px solid var(--tp-gold);
-  border-radius: 2px;
-  pointer-events: none;
-  -webkit-mask: var(--tp-cursor-mask);
-  mask: var(--tp-cursor-mask);
+/* Map backgrounds: a worn parchment for dungeons, a dark hand-drawn map for the overworld */
+.map-frame.parchment {
+  background: url("art/ui/map-parchment.svg") center / 100% 100% no-repeat;
+  border: 0;
+  box-shadow: none;
+  padding: 9%;
+}
+.map-frame.field {
+  background:
+    url("art/ui/corner-tl.svg") top 4px left 4px / 30px 30px no-repeat,
+    url("art/ui/corner-tr.svg") top 4px right 4px / 30px 30px no-repeat,
+    url("art/ui/corner-bl.svg") bottom 4px left 4px / 30px 30px no-repeat,
+    url("art/ui/corner-br.svg") bottom 4px right 4px / 30px 30px no-repeat,
+    url("art/ui/map-field.svg") center / 100% 100% no-repeat;
 }

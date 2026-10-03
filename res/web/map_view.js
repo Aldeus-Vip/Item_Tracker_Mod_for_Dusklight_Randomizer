@@ -47,8 +47,10 @@ const linePath = (v, strip) => strip.map((i, n) => `${n ? "L" : "M"}${v[i * 2]} 
  * @param root    container element
  * @param options.getState     () => last state from the mod (for inGame)
  * @param options.regionName   (stage, room) => logic region name or null (the map's title)
+ * @param options.makeIcon     (name, className, fallbackText) => <img> of a tracker icon (follows the
+ *                             icon settings; right-click opens the icon editor via data-icon)
  */
-export function createMapView(root, { getState, regionName }) {
+export function createMapView(root, { getState, regionName, makeIcon }) {
   let visible = false;
   let map = null; // last /map
   let player = null; // last /map-player
@@ -171,20 +173,61 @@ export function createMapView(root, { getState, regionName }) {
     }
 
     const title = regionName(map.stage, map.stayRoom) ?? map.stage;
+    // Floors, top first, as in the game: Link's face (or the wolf's) beside his floor, outside the
+    // button so every floor label lines up.
+    const linkIcon = player.wolf ? ["Map_Wolf", "Wolf Link (map)"] : ["Map_Link", "Link (map)"];
     const floorButtons = dungeon && floors.length > 1 ? el("div", { className: "map-floors" },
-      ...floors.map((n) => el("button", {
-        type: "button",
-        className: "tool map-floor" + (n === floor ? " selected" : "") + (n === player.stayFloor ? " here" : ""),
-        title: n === player.stayFloor ? "Link is on this floor" : "",
-        textContent: floorLabel(n),
-        onclick: () => {
-          pickedFloor = n === player.stayFloor ? null : n;
-          render();
-        },
-      }))) : null;
+      ...floors.map((n) => el("div", { className: "map-floor-row" },
+        el("span", { className: "map-floor-marker" }, n === player.stayFloor ? iconSlot(...linkIcon, "map-floor-face", "◆") : null),
+        el("button", {
+          type: "button",
+          className: "map-floor" + (n === floor ? " selected" : ""),
+          title: n === player.stayFloor ? "Link is on this floor" : `Show ${floorLabel(n)}`,
+          textContent: floorLabel(n),
+          onclick: () => {
+            pickedFloor = n === player.stayFloor ? null : n;
+            render();
+          },
+        })))) : null;
+    const items = dungeon ? dungeonItems(title) : null;
     root.replaceChildren(el("div", { className: "map-pane" },
       el("div", { className: "loc-banner map-title" }, el("span", { className: "loc-banner-title", textContent: title })),
-      el("div", { className: "map-body" + (floorButtons ? " with-floors" : "") }, floorButtons, el("div", { className: "map-frame" }, drawing))));
+      el("div", { className: "map-body" + (dungeon ? " dungeon" : "") + (floorButtons ? " with-floors" : "") },
+        items, floorButtons, el("div", { className: "map-frame " + (dungeon ? "parchment" : "field") }, drawing))));
+  }
+
+  // An icon that can be changed with a right click (data-icon, as in the Items and Dungeons tabs).
+  function iconSlot(icon, label, className, fallback) {
+    const span = el("span", { className: "map-icon" });
+    Object.assign(span.dataset, { icon, iconLabel: label, iconItem: "" });
+    span.append(makeIcon(icon, className, fallback));
+    return span;
+  }
+
+  // The dungeon's keys, map and compass in item frames, like the game's dungeon map screen.
+  function dungeonItems(title) {
+    const key = (n) => String(n).toLowerCase().replace(/[^a-z]/g, "");
+    const d = getState()?.dungeons?.find((x) => key(x.name) === key(title));
+    if (!d) return null;
+    const items = getState()?.items ?? {};
+    const slot = (on, icon, label, badge, short) => el("div", { className: "slot" + (on ? " on" : ""), title: label },
+      el("div", { className: "frame" }, iconSlot(icon, label, "icon", el("span", { className: "fallback", textContent: short ?? label })),
+        badge ? el("span", { className: "badge" + (badge.full ? " full" : ""), textContent: badge.text }) : null));
+    const slots = [
+      slot(d.smallKeys > 0, "Small_Key", `Small Keys ${d.smallKeys}/${d.maxSmallKeys} (holding ${d.smallKeysHeld})`,
+        { text: `${d.smallKeysHeld}`, full: d.smallKeys >= d.maxSmallKeys }, "Small Key"),
+    ];
+    if (d.name === "Goron Mines") {
+      const shards = items["Goron Mines Key Shard"] ?? 0;
+      const shardSlot = slot(shards > 0, ["GBK0", "GBK1", "GBK3"][Math.max(0, shards - 1)], `Key Shards ${shards}/3`, { text: `${shards}/3`, full: shards >= 3 }, "Key Shards");
+      shardSlot.querySelector("[data-icon]").dataset.iconSet = "keyShards";
+      slots.push(shardSlot);
+    } else if (d.hasBigKey) {
+      const icon = d.name === "Snowpeak Ruins" ? "Bedroom_Key" : d.name === "Hyrule Castle" ? "Boss_KeyHC" : "Boss_Key";
+      slots.push(slot(d.bigKey, icon, d.name === "Snowpeak Ruins" ? "Bedroom Key" : "Big Key"));
+    }
+    slots.push(slot(d.map, "Dungeon_Map", "Dungeon Map", null, "Map"), slot(d.compass, "Compass", "Compass"));
+    return el("div", { className: "map-items" }, ...slots);
   }
 
   return { setVisible, render };

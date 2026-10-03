@@ -4,6 +4,7 @@
 
 #include "d/d_com_inf_game.h"
 #include "d/d_map_path_dmap.h"
+#include "d/d_save.h"
 
 namespace tracker::map {
 namespace {
@@ -90,6 +91,7 @@ void write_player(JsonWriter& w) {
     // Game angle units (0x10000 = a full turn).
     w.member("angle", static_cast<int>(static_cast<u16>(dMapInfo_n::getMapPlayerAngleY())));
     w.endObject();
+    w.member("wolf", dComIfGs_getTransformStatus() != TF_STATUS_HUMAN);
     if (dMapInfo_c::mNowStayFloorNoDecisionFlg) {
         w.member("stayFloor", static_cast<int>(dMapInfo_c::mNowStayFloorNo));
     }

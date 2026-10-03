@@ -1083,7 +1083,8 @@ select option:checked { background: #5c5230; color: #fff; }
 .loc-narrow .loc-groups { overflow: visible; }
 .loc-menu-items > .tool { text-align: center; }
 
-/* ---- Locations sub-tabs: Checks / Map / Checks + Map ---- */
+/* ---- Locations sub-tabs: Checks / Map / Checks + Map (plates with a gold rule, not the metal
+   buttons, so they read as the tabs of the page) ---- */
 .loc-subtabs {
   position: sticky;
   top: var(--bar-h, 0px);
@@ -1112,12 +1113,58 @@ select option:checked { background: #5c5230; color: #fff; }
 .loc-map-pane { padding-top: 10px; }
 
 /* ---- Map ---- */
-.map-pane { display: flex; flex-direction: column; gap: 10px; }
-.map-body { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: center; }
-.map-body.with-floors { grid-template-columns: auto minmax(0, 1fr); }
-.map-floors { display: flex; flex-direction: column; gap: 8px; }
-.map-floor { min-width: 64px; }
-.map-floor.here::before { content: "◆ "; color: #ffe23a; }
+.map-pane { display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
+.map-body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "map"; gap: 12px 10px; align-items: center; }
+.map-body.with-floors { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "floors map"; }
+.map-body > .map-frame { grid-area: map; }
+.map-body > .map-floors { grid-area: floors; }
+.map-body > .map-items { grid-area: items; }
+/* Dungeon: keys, map and compass in a row above the map; beside it when there is room */
+.map-body.dungeon { grid-template-areas: "items" "map"; }
+.map-body.dungeon.with-floors { grid-template-areas: "items items" "floors map"; }
+@container (min-width: 620px) {
+  .map-body.dungeon { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "items map"; }
+  .map-body.dungeon.with-floors { grid-template-columns: auto auto minmax(0, 1fr); grid-template-areas: "items floors map"; }
+  .map-body.dungeon .map-items { flex-direction: column; }
+}
+.map-items { --tile: 54px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.map-items .icon { position: absolute; inset: 15%; width: 70%; height: 70%; object-fit: contain; }
+.map-items .slot:not(.on) .icon { filter: grayscale(1) brightness(0.55); opacity: 0.55; }
+.map-items .map-icon { display: contents; }
+.map-items .fallback { position: relative; z-index: 1; padding: 0 8%; font-size: 10px; line-height: 1.1; text-align: center; color: var(--muted); }
+.map-items .slot.on .fallback { color: var(--text); }
+
+/* Floor buttons: a streaked bar fading out to the left, the label at the right (as in the game);
+   Link's face sits in its own column so the labels line up */
+.map-floors { display: flex; flex-direction: column; gap: 10px; }
+.map-floor-row { display: grid; grid-template-columns: 34px auto; align-items: center; gap: 4px; }
+.map-floor-marker { width: 34px; height: 34px; display: grid; place-items: center; color: #ffe23a; }
+.map-floor-face { width: 34px; height: 34px; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
+.map-floor {
+  position: relative;
+  min-width: 92px;
+  padding: 6px 14px 6px 24px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.6);
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, transparent, rgba(150, 150, 140, 0.35) 45%, rgba(190, 190, 180, 0.45));
+  color: var(--muted);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: right;
+  cursor: pointer;
+}
+.map-floor:hover { color: var(--text); }
+.map-floor.selected {
+  color: #fffbe6;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, transparent, rgba(190, 190, 175, 0.55) 40%, rgba(225, 225, 210, 0.7));
+}
 .map-frame {
   position: relative;
   aspect-ratio: 1;
@@ -1133,6 +1180,8 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-svg { width: 100%; height: 100%; display: block; overflow: visible; }
 /* The game's maps glow: a soft light around the shapes, brighter where Link is */
 .map-shapes { filter: drop-shadow(0 0 3px rgba(110, 255, 190, 0.45)) drop-shadow(0 0 10px rgba(70, 230, 160, 0.25)); }
+/* On the parchment the rooms sit like ink: a soft dark edge instead of a glow */
+.map-frame.parchment .map-shapes:not(.map-stay) { filter: drop-shadow(0 0 1.5px rgba(30, 50, 20, 0.7)) drop-shadow(0 0 6px rgba(70, 200, 90, 0.25)); }
 .map-stay { animation: map-glow 2.4s ease-in-out infinite; }
 @keyframes map-glow {
   0%, 100% { filter: drop-shadow(0 0 3px rgba(150, 255, 150, 0.55)) drop-shadow(0 0 10px rgba(90, 240, 110, 0.3)); }

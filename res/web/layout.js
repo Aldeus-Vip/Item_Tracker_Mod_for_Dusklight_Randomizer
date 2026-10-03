@@ -448,6 +448,9 @@ export const GAME_ICON_IDS = {
   GBK0: 0xf9, GBK1: 0xfa, GBK2: 0xfb, GBK3: 0xfd,
   Ordon_Pumpkin: 0xf4, Ordon_Goat_Cheese: 0xf5,
   Tear_of_Light: "itemicon/#82", // O_HIKARI_POD
+  // Link's face and the wolf's beside the floor he is on (Map tab), from the dungeon map screen.
+  Map_Link: "dmap/im_dungeon_map_icon_rink_ci8_44x45_04.bti",
+  Map_Wolf: "dmap/im_dungeon_map_icon_wolf_ci8_48x45_ind_06.bti",
   // Field map marks: the warp portal and, until a boss has an icon of its own, the boss skull.
   Portal: "fmap/#30", // IM_MAP_ICON_PORTAL_4IA_40_05
   ...Object.fromEntries(["Diababa", "Fyrus", "Morpheel", "Stallord", "Blizzeta", "Armogohma", "Argorok", "Zant", "Ganondorf"]
