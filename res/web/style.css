@@ -1114,20 +1114,9 @@ select option:checked { background: #5c5230; color: #fff; }
 
 /* ---- Map ---- */
 .map-pane { display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
-.map-body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "map"; gap: 12px 10px; align-items: center; }
-.map-body.with-floors { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "floors map"; }
-.map-body > .map-frame { grid-area: map; }
-.map-body > .map-floors { grid-area: floors; }
-.map-body > .map-items { grid-area: items; }
-/* Dungeon: keys, map and compass in a row above the map; beside it when there is room */
-.map-body.dungeon { grid-template-areas: "items" "map"; }
-.map-body.dungeon.with-floors { grid-template-areas: "items items" "floors map"; }
-@container (min-width: 620px) {
-  .map-body.dungeon { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "items map"; }
-  .map-body.dungeon.with-floors { grid-template-columns: auto auto minmax(0, 1fr); grid-template-areas: "items floors map"; }
-  .map-body.dungeon .map-items { flex-direction: column; }
-}
-.map-items { --tile: 54px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+/* Map on top at full width; floors and the dungeon's items below it, side by side */
+.map-below { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 24px; }
+.map-items { --tile: 54px; display: grid; grid-template-columns: repeat(2, var(--tile)); gap: 8px; }
 .map-items .icon { position: absolute; inset: 15%; width: 70%; height: 70%; object-fit: contain; }
 .map-items .slot:not(.on) .icon { filter: grayscale(1) brightness(0.55); opacity: 0.55; }
 .map-items .map-icon { display: contents; }
@@ -1170,6 +1159,11 @@ select option:checked { background: #5c5230; color: #fff; }
   aspect-ratio: 1;
   max-height: calc(100vh - var(--bar-h, 0px) - var(--loc-sub-h, 0px) - 120px);
   width: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  cursor: none;
+  touch-action: none;
+  user-select: none;
   padding: 14px;
   border-radius: 6px;
   background:
@@ -1191,3 +1185,13 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-line.w1 { stroke-width: 0.7px; opacity: 0.35; }
 .map-line.w2 { stroke-width: 1.3px; }
 .map-link { fill: #ffe23a; stroke: #2a1d00; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(255, 230, 80, 0.9)); }
+
+/* Zoom and drag */
+.map-frame.zoomed.dragging { cursor: grabbing; }
+.map-frame.zoomed .map-svg { overflow: hidden; }
+.map-svg { transition: none; }
+/* The map cursor follows the mouse and turns, like the game's */
+.map-reticle { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; pointer-events: none; z-index: 2; filter: drop-shadow(0 0 4px rgba(98, 232, 255, 0.8)); }
+.map-reticle svg { width: 100%; height: 100%; overflow: visible; }
+.map-reticle-ring { animation: map-reticle-turn 2.2s linear infinite; transform-origin: 0 0; }
+@keyframes map-reticle-turn { to { transform: rotate(360deg); } }

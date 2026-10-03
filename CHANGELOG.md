@@ -10,7 +10,18 @@
   and compass in item frames, and floor buttons with Link's or the wolf's face beside his floor;
   the overworld on a dark hand-drawn map (original art). The icons can be changed by right click.
 
+- Map: click to zoom in, right-click to zoom out, drag to move around a zoomed map; a turning
+  map cursor like the game's.
+
+### Fixed
+- Crashes on reset, on loading a save and on some stage changes: the map data and the seen-item
+  check read game memory that is not valid while a stage loads or the game resets. They now read
+  it only while the game is plainly playing, and the map is served from a copy made then.
+- Floor buttons on the map could ignore clicks (the map was redrawn several times a second); the
+  map is now redrawn only when it changes.
+
 ### Changed
+- Map: floors and the dungeon's items sit below the map, which uses the full width.
 - Locations sub-tabs look like tabs (streaked plates), not like the other buttons.
 - Dungeons tab: the Goron Mines key shard icon can be changed for every stage (1/3, 2/3, 3/3) in
   the icon editor, not only the one shown.

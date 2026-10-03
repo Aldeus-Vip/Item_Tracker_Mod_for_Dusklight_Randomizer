@@ -1,6 +1,7 @@
 #include "found_checks.hpp"
 
 #include "json_writer.hpp"
+#include "tracker_state.hpp"
 
 #include <mods/svc/hook.hpp>
 #include <mods/items.h>
@@ -140,12 +141,17 @@ std::string display_suffix(const Watched& w) {
 }
 
 void check_watched() {
+    // A new stage: forget the last one's items (the stage name changes before the new stage's
+    // items are created, so they are kept).
     const char* stage = dComIfGp_getStartStageName();
     if (stage == nullptr || g_watchedStage != stage) {
         g_watched.clear();
         g_watchedStage = stage != nullptr ? stage : "";
         return;
     }
+    // Loading, leaving the stage or resetting: Link may be gone. The watched items are kept and
+    // looked up by id, which is safe.
+    if (!tracker::is_playing()) return;
     fopAc_ac_c* link = dComIfGp_getPlayer(0);
     if (link == nullptr || g_watched.empty()) return;
     std::erase_if(g_watched, [&](const Watched& w) {

@@ -16,6 +16,14 @@ const svg = (tag, attrs = {}) => {
 };
 
 const PLAYER_MS = 250; // Link's position
+const MAX_ZOOM = 8;
+
+// The map cursor: a ring of four ticks turning around a dot, like the game's map cursor (original).
+const RETICLE = `<svg viewBox="-20 -20 40 40" aria-hidden="true"><g class="map-reticle-ring" fill="none" stroke-linecap="round">
+<circle r="13" stroke="#0a3a48" stroke-width="4" stroke-dasharray="12 8.42" stroke-dashoffset="6" opacity="0.6"/>
+<circle r="13" stroke="#62e8ff" stroke-width="2.2" stroke-dasharray="12 8.42" stroke-dashoffset="6"/>
+<path d="M0 -17v4M17 0h-4M0 17v-4M-17 0h4" stroke="#bff6ff" stroke-width="2.4"/></g>
+<circle r="2.2" fill="#e8fdff"/></svg>`;
 const MAP_MS = 3000; // the map itself (switches, visited rooms) besides stage changes
 
 // Fill colors by shape type (the low 6 bits). Overworld maps are teal, dungeon maps green; a
@@ -55,10 +63,20 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   let map = null; // last /map
   let player = null; // last /map-player
   let mapTime = 0;
+  let mapText = "";
+  let mapVersion = 0;
   let pickedFloor = null; // a floor chosen by hand, until Link changes floor or stage
   let lastStayFloor = null;
   let timer = null;
   let busy = false;
+  // What is drawn: rebuilt only when this key changes; Link's arrow moves without a rebuild, so
+  // clicks on the floor buttons are not lost to a redraw.
+  let sceneKey = "";
+  let scene = null; // { svg, link, frame, base: {x, y, w, h}, size, floor }
+  // Zoom (1 = whole stage) and the point at the middle of the view, kept while on one stage.
+  let zoom = 1;
+  let center = null;
+  let zoomStage = "";
 
   async function tick() {
     timer = null;
@@ -67,11 +85,20 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       busy = true;
       try {
         player = await (await fetch("map-player", { cache: "no-store" })).json();
-        if (!map || map.stage !== player.stage || Date.now() - mapTime > MAP_MS) {
-          map = await (await fetch("map", { cache: "no-store" })).json();
+        if (!player.loading && (!map || map.stage !== player.stage || Date.now() - mapTime > MAP_MS)) {
+          const text = await (await fetch("map", { cache: "no-store" })).text();
           mapTime = Date.now();
+          // Redrawn only when it changed (a switch, a visited room, a new stage).
+          if (text !== mapText) {
+            const next = JSON.parse(text);
+            if (next.exists || !map || map.stage !== player.stage) {
+              map = next;
+              mapText = text;
+              mapVersion++;
+            }
+          }
         }
-        if (player.stayFloor !== lastStayFloor) {
+        if (player.stayFloor !== undefined && player.stayFloor !== lastStayFloor) {
           lastStayFloor = player.stayFloor;
           pickedFloor = null;
         }
@@ -98,25 +125,39 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     return map.rooms.filter((r) => !dungeon || map.hasMap || r.visited || r.no === player?.stayRoom);
   }
 
+  function message(text) {
+    sceneKey = "";
+    scene = null;
+    root.replaceChildren(el("p", { className: "empty", textContent: text }));
+  }
+
   function render() {
     if (!visible) return;
-    if (!getState()?.inGame) {
-      root.replaceChildren(el("p", { className: "empty", textContent: "Waiting for a save file…" }));
-      return;
-    }
-    if (!map || !player) {
-      root.replaceChildren(el("p", { className: "empty", textContent: "Loading the map…" }));
-      return;
-    }
-    if (!map.exists) {
-      root.replaceChildren(el("p", { className: "empty", textContent: "This place has no map." }));
-      return;
-    }
+    if (!getState()?.inGame) return message("Waiting for a save file…");
+    if (!map || !player) return message("Loading the map…");
+    if (!map.exists) return message("This place has no map.");
     const dungeon = map.stage.startsWith("D_");
     const rooms = drawnRooms(dungeon);
     const floors = [...new Set(rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
     const floor = pickedFloor ?? player.stayFloor ?? floors[floors.length - 1] ?? 0;
+    const title = regionName(map.stage, map.stayRoom) ?? map.stage;
+    const d = dungeon ? findDungeon(title) : null;
+    const items = getState()?.items ?? {};
+    const key = JSON.stringify([mapVersion, map.stage, floor, player.stayRoom, player.stayFloor, player.wolf, title,
+      d, d?.name === "Goron Mines" ? items["Goron Mines Key Shard"] : 0]);
+    if (key !== sceneKey) {
+      sceneKey = key;
+      if (zoomStage !== map.stage) {
+        zoomStage = map.stage;
+        zoom = 1;
+        center = null;
+      }
+      build(dungeon, rooms, floors, floor, title, d);
+    }
+    placeLink();
+  }
 
+  function build(dungeon, rooms, floors, floor, title, d) {
     // Frame the whole stage (every floor), so changing floors keeps the map still.
     let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
     for (const room of rooms) {
@@ -135,8 +176,9 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     if (minX === Infinity) ({ minX, maxX, minZ, maxZ } = map.bounds);
     const size = Math.max(maxX - minX, maxZ - minZ, 1);
     const pad = size * 0.06;
+    const base = { x: minX - pad, y: minZ - pad, w: maxX - minX + pad * 2, h: maxZ - minZ + pad * 2 };
 
-    const drawing = svg("svg", { class: "map-svg", viewBox: `${minX - pad} ${minZ - pad} ${maxX - minX + pad * 2} ${maxZ - minZ + pad * 2}`, preserveAspectRatio: "xMidYMid meet" });
+    const drawing = svg("svg", { class: "map-svg", preserveAspectRatio: "xMidYMid meet" });
     const shapes = svg("g", { class: "map-shapes" });
     const stay = svg("g", { class: "map-shapes map-stay" });
     const outlines = svg("g", { class: "map-outlines" });
@@ -161,18 +203,9 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
         }
       }
     }
-    drawing.append(shapes, stay, outlines);
+    const link = svg("polygon", { class: "map-link" });
+    drawing.append(shapes, stay, outlines, link);
 
-    // Link: a yellow arrowhead toward where he faces (angle 0 = +z), on Link's floor only.
-    if (player.player && (player.stayFloor === undefined || player.stayFloor === floor)) {
-      const a = (player.player.angle / 65536) * Math.PI * 2;
-      const s = size * 0.022;
-      const { x, z } = player.player;
-      const pt = (ang, r) => `${x + Math.sin(ang) * r},${z + Math.cos(ang) * r}`;
-      drawing.append(svg("polygon", { class: "map-link", points: `${pt(a, s * 1.5)} ${pt(a + 2.45, s)} ${pt(a - 2.45, s)}`, "stroke-width": s * 0.18 }));
-    }
-
-    const title = regionName(map.stage, map.stayRoom) ?? map.stage;
     // Floors, top first, as in the game: Link's face (or the wolf's) beside his floor, outside the
     // button so every floor label lines up.
     const linkIcon = player.wolf ? ["Map_Wolf", "Wolf Link (map)"] : ["Map_Link", "Link (map)"];
@@ -189,11 +222,104 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
             render();
           },
         })))) : null;
-    const items = dungeon ? dungeonItems(title) : null;
+    const reticle = el("div", { className: "map-reticle", hidden: true });
+    reticle.innerHTML = RETICLE;
+    const frame = el("div", { className: "map-frame " + (dungeon ? "parchment" : "field"), title: "Click: zoom in · Right-click: zoom out · Drag: move" }, drawing, reticle);
+    scene = { svg: drawing, link, frame, base, size, floor };
+    applyView();
+    bindFrame(frame, reticle);
+    const below = floorButtons || d ? el("div", { className: "map-below" }, floorButtons, d ? dungeonItems(d) : null) : null;
     root.replaceChildren(el("div", { className: "map-pane" },
       el("div", { className: "loc-banner map-title" }, el("span", { className: "loc-banner-title", textContent: title })),
-      el("div", { className: "map-body" + (dungeon ? " dungeon" : "") + (floorButtons ? " with-floors" : "") },
-        items, floorButtons, el("div", { className: "map-frame " + (dungeon ? "parchment" : "field") }, drawing))));
+      frame, below));
+  }
+
+  // Link: a yellow arrowhead toward where he faces (angle 0 = +z), on Link's floor only.
+  function placeLink() {
+    if (!scene) return;
+    const shown = player.player && (player.stayFloor === undefined || player.stayFloor === scene.floor);
+    scene.link.style.display = shown ? "" : "none";
+    if (!shown) return;
+    const a = (player.player.angle / 65536) * Math.PI * 2;
+    const s = (scene.size * 0.022) / Math.sqrt(zoom);
+    const { x, z } = player.player;
+    const pt = (ang, r) => `${x + Math.sin(ang) * r},${z + Math.cos(ang) * r}`;
+    scene.link.setAttribute("points", `${pt(a, s * 1.5)} ${pt(a + 2.45, s)} ${pt(a - 2.45, s)}`);
+    scene.link.setAttribute("stroke-width", s * 0.18);
+  }
+
+  // ---- Zoom and drag ----
+
+  function applyView() {
+    const { base } = scene;
+    const w = base.w / zoom;
+    const h = base.h / zoom;
+    const c = center ?? { x: base.x + base.w / 2, y: base.y + base.h / 2 };
+    // Keep the view on the map.
+    const cx = Math.min(Math.max(c.x, base.x + w / 2), base.x + base.w - w / 2);
+    const cy = Math.min(Math.max(c.y, base.y + h / 2), base.y + base.h - h / 2);
+    center = zoom > 1 ? { x: cx, y: cy } : null;
+    scene.svg.setAttribute("viewBox", `${cx - w / 2} ${cy - h / 2} ${w} ${h}`);
+    scene.frame.classList.toggle("zoomed", zoom > 1);
+  }
+
+  // A point of the frame (client px) in map units.
+  function toMap(e) {
+    const r = scene.svg.getBoundingClientRect();
+    const vb = scene.svg.viewBox.baseVal;
+    const k = Math.max(vb.width / r.width, vb.height / r.height); // "meet" scale
+    return { x: vb.x + vb.width / 2 + (e.clientX - (r.left + r.width / 2)) * k, y: vb.y + vb.height / 2 + (e.clientY - (r.top + r.height / 2)) * k, k };
+  }
+
+  function zoomAt(e, factor) {
+    const next = Math.min(MAX_ZOOM, Math.max(1, zoom * factor));
+    if (next === zoom) return;
+    const p = toMap(e);
+    const c = center ?? { x: scene.base.x + scene.base.w / 2, y: scene.base.y + scene.base.h / 2 };
+    // Keep the clicked point under the cursor.
+    center = { x: p.x - (p.x - c.x) * (zoom / next), y: p.y - (p.y - c.y) * (zoom / next) };
+    zoom = next;
+    applyView();
+    placeLink();
+  }
+
+  function bindFrame(frame, reticle) {
+    let press = null;
+    frame.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      press = { x: e.clientX, y: e.clientY, center: center && { ...center }, dragged: false, id: e.pointerId };
+      frame.setPointerCapture(e.pointerId);
+    });
+    frame.addEventListener("pointermove", (e) => {
+      const r = frame.getBoundingClientRect();
+      reticle.hidden = false;
+      reticle.style.transform = `translate(${e.clientX - r.left}px, ${e.clientY - r.top}px)`;
+      if (!press) return;
+      const dx = e.clientX - press.x;
+      const dy = e.clientY - press.y;
+      if (!press.dragged && Math.hypot(dx, dy) < 5) return;
+      press.dragged = true;
+      if (zoom <= 1) return;
+      const { k } = toMap(e);
+      const c = press.center ?? { x: scene.base.x + scene.base.w / 2, y: scene.base.y + scene.base.h / 2 };
+      center = { x: c.x - dx * k, y: c.y - dy * k };
+      applyView();
+      frame.classList.add("dragging");
+    });
+    const release = (e) => {
+      if (!press) return;
+      const wasDrag = press.dragged;
+      press = null;
+      frame.classList.remove("dragging");
+      if (!wasDrag && e.type === "pointerup") zoomAt(e, 2);
+    };
+    frame.addEventListener("pointerup", release);
+    frame.addEventListener("pointercancel", release);
+    frame.addEventListener("pointerleave", () => { reticle.hidden = true; });
+    frame.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      zoomAt(e, 0.5);
+    });
   }
 
   // An icon that can be changed with a right click (data-icon, as in the Items and Dungeons tabs).
@@ -204,11 +330,14 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     return span;
   }
 
-  // The dungeon's keys, map and compass in item frames, like the game's dungeon map screen.
-  function dungeonItems(title) {
+  // The dungeon state of the map's title (Goron Mines, ...), if it is one.
+  function findDungeon(title) {
     const key = (n) => String(n).toLowerCase().replace(/[^a-z]/g, "");
-    const d = getState()?.dungeons?.find((x) => key(x.name) === key(title));
-    if (!d) return null;
+    return getState()?.dungeons?.find((x) => key(x.name) === key(title)) ?? null;
+  }
+
+  // The dungeon's keys, map and compass in item frames, like the game's dungeon map screen.
+  function dungeonItems(d) {
     const items = getState()?.items ?? {};
     const slot = (on, icon, label, badge, short) => el("div", { className: "slot" + (on ? " on" : ""), title: label },
       el("div", { className: "frame" }, iconSlot(icon, label, "icon", el("span", { className: "fallback", textContent: short ?? label })),

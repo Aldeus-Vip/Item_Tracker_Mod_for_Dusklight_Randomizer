@@ -5,6 +5,8 @@
 #include "json_writer.hpp"
 
 #include "d/d_com_inf_game.h"
+#include "f_op/f_op_actor_mng.h"
+#include "m_Do/m_Do_Reset.h"
 #include "d/d_item.h"
 #include "d/d_item_data.h"
 #include "d/d_menu_ring.h"
@@ -133,7 +135,7 @@ bool boss_defeated(int saveId) {
     return dComIfGs_getSaveData()->getSave(saveId).getBit().isStageBossEnemy() != 0;
 }
 
-bool is_in_game() {
+bool in_game() {
     if (dComIfGp_getStageStagInfo() == nullptr) {
         return false;
     }
@@ -505,11 +507,22 @@ void write_flags(JsonWriter& w) {
 
 }  // namespace
 
+bool is_in_game() { return in_game(); }
+
+bool is_playing() {
+    if (mDoRst::getResetData() != nullptr && (mDoRst::isReset() || mDoRst::getResetData()->mResetPrepare)) {
+        return false;
+    }
+    if (!in_game() || dComIfGp_isEnableNextStage()) return false;
+    // Found in the process list, not through a pointer that may outlive Link.
+    return fopAcM_SearchByName(fpcNm_ALINK_e) != nullptr;
+}
+
 std::string build_state_json() {
     JsonWriter w;
     w.beginObject();
     w.member("protocol", kProtocolVersion);
-    const bool inGame = is_in_game();
+    const bool inGame = in_game();
     w.member("inGame", inGame);
     if (inGame) {
         w.member("stage", dComIfGp_getStartStageName());

@@ -5,6 +5,9 @@
 #include "d/d_com_inf_game.h"
 #include "d/d_map_path_dmap.h"
 #include "d/d_save.h"
+#include "tracker_state.hpp"
+
+#include <cstring>
 
 namespace tracker::map {
 namespace {
@@ -144,5 +147,50 @@ std::string build_json() {
     w.endObject();
     return w.str();
 }
+
+namespace {
+
+constexpr int kSettleFrames = 30;      // stable frames after a stage or room change before reading
+constexpr int kPlayerEveryFrames = 4;  // Link's position: ~15 times a second
+constexpr int kMapEveryFrames = 90;    // the map itself: visited rooms and switches change rarely
+
+std::string g_map = R"({"exists":false})";
+std::string g_player = R"({"loading":true})";
+std::string g_stage;
+int g_stableFrames = 0;
+int g_frame = 0;
+bool g_mapStale = true;
+
+}  // namespace
+
+void update() {
+    g_frame++;
+    if (!tracker::is_playing()) {
+        g_stableFrames = 0;
+        g_player = R"({"loading":true})";
+        g_mapStale = true;
+        return;
+    }
+    const char* stage = dComIfGp_getStartStageName();
+    if (stage == nullptr || g_stage != stage) {
+        g_stage = stage != nullptr ? stage : "";
+        g_stableFrames = 0;
+        g_mapStale = true;
+        g_map = R"({"exists":false})";
+        return;
+    }
+    if (g_stableFrames < kSettleFrames) {
+        g_stableFrames++;
+        return;
+    }
+    if (g_frame % kPlayerEveryFrames == 0) g_player = build_player_json();
+    if (g_mapStale || g_frame % kMapEveryFrames == 0) {
+        g_map = build_json();
+        g_mapStale = false;
+    }
+}
+
+const std::string& cached_map() { return g_map; }
+const std::string& cached_player() { return g_player; }
 
 }  // namespace tracker::map
