@@ -23,6 +23,7 @@ the mod's panel). Only loopback clients can connect, and requests whose `Host` h
 | GET | `/rando-settings.yaml` | The randomizer's current `settings.yaml` (404 if the randomizer never saved one) |
 | GET | `/rando-seeds/` | The randomizer's generated seeds, newest first: `[{"hash": "Epona Lantern Goron", "spoiler": true}]` |
 | GET | `/rando-seeds/<hash>` | That seed's spoiler log (text). The page shows only placements of checks the player has found |
+| GET | `/map` | The current stage's map as the game draws it, read from the rooms it has loaded (see `src/map_data.hpp`). In development: `map-preview.html` draws it |
 | POST | `/found` | `text/plain`: an optional first line `seed\t<hash>`, then entry lines: `loc:<location>` (shop seen), `told:<location>` (an NPC named the item), `map:<region>` (marked reachable), `mark:<location>` (marked checked), `note:<key>\t<text>` (replaces that key's note), or `-map:…` / `-mark:…` / `-note:<key>` to remove one. Kept with the game save (see `found` in the state) |
 
 Writes are accepted only from the tracker page's own origin (or without `Origin`, e.g. curl) and

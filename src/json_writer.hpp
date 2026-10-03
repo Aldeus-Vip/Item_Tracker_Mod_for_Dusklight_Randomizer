@@ -39,6 +39,14 @@ public:
         return *this;
     }
     JsonWriter& value(int v) { return value(static_cast<int64_t>(v)); }
+    // A non-integer number, rounded to `decimals` places (non-finite values become 0).
+    JsonWriter& number(double v, int decimals = 1) {
+        value_prefix();
+        char buf[40];
+        std::snprintf(buf, sizeof(buf), "%.*f", decimals, v == v && v < 1e30 && v > -1e30 ? v : 0.0);
+        mOut += buf;
+        return *this;
+    }
 
     template <typename T>
     JsonWriter& member(std::string_view name, T v) {

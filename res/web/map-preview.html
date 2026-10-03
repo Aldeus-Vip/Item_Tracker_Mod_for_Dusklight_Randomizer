@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map data preview</title>
+<style>
+  /* Development page: checks the map data the mod reads from the game (/map) before the Map tab
+     is built on it. Colors are per shape type, to learn what the types mean. */
+  body { margin: 0; background: #0d0e09; color: #ece6c6; font: 13px/1.4 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #3a3826; }
+  header b { color: #d8cf9f; }
+  a, button { color: #d8cf9f; }
+  button { background: #2a2a1c; border: 1px solid #6f6b52; border-radius: 4px; padding: 3px 10px; font: inherit; cursor: pointer; }
+  main { display: grid; grid-template-columns: 1fr 260px; gap: 12px; padding: 12px; }
+  svg { width: 100%; height: calc(100vh - 90px); background: #15140d; border: 1px solid #3a3826; }
+  .legend div { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  .legend i { width: 14px; height: 14px; border-radius: 2px; display: inline-block; }
+  pre { white-space: pre-wrap; font-size: 11px; color: #8f8a6c; }
+</style>
+</head>
+<body>
+<header>
+  <span>Stage <b id="stage">–</b></span>
+  <span>Room <b id="room">–</b></span>
+  <span>Floor <select id="floor"></select></span>
+  <label><input type="checkbox" id="hidden"> Show hidden groups</label>
+  <a href="map" download="map.json">Download map.json</a>
+  <button type="button" id="pause">Pause</button>
+</header>
+<main>
+  <svg id="map" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="6" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g id="shapes" filter="url(#glow)"></g>
+    <g id="player"></g>
+  </svg>
+  <div>
+    <div class="legend" id="legend"></div>
+    <pre id="info"></pre>
+  </div>
+</main>
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const $ = (id) => document.getElementById(id);
+let paused = false;
+let floor = null;
+const hue = (type) => ((type & 0x3f) * 47) % 360;
+
+$("pause").onclick = () => { paused = !paused; $("pause").textContent = paused ? "Resume" : "Pause"; };
+$("floor").onchange = (e) => { floor = Number(e.target.value); };
+
+// A triangle strip as one path of triangles.
+function stripPath(v, strip) {
+  let d = "";
+  for (let i = 2; i < strip.length; i++) {
+    const [a, b, c] = [strip[i - 2], strip[i - 1], strip[i]];
+    d += `M${v[a * 2]} ${v[a * 2 + 1]}L${v[b * 2]} ${v[b * 2 + 1]}L${v[c * 2]} ${v[c * 2 + 1]}Z`;
+  }
+  return d;
+}
+function linePath(v, strip) {
+  return strip.map((i, n) => `${n ? "L" : "M"}${v[i * 2]} ${v[i * 2 + 1]}`).join("");
+}
+
+function draw(map) {
+  $("stage").textContent = map.stage;
+  $("room").textContent = map.stayRoom;
+  const shapes = $("shapes");
+  shapes.replaceChildren();
+  $("player").replaceChildren();
+  if (!map.exists) {
+    $("info").textContent = "No map data for this stage.";
+    return;
+  }
+  const floors = new Set(map.rooms.flatMap((r) => r.floors.map((f) => f.no)));
+  if (floor === null || !floors.has(floor)) floor = [...floors].includes(0) ? 0 : [...floors][0];
+  const sel = $("floor");
+  if (sel.options.length !== floors.size) sel.replaceChildren(...[...floors].sort((a, b) => a - b).map((f) => new Option(`${f}`, f)));
+  sel.value = String(floor);
+  const types = new Map();
+  let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+  for (const room of map.rooms) {
+    const v = room.vertices;
+    for (const f of room.floors) {
+      if (f.no !== floor) continue;
+      for (const g of f.groups) {
+        if (!g.shown && !$("hidden").checked) continue;
+        for (const p of g.polys) {
+          const path = document.createElementNS(NS, "path");
+          path.setAttribute("d", stripPath(v, p.strip));
+          path.setAttribute("fill", `hsl(${hue(p.type)} 55% ${room.no === map.stayRoom ? 45 : 32}%)`);
+          path.setAttribute("stroke", path.getAttribute("fill"));
+          path.setAttribute("stroke-width", "1");
+          if (!g.shown) path.setAttribute("opacity", "0.35");
+          shapes.append(path);
+          types.set(`poly ${p.type}`, hue(p.type));
+          for (const i of p.strip) {
+            minX = Math.min(minX, v[i * 2]); maxX = Math.max(maxX, v[i * 2]);
+            minZ = Math.min(minZ, v[i * 2 + 1]); maxZ = Math.max(maxZ, v[i * 2 + 1]);
+          }
+        }
+        for (const l of g.lines) {
+          const path = document.createElementNS(NS, "path");
+          path.setAttribute("d", linePath(v, l.strip));
+          path.setAttribute("fill", "none");
+          path.setAttribute("stroke", `hsl(${hue(l.type)} 70% 70%)`);
+          path.setAttribute("stroke-width", String(Math.max(1, l.width) * 4));
+          shapes.append(path);
+          types.set(`line ${l.type} (w ${l.width})`, hue(l.type));
+        }
+      }
+    }
+  }
+  if (minX === Infinity) ({ minX, maxX, minZ, maxZ } = map.bounds);
+  const pad = Math.max(maxX - minX, maxZ - minZ) * 0.05 + 50;
+  $("map").setAttribute("viewBox", `${minX - pad} ${minZ - pad} ${maxX - minX + pad * 2} ${maxZ - minZ + pad * 2}`);
+  // Link: a triangle pointing where he faces (game angle 0 = +z).
+  const a = (map.player.angle / 65536) * Math.PI * 2;
+  const s = Math.max(maxX - minX, maxZ - minZ) * 0.025 + 20;
+  const { x, z } = map.player;
+  const tip = [x + Math.sin(a) * s * 1.6, z + Math.cos(a) * s * 1.6];
+  const left = [x + Math.sin(a + 2.5) * s, z + Math.cos(a + 2.5) * s];
+  const right = [x + Math.sin(a - 2.5) * s, z + Math.cos(a - 2.5) * s];
+  const tri = document.createElementNS(NS, "polygon");
+  tri.setAttribute("points", [tip, left, right].map((p) => p.join(",")).join(" "));
+  tri.setAttribute("fill", "#ffe23a");
+  tri.setAttribute("stroke", "#000");
+  tri.setAttribute("stroke-width", String(s * 0.15));
+  $("player").append(tri);
+  $("legend").replaceChildren(...[...types].sort().map(([name, h]) => {
+    const row = document.createElement("div");
+    const sw = document.createElement("i");
+    sw.style.background = `hsl(${h} 55% 40%)`;
+    row.append(sw, name);
+    return row;
+  }));
+  $("info").textContent = `rooms loaded: ${map.rooms.map((r) => `${r.no}${r.visited ? "" : "(not visited)"}`).join(", ")}\n` +
+    `floors: ${map.floors.join(" .. ")}\nhasMap: ${map.hasMap}, hasCompass: ${map.hasCompass}\n` +
+    `player: ${x}, ${z}, angle ${map.player.angle}`;
+}
+
+async function tick() {
+  if (!paused) {
+    try { draw(await (await fetch("map", { cache: "no-store" })).json()); } catch (err) { $("info").textContent = String(err); }
+  }
+  setTimeout(tick, 500);
+}
+tick();
+</script>
+</body>
+</html>

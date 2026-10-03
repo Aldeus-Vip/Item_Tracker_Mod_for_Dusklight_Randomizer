@@ -181,6 +181,24 @@ createServer(async (req, res) => {
       return res.writeHead(404).end();
     }
   }
+  if (path === "/map") {
+    // A made-up two-room stage in the mod's /map format (src/map_data.hpp).
+    const square = (x, z, w, h) => [x, z, x + w, z, x, z + h, x + w, z + h];
+    const room = (no, vertices, visited) => ({
+      no, layer: 0, visited, vertices,
+      floors: [{ no: 0, groups: [{ sw: 255, swType: 0, shown: true,
+        polys: [{ type: 3, strip: [0, 1, 2, 3] }],
+        lines: [{ type: 1, width: 2, strip: [0, 1, 3, 2, 0] }] }] }],
+    });
+    const t = Date.now() / 1000;
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify({
+      stage: state.stage, stayRoom: 0, exists: true, floors: [0, 0],
+      bounds: { minX: -1000, maxX: 1600, minZ: -800, maxZ: 800 }, hasMap: true, hasCompass: false,
+      player: { x: Math.round(Math.sin(t) * 300), y: 0, z: Math.round(Math.cos(t) * 300), angle: Math.round(((t * 0.4) % 1) * 65536) },
+      rooms: [room(0, square(-1000, -800, 1400, 1600), true), room(1, square(400, -200, 1200, 400), false)],
+    }));
+  }
   if (path === "/found" && req.method === "POST") {
     let body = "";
     for await (const chunk of req) body += chunk;

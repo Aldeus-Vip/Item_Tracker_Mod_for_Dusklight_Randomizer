@@ -75,6 +75,10 @@ void set_rando_files(RandoFileResolver resolver, std::string settingsFile);
 using FoundSink = void (*)(const std::string& body);
 void set_found_sink(FoundSink sink);
 
+// Builds the current stage's map as JSON (see map_data.hpp). Enables /map.
+using MapProvider = std::string (*)();
+void set_map_source(MapProvider provider);
+
 // The randomizer's seeds folder (seeds/<hash>/). Enables /rando-seeds/.
 void set_seeds_dir(std::string dir);
 

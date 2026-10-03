@@ -11,6 +11,7 @@
 #include "mods/svc/ui.h"
 
 #include "found_checks.hpp"
+#include "map_data.hpp"
 #include "game_icons.hpp"
 #include "game_textures.hpp"
 #include "rando_data.hpp"
@@ -248,6 +249,7 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     init_data_dir();
     tracker::found::init();
     tracker::web::set_found_sink([](const std::string& body) { tracker::found::add_from_page(body); });
+    tracker::web::set_map_source([] { return tracker::map::build_json(); });
     tracker::rando::download(logic_data_ref(), /*force=*/false);
 
     // A busy port is not fatal: the panel reports it and a port change retries.
