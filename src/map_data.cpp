@@ -14,6 +14,7 @@
 #include "tracker_state.hpp"
 
 #include <cmath>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -229,8 +230,10 @@ struct CheckPlace {
 };
 
 std::vector<CheckPlace> g_checks;
-int g_checkRoom = 0;      // next room to read
-int g_checkRoomsRead = 0; // room files found
+int g_checkRoom = 0;      // next room to look at (they are looked at again and again: rooms load)
+int g_checkRoomsRead = 0; // room files read
+bool g_roomScanned[64] = {};
+bool g_checksAdded = false;
 std::string g_checkStage;
 
 u32 be32(const u8* p) { return (u32{p[0]} << 24) | (u32{p[1]} << 16) | (u32{p[2]} << 8) | p[3]; }
@@ -245,28 +248,29 @@ struct FreeAligned {
     void operator()(void* p) const { ::operator delete(p, std::align_val_t{32}); }
 };
 
-void scan_room(const std::string& stage, int roomNo) {
-    JKRAramArchive* arc = dComIfGp_getFieldMapArchive2();
-    if (arc == nullptr) return;
-    char path[32];
-    std::snprintf(path, sizeof(path), "%s/room%d.dzs", stage.c_str(), roomNo);
-    const u32 size = dLib_getExpandSizeFromAramArchive(arc, path);
-    if (size < 4) return;
-    std::unique_ptr<void, FreeAligned> buf{::operator new(size, std::align_val_t{32})};
-    const u32 read = arc->readResource(buf.get(), size, path);
-    if (read < 4) return;
-    g_checkRoomsRead++;
-    const auto* b = static_cast<const u8*>(buf.get());
+// A chunk's data. Room files the game has loaded have their offsets made relative to the
+// offset field itself (OffsetPtr, top bit set); fresh ones count from the start of the file.
+const u8* chunk_data(const u8* file, const u8* node) {
+    const u32 raw = be32(node + 8);
+    if ((raw & 0x80000000u) == 0) return file + raw;
+    const s32 rel = (raw & 0x40000000u) ? static_cast<s32>(raw) : static_cast<s32>(raw & 0x7FFFFFFFu);
+    return node + 8 + rel;
+}
+
+// The checks in one room file (size 0: a file in memory whose size is not known).
+void parse_room(const std::string& stage, int roomNo, const u8* b, u32 size) {
     const u32 chunks = be32(b);
-    for (u32 c = 0; c < chunks && 4 + (c + 1) * 12 <= read; c++) {
+    if (chunks > 256 || (size != 0 && 4 + chunks * 12 > size)) return;
+    for (u32 c = 0; c < chunks; c++) {
         const u8* node = b + 4 + c * 12;
         const bool actors = std::memcmp(node, "ACT", 3) == 0 || std::memcmp(node, "TRE", 3) == 0;
         if (!actors) continue;
         const u32 num = be32(node + 4);
-        const u32 off = be32(node + 8) & 0x3FFFFFFF;
-        if (num > 1024 || off + num * 0x20 > read) continue;
+        const u8* data = chunk_data(b, node);
+        if (num > 1024) continue;
+        if (size != 0 && (data < b || data + num * 0x20 > b + size)) continue;
         for (u32 i = 0; i < num; i++) {
-            const u8* e = b + off + i * 0x20;
+            const u8* e = data + i * 0x20;
             char name[9] = {};
             std::memcpy(name, e, 8);
             const u32 prm = be32(e + 8);
@@ -286,14 +290,44 @@ void scan_room(const std::string& stage, int roomNo) {
             }
             bool known = false;
             for (const CheckPlace& p : g_checks) known = known || p.key == key;
-            if (!known) g_checks.push_back({key, roomNo, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)});
+            if (!known) {
+                g_checks.push_back({key, roomNo, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)});
+                g_checksAdded = true;
+            }
         }
     }
 }
 
+// A room's file, from wherever the game has it: the room's own archive while it is loaded
+// (room.dzr), the stage archive (room<n>.dzs, stages whose rooms are all in it), or the field map
+// archive (<stage>/room<n>.dzs). Returns whether one was found.
+bool scan_room(const std::string& stage, int roomNo) {
+    if (void* dzr = dComIfG_getStageRes(dComIfG_getRoomArcName(roomNo), "room.dzr")) {
+        parse_room(stage, roomNo, static_cast<const u8*>(dzr), 0);
+        return true;
+    }
+    char name[16];
+    std::snprintf(name, sizeof(name), "room%d.dzs", roomNo);
+    if (void* dzs = dComIfG_getStageRes(name)) {
+        parse_room(stage, roomNo, static_cast<const u8*>(dzs), 0);
+        return true;
+    }
+    JKRAramArchive* arc = dComIfGp_getFieldMapArchive2();
+    if (arc == nullptr) return false;
+    char path[32];
+    std::snprintf(path, sizeof(path), "%s/room%d.dzs", stage.c_str(), roomNo);
+    const u32 size = dLib_getExpandSizeFromAramArchive(arc, path);
+    if (size < 4) return false;
+    std::unique_ptr<void, FreeAligned> buf{::operator new(size, std::align_val_t{32})};
+    const u32 read = arc->readResource(buf.get(), size, path);
+    if (read < 4) return false;
+    parse_room(stage, roomNo, static_cast<const u8*>(buf.get()), read);
+    return true;
+}
+
 void write_checks(JsonWriter& w) {
     w.member("checkRooms", g_checkRoomsRead);
-    w.member("checksDone", g_checkRoom >= 64);
+
     w.key("checks").beginArray();
     for (const CheckPlace& c : g_checks) {
         w.beginObject();
@@ -458,6 +492,7 @@ void update() {
         g_checks.clear();
         g_checkRoom = 0;
         g_checkRoomsRead = 0;
+        std::fill(std::begin(g_roomScanned), std::end(g_roomScanned), false);
         g_checkStage = g_stage;
         return;
     }
@@ -466,9 +501,18 @@ void update() {
         return;
     }
     // The checks: one room file a frame, then the map is rebuilt with them.
-    if (g_checkRoom < 64) {
-        scan_room(g_checkStage, g_checkRoom++);
-        if (g_checkRoom == 64) g_mapStale = true;
+    // Rooms not read yet are looked at again as they may load later.
+    {
+        const int room = g_checkRoom;
+        g_checkRoom = (g_checkRoom + 1) % 64;
+        if (!g_roomScanned[room] && scan_room(g_checkStage, room)) {
+            g_roomScanned[room] = true;
+            g_checkRoomsRead++;
+        }
+        if (g_checksAdded && g_checkRoom == 0) {
+            g_checksAdded = false;
+            g_mapStale = true;
+        }
     }
     if (g_frame % kPlayerEveryFrames == 0) {
         g_player = build_player_json();

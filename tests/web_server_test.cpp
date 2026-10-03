@@ -229,6 +229,13 @@ int main() {
     check(status_is(request(http("GET", "/icons/Auru's_Memo.png")), "404"), "icon is gone after delete");
 
     // Game textures: list and single texture, with archive and name validation
+    // Map routes: GET serves what the providers give.
+    tracker::web::set_map_source([] { return std::string{R"({"exists":false})"}; }, [] { return std::string{"{}"}; });
+    tracker::web::set_field_map_source([] { return std::string{R"({"ready":false})"}; }, [] { return std::string{R"({"stages":{}})"}; });
+    check(request(http("GET", "/map")).ends_with(R"({"exists":false})"), "GET /map");
+    check(request(http("GET", "/field-map")).ends_with(R"({"ready":false})"), "GET /field-map");
+    check(request(http("GET", "/field-map-visited")).ends_with(R"({"stages":{}})"), "GET /field-map-visited");
+
     check(status_is(request(http("GET", "/game-textures/itemicon/")), "404"), "no textures without a provider");
     tracker::web::set_game_textures(
         [](const std::string& a) { return a == "itemicon" ? std::string{"[\"a.bti\"]"} : std::string{}; },

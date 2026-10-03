@@ -606,13 +606,7 @@ bool handle_request(Client& client, const Request& req) {
     const std::string_view target = req.target;
 
     if (req.method == "POST") {
-        if (target == "/field-map" || target == "/field-map-visited") {
-        MapProvider source = target == "/field-map" ? g_fieldMap : g_fieldMapVisited;
-        if (source == nullptr) send_error(client, "404 Not Found");
-        else send_response(client, "200 OK", "application/json; charset=utf-8", source());
-        return false;
-    }
-    if (target == "/layout") {
+        if (target == "/layout") {
             save_json_file(client, req, kLayoutFile);
         } else if (target == "/settings") {
             save_json_file(client, req, kSettingsFile);
@@ -663,6 +657,12 @@ bool handle_request(Client& client, const Request& req) {
     if (target == "/map-player") {
         if (g_mapPlayer == nullptr) send_error(client, "404 Not Found");
         else send_response(client, "200 OK", "application/json; charset=utf-8", g_mapPlayer());
+        return false;
+    }
+    if (target == "/field-map" || target == "/field-map-visited") {
+        MapProvider source = target == "/field-map" ? g_fieldMap : g_fieldMapVisited;
+        if (source == nullptr) send_error(client, "404 Not Found");
+        else send_response(client, "200 OK", "application/json; charset=utf-8", source());
         return false;
     }
     if (target == "/layout") {

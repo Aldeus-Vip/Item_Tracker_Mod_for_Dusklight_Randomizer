@@ -1268,3 +1268,4 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-door .map-door-bar { display: none; }
 .map-door.barred .map-door-bar { display: inline; }
 .map-door.barred .map-door-square, .map-door.barred .map-door-lock { display: none; }
+.map-check-note { margin: 0; font-size: 12px; color: var(--muted); }

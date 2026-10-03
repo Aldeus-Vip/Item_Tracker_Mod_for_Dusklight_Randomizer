@@ -392,6 +392,9 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     root.replaceChildren(el("div", { className: "map-pane" + (floorButtons ? " has-floors" : "") },
       el("div", { className: "loc-banner map-title" }, el("span", { className: "loc-banner-title", textContent: title })),
       checkSource ? filterBar() : null,
+      checkSource && !checks.length ? el("p", { className: "map-check-note", textContent: map.checks?.length
+        ? "None of the checks found in this place's rooms is in the check list."
+        : `No checks found in this place's rooms yet (${map.checkRooms ?? 0} room files read; more are read as rooms load).` }) : null,
       el("div", { className: "map-layout" },
         floorButtons,
         el("div", { className: "map-stage" }, frame, zoomBar.node),
@@ -431,7 +434,9 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       marks.push(bar);
       node.setAttribute("transform", `translate(${door.x} ${door.z})`);
       square.setAttribute("transform", `rotate(${(door.angle / 65536) * 360})`);
-      const item = { node, square, marks, index, kind: door.kind, state: "" };
+      const title = svg("title");
+      node.prepend(title);
+      const item = { node, square, marks, index, kind: door.kind, state: "", title, label: `${door.name} · ${door.kind} · rooms ${door.rooms[0]} / ${door.rooms[1]}` };
       setDoorState(item, door.closed ? "C" : door.locked === true ? "L" : door.locked === false ? "U" : "O");
       out.push(item);
     });
@@ -446,6 +451,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     door.node.classList.remove(door.state || "none");
     door.node.classList.add(state);
     door.state = state;
+    door.title.textContent = `${door.label} · ${state}${letter === "?" ? " (state unknown)" : ""}`;
   }
 
   // Door states change often (keys used, bars dropping behind Link): taken from /map-player.
@@ -619,7 +625,9 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     if (moved) lastPos = pos;
     const near = span(scene.base, view.zoom) * 0.18;
     const away = Math.abs(pos.x - view.x) > near || Math.abs(pos.y - view.y) > near;
-    if (!roomChanged && !(manual && moved) && !away) return;
+    // Only when Link moves: a view slid by hand stays until he does.
+    if (!moved) return;
+    if (!roomChanged && !manual && !away) return;
     followRoom = player.stayRoom;
     manual = false;
     goTo({ zoom: LEVELS[level], x: pos.x, y: pos.y }, !first);
