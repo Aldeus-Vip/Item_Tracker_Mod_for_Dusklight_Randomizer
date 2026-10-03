@@ -5,6 +5,8 @@
 #include "d/d_com_inf_game.h"
 #include "d/d_map_path_dmap.h"
 #include "d/d_save.h"
+#include "d/d_stage.h"
+#include "d/d_tresure.h"
 #include "tracker_state.hpp"
 
 #include <cstring>
@@ -100,6 +102,101 @@ void write_player(JsonWriter& w) {
     }
 }
 
+// Switch state as the game sees it; zone switches of rooms not loaded are unknown (-1).
+int switch_state(int sw, int roomNo) {
+    if (sw == 0xFF || roomNo < 0 || roomNo >= 64) return -1;
+    if (sw >= 0xC0 && dComIfGp_roomControl_getZoneNo(roomNo) < 0) return -1;
+    return dComIfGs_isSwitch(sw, roomNo) ? 1 : 0;
+}
+
+// One door the game marks on its maps (renderingPlusDoor_c::drawDoorCommon): its place, the
+// rooms on both sides and floors, and how it is shut. Kinds: "boss" (big key door), "key" (small
+// key lock), "stop" (bars until a switch, e.g. enemies beaten), "door". "locked" / "closed" are
+// the current state (absent when the switch is unknown).
+void write_door(JsonWriter& w, const stage_tgsc_data_class& d, bool stageDoor) {
+    const u32 prm = d.base.parameters;
+    const int front = (prm >> 13) & 0x3F;
+    const int back = (prm >> 19) & 0x3F;
+    const int frontOpt = (prm >> 8) & 0x3;
+    const int backOpt = (prm >> 10) & 0x7;
+    const u16 angleZ = static_cast<u16>(static_cast<s16>(d.base.angle.z));
+    const int sw = angleZ & 0xFF;
+    const int sw2 = angleZ >> 8;
+    BE(Vec) pos;
+    pos.x = d.base.position.x;
+    pos.y = d.base.position.y;
+    pos.z = d.base.position.z;
+    if (stageDoor) dMapInfo_n::correctionOriginPos(static_cast<s8>(front), &pos);
+
+    char name[9] = {};
+    std::memcpy(name, d.name, 8);
+    const bool boss = std::strcmp(name, "bdoor") == 0 || std::strstr(name, "Bdoor") != nullptr;
+
+    w.beginObject();
+    w.member("name", name);
+    w.key("rooms").beginArray().value(front).value(back).endArray();
+    w.key("x").number(static_cast<f32>(pos.x));
+    w.key("z").number(static_cast<f32>(pos.z));
+    w.member("angle", static_cast<int>(static_cast<u16>(static_cast<s16>(d.base.angle.y))));
+    w.key("floors").beginArray()
+        .value(static_cast<int>(dMapInfo_c::calcFloorNo(pos.y, true, front)))
+        .value(static_cast<int>(dMapInfo_c::calcFloorNo(pos.y, true, back)))
+        .endArray();
+    if (boss) {
+        w.member("kind", "boss");
+        const int s = switch_state(sw, front);
+        if (s >= 0) w.member("locked", s == 0);
+        else if (sw == 0xFF) w.member("locked", dComIfGs_isDungeonItemBossKey() == 0);
+    } else if (frontOpt == 2 || backOpt == 2) {
+        w.member("kind", "key");
+        const int s = switch_state(sw, front);
+        if (s >= 0) w.member("locked", s == 0);
+    } else if (frontOpt == 1 || frontOpt == 3 || backOpt == 1 || backOpt == 3) {
+        w.member("kind", "stop");
+        bool known = false;
+        bool closed = false;
+        if (frontOpt == 1 || frontOpt == 3) {
+            const int s = switch_state(sw, front);
+            if (s >= 0) { known = true; closed = closed || s == 0; }
+        }
+        if (backOpt == 1 || backOpt == 3) {
+            const int s = switch_state(sw2, back);
+            if (s >= 0) { known = true; closed = closed || s == 0; }
+        }
+        if (known) w.member("closed", closed);
+    } else {
+        w.member("kind", "door");
+    }
+    w.endObject();
+}
+
+void write_doors(JsonWriter& w) {
+    w.key("doors").beginArray();
+    const dStage_KeepDoorInfo* stageDoors = dStage_GetKeepDoorInfo();
+    for (int i = 0; stageDoors != nullptr && i < stageDoors->mNum && i < 0x40; i++) {
+        write_door(w, stageDoors->mDrTgData[i], true);
+    }
+    const dStage_KeepDoorInfo* roomDoors = dStage_GetRoomKeepDoorInfo();
+    for (int i = 0; roomDoors != nullptr && i < roomDoors->mNum && i < 0x40; i++) {
+        write_door(w, roomDoors->mDrTgData[i], false);
+    }
+    w.endArray();
+}
+
+// Where the dungeon's boss is (the game's boss map icon, treasure type group 3).
+void write_boss(JsonWriter& w) {
+    dTres_c::typeGroupData_c* boss = dTres_c::getFirstData(3);
+    if (dTres_c::getTypeGroupNumber(3) <= 0 || boss == nullptr) return;
+    const BE(Vec)* pos = boss->getPos();
+    const int room = boss->getRoomNo();
+    w.key("boss").beginObject();
+    w.member("room", room);
+    w.key("x").number(static_cast<f32>(pos->x));
+    w.key("z").number(static_cast<f32>(pos->z));
+    w.member("floor", static_cast<int>(dMapInfo_c::calcFloorNo(pos->y, true, room)));
+    w.endObject();
+}
+
 }  // namespace
 
 std::string build_player_json() {
@@ -135,6 +232,8 @@ std::string build_json() {
         w.member("hasMap", dMapInfo_n::chkGetMap());
         w.member("hasCompass", dMapInfo_n::chkGetCompass());
         write_player(w);
+        write_doors(w);
+        write_boss(w);
         w.key("rooms").beginArray();
         for (int layer = 0; layer < 2; layer++) {
             for (int roomNo = 0; roomNo < 0x40; roomNo++) {

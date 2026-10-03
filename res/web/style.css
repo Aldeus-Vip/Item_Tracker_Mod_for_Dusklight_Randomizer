@@ -1114,9 +1114,22 @@ select option:checked { background: #5c5230; color: #fff; }
 
 /* ---- Map ---- */
 .map-pane { display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
-/* Map on top at full width; floors and the dungeon's items below it, side by side */
-.map-below { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 24px; }
+/* Narrow: the map on top at full width; floors and the dungeon's items below it, side by side.
+   Wide: the floors left of the map and the items in a row under it. The zoom indicator is always
+   right of the map. */
+.map-layout { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "map" "items"; gap: 12px 24px; }
+.map-pane.has-floors .map-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "map map" "floors items"; }
+.map-stage { grid-area: map; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.map-floors { grid-area: floors; align-self: center; justify-self: end; }
 .map-items { --tile: 54px; display: grid; grid-template-columns: repeat(2, var(--tile)); gap: 8px; }
+.map-items { grid-area: items; align-self: center; justify-self: center; }
+.map-pane.has-floors .map-items { justify-self: start; }
+@container (min-width: 560px) {
+  .map-pane.has-floors .map-layout { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "floors map" ". items"; }
+  .map-pane.has-floors .map-items { justify-self: center; }
+  .map-items { grid-template-columns: repeat(4, var(--tile)); }
+}
+.map-stage .map-frame { flex: 1 1 auto; min-width: 0; }
 .map-items .icon { position: absolute; inset: 15%; width: 70%; height: 70%; object-fit: contain; }
 .map-items .slot:not(.on) .icon { filter: grayscale(1) brightness(0.55); opacity: 0.55; }
 .map-items .map-icon { display: contents; }
@@ -1187,9 +1200,47 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-link { fill: #ffe23a; stroke: #2a1d00; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(255, 230, 80, 0.9)); }
 
 /* Zoom and drag */
-.map-frame.zoomed.dragging { cursor: grabbing; }
+.map-frame, .map-frame.dragging, .map-frame * { cursor: none; }
 .map-frame.zoomed .map-svg { overflow: hidden; }
 .map-svg { transition: none; }
+
+/* Doors: the game's white square; a silver padlock on locked doors (heavier on the big key door),
+   kept grayed out once opened; a "no entry" sign while a door is barred */
+.map-door-square { fill: #fbfaf2; stroke: rgba(30, 30, 20, 0.55); stroke-width: 6; }
+.map-door:not(.here) .map-door-square { fill: #e6e3d2; opacity: 0.85; }
+.map-door-mark { filter: drop-shadow(0 0.6px 0.8px rgba(0, 0, 0, 0.7)); }
+.map-door.locked .map-door-square { opacity: 0; }
+.map-door.unlocked .map-door-mark { filter: grayscale(1) brightness(0.9); opacity: 0.4; }
+.map-svg .detail-low { display: none; }
+.map-svg.detail-low .detail-low { display: inline; }
+.map-svg.detail-low .detail-high { display: none; }
+
+/* The boss icon in the middle of the boss's room */
+.map-overlay { position: absolute; inset: 0; pointer-events: none; }
+.map-boss { position: absolute; left: 0; top: 0; display: grid; place-items: center; pointer-events: auto; filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 6px rgba(255, 80, 60, 0.55)); }
+.map-boss .map-icon { display: contents; }
+.map-boss-icon { width: 100%; height: 100%; object-fit: contain; }
+.map-boss.defeated { filter: grayscale(1) drop-shadow(0 0 2px rgba(0, 0, 0, 0.9)); opacity: 0.6; }
+.map-boss-fallback { font-size: 20px; color: #ffdddd; }
+
+/* Zoom indicator: four dots, the top one the closest zoom; the one in use glows pale blue */
+.map-zoom { flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 30px; }
+.map-zoom-dots { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 4px 0; }
+.map-zoom-dot { display: block; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #5d7480, #22313a 70%); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6); opacity: 0.75; transition: background 0.2s, box-shadow 0.2s, opacity 0.2s; }
+.map-zoom-dot.l3 { width: 16px; height: 16px; }
+.map-zoom-dot.l2 { width: 13px; height: 13px; }
+.map-zoom-dot.l1 { width: 10px; height: 10px; }
+.map-zoom-dot.l0 { width: 7px; height: 7px; }
+.map-zoom-dot.on {
+  opacity: 1;
+  background: radial-gradient(circle at 40% 35%, #ffffff, #c4f4ff 35%, #5fd6f5 75%, #2a9cc0);
+  box-shadow: 0 0 6px 2px rgba(120, 225, 255, 0.85), 0 0 14px 4px rgba(90, 200, 255, 0.45);
+}
+.map-zoom-arrow { width: 26px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); transition: transform 0.12s, opacity 0.12s; }
+.map-zoom-arrow svg { width: 100%; height: 100%; display: block; }
+.map-zoom-arrow.up svg { transform: rotate(180deg); }
+.map-zoom-arrow:hover:not(:disabled) { transform: scale(1.12); filter: drop-shadow(0 0 4px rgba(255, 240, 190, 0.8)); }
+.map-zoom-arrow:disabled { opacity: 0.3; cursor: default; }
 /* The map cursor follows the mouse and turns, like the game's */
 .map-reticle { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; pointer-events: none; z-index: 2; filter: drop-shadow(0 0 4px rgba(98, 232, 255, 0.8)); }
 .map-reticle svg { width: 100%; height: 100%; overflow: visible; }

@@ -11,7 +11,13 @@
   the overworld on a dark hand-drawn map (original art). The icons can be changed by right click.
 
 - Map: click to zoom in, right-click to zoom out, drag to move around a zoomed map; a turning
-  map cursor like the game's.
+  map cursor like the game's. Zooming is animated, in four steps shown by a glowing indicator
+  beside the map whose arrows zoom too. The zoom is kept between stages, and the map follows the
+  room Link is in (zooming out when the room does not fit).
+- Dungeon maps show the doors as the game does (white squares), a silver padlock on locked doors
+  (a heavier one on the big key door, grayed out once opened), a "no entry" sign on barred doors,
+  and the boss icon from the Dungeons tab in the boss's room. Pits and rooms not yet opened are
+  black, as in the game.
 
 ### Fixed
 - Crashes on reset, on loading a save and on some stage changes: the map data and the seen-item
@@ -21,7 +27,8 @@
   map is now redrawn only when it changes.
 
 ### Changed
-- Map: floors and the dungeon's items sit below the map, which uses the full width.
+- Map: when the pane is narrow, floors and the dungeon's items sit below the map, which uses the
+  full width; when wide, the floors are left of the map and the items in a row under it.
 - Locations sub-tabs look like tabs (streaked plates), not like the other buttons.
 - Dungeons tab: the Goron Mines key shard icon can be changed for every stage (1/3, 2/3, 3/3) in
   the icon editor, not only the one shown.

@@ -3,6 +3,8 @@
 // The shapes are the game's: triangle strips over each room's x/z vertices, by floor; their type
 // picks the color (floor, raised floor, water, lava, ...), as in the game's maps.
 
+import { DUNGEON_ICONS } from "./layout.js";
+
 const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
@@ -16,7 +18,10 @@ const svg = (tag, attrs = {}) => {
 };
 
 const PLAYER_MS = 250; // Link's position
-const MAX_ZOOM = 8;
+const MAP_MS = 3000; // the map itself (switches, visited rooms) besides stage changes
+const LEVELS = [1, 2, 4, 8]; // zoom steps; the indicator shows which one is on
+const ZOOM_MS = 280;
+const LEVEL_KEY = "dusklight-tracker.mapZoom";
 
 // The map cursor: a ring of four ticks turning around a dot, like the game's map cursor (original).
 const RETICLE = `<svg viewBox="-20 -20 40 40" aria-hidden="true"><g class="map-reticle-ring" fill="none" stroke-linecap="round">
@@ -24,15 +29,64 @@ const RETICLE = `<svg viewBox="-20 -20 40 40" aria-hidden="true"><g class="map-r
 <circle r="13" stroke="#62e8ff" stroke-width="2.2" stroke-dasharray="12 8.42" stroke-dashoffset="6"/>
 <path d="M0 -17v4M17 0h-4M0 17v-4M-17 0h4" stroke="#bff6ff" stroke-width="2.4"/></g>
 <circle r="2.2" fill="#e8fdff"/></svg>`;
-const MAP_MS = 3000; // the map itself (switches, visited rooms) besides stage changes
+
+// The zoom arrows: a cream arrowhead with a notched back, pointing down (the up one is turned).
+const ARROW = `<svg viewBox="0 0 24 20" aria-hidden="true"><defs><linearGradient id="map-zoom-arrow-fill" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#fffbea"/><stop offset="0.6" stop-color="#f1e3bd"/><stop offset="1" stop-color="#cdb98a"/></linearGradient></defs>
+<path d="M2 2.5 L12 18 L22 2.5 L12 7.5 Z" fill="url(#map-zoom-arrow-fill)" stroke="#3b2f18" stroke-width="1.1" stroke-linejoin="round"/></svg>`;
+
+// Door marks, drawn in a 24-unit box around the door (original art). Locks: a silver padlock for
+// small key doors, a heavier one with a thick frame and gold trim for the big key door; each has
+// a plain version for when the map is small. A barred door gets a red "no entry" sign.
+const DOOR_DEFS = `<linearGradient id="mv-silver" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#ffffff"/><stop offset="0.35" stop-color="#d9dee4"/><stop offset="0.6" stop-color="#9aa4ae"/><stop offset="1" stop-color="#e3e7ec"/></linearGradient>
+<linearGradient id="mv-shackle" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0" stop-color="#8d969f"/><stop offset="0.45" stop-color="#f4f6f8"/><stop offset="1" stop-color="#7c858e"/></linearGradient>
+<linearGradient id="mv-iron" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#f2f4f6"/><stop offset="0.4" stop-color="#b9c1c9"/><stop offset="0.7" stop-color="#6f7882"/><stop offset="1" stop-color="#c9cfd5"/></linearGradient>
+<linearGradient id="mv-gold" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#fff2b0"/><stop offset="0.5" stop-color="#d9a93a"/><stop offset="1" stop-color="#8a5a12"/></linearGradient>`;
+const LOCK_SMALL = {
+  high: `<path d="M7.5 11V7.6a4.5 4.5 0 0 1 9 0V11" fill="none" stroke="#2b3036" stroke-width="3.6"/>
+<path d="M7.5 11V7.6a4.5 4.5 0 0 1 9 0V11" fill="none" stroke="url(#mv-shackle)" stroke-width="2"/>
+<rect x="4.5" y="10" width="15" height="11" rx="2.2" fill="url(#mv-silver)" stroke="#2b3036" stroke-width="1.2"/>
+<path d="M6 11.6h12" stroke="#ffffff" stroke-width="0.8" opacity="0.8"/>
+<circle cx="12" cy="14.6" r="1.7" fill="#2b3036"/><path d="M11.2 15.4h1.6l0.4 3h-2.4z" fill="#2b3036"/>`,
+  low: `<path d="M7.5 11V7.4a4.5 4.5 0 0 1 9 0V11" fill="none" stroke="#2b3036" stroke-width="4.4"/>
+<path d="M7.5 11V7.4a4.5 4.5 0 0 1 9 0V11" fill="none" stroke="#e9edf1" stroke-width="2.4"/>
+<rect x="4" y="10" width="16" height="11.5" rx="2" fill="#dfe4e9" stroke="#2b3036" stroke-width="1.8"/>
+<rect x="10.6" y="13" width="2.8" height="5" rx="1" fill="#2b3036"/>`,
+};
+const LOCK_BIG = {
+  high: `<path d="M6.8 10.5V6.8a5.2 5.2 0 0 1 10.4 0v3.7" fill="none" stroke="#1e2226" stroke-width="5"/>
+<path d="M6.8 10.5V6.8a5.2 5.2 0 0 1 10.4 0v3.7" fill="none" stroke="url(#mv-shackle)" stroke-width="3"/>
+<path d="M2.5 10.5h19l-1 11.5h-17z" fill="#1e2226"/>
+<path d="M3.6 11.5h16.8l-0.9 9.6H4.5z" fill="url(#mv-gold)"/>
+<path d="M5.4 12.9h13.2l-0.7 6.9H6.1z" fill="url(#mv-iron)" stroke="#1e2226" stroke-width="0.6"/>
+<path d="M12 8.4l1.3 2.1h-2.6z" fill="url(#mv-gold)" stroke="#1e2226" stroke-width="0.5"/>
+<circle cx="4.6" cy="12.5" r="0.8" fill="#fff2b0"/><circle cx="19.4" cy="12.5" r="0.8" fill="#fff2b0"/>
+<circle cx="5.2" cy="20.3" r="0.8" fill="#fff2b0"/><circle cx="18.8" cy="20.3" r="0.8" fill="#fff2b0"/>
+<path d="M12 13.9l1.6 1.6-1.6 1.6-1.6-1.6z" fill="#1e2226"/><path d="M11.4 16.6h1.2l0.4 2.2h-2z" fill="#1e2226"/>`,
+  low: `<path d="M6.8 10.5V6.8a5.2 5.2 0 0 1 10.4 0v3.7" fill="none" stroke="#1e2226" stroke-width="5.4"/>
+<path d="M6.8 10.5V6.8a5.2 5.2 0 0 1 10.4 0v3.7" fill="none" stroke="#e3e7ec" stroke-width="3"/>
+<path d="M2.5 10h19l-1 12h-17z" fill="#1e2226"/>
+<path d="M4 11.4h16l-0.8 9.2H4.8z" fill="#e2b546"/>
+<path d="M6.2 13.2h11.6l-0.6 5.6H6.8z" fill="#dfe4e9"/>
+<rect x="10.8" y="14" width="2.4" height="4.2" rx="0.8" fill="#1e2226"/>`,
+};
+const NO_ENTRY = `<circle cx="12" cy="12" r="9.5" fill="#fff4f0" stroke="#3a0c08" stroke-width="1.2"/>
+<circle cx="12" cy="12" r="7.6" fill="none" stroke="#d8261b" stroke-width="3"/>
+<path d="M6.8 17.2 L17.2 6.8" stroke="#d8261b" stroke-width="3" stroke-linecap="butt"/>`;
+const DOOR_SIZE = 600; // the game's door square: 100 units scaled by 6
 
 // Fill colors by shape type (the low 6 bits). Overworld maps are teal, dungeon maps green; a
-// dungeon room is brighter while Link is in it and dull until visited.
+// dungeon room is brighter while Link is in it; type 2 (pits and the like) and rooms not yet
+// opened are black, as in the game.
 const FIELD = { 0: "#2f8572", 1: "#56b39a", 2: "#3f9a84", 5: "#2f86e6", 8: "#7c2116" };
 const DUNGEON = {
-  on: { 0: "#1d7a2b", 1: "#3daa45", 2: "#2a9a7c", 5: "#2d6fd8", 8: "#5e0f0c" },
-  stay: { 0: "#2ea83d", 1: "#68d863", 2: "#3cc2a0", 5: "#4a98ff", 8: "#82170f" },
-  off: { 0: "#2c4a31", 1: "#3c5f40", 2: "#355a52", 5: "#2f4a78", 8: "#3e1715" },
+  on: { 0: "#1d7a2b", 1: "#3daa45", 2: "#0c0f0c", 5: "#2d6fd8", 8: "#5e0f0c" },
+  stay: { 0: "#2ea83d", 1: "#68d863", 2: "#0c0f0c", 5: "#4a98ff", 8: "#82170f" },
+  off: { 0: "#121612", 1: "#161c16", 2: "#0c0f0c", 5: "#111a26", 8: "#1c0d0b" },
 };
 const OUTLINE = { field: "#a6f0d8", dungeon: "#b8f5b0" };
 
@@ -72,11 +126,29 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   // What is drawn: rebuilt only when this key changes; Link's arrow moves without a rebuild, so
   // clicks on the floor buttons are not lost to a redraw.
   let sceneKey = "";
-  let scene = null; // { svg, link, frame, base: {x, y, w, h}, size, floor }
-  // Zoom (1 = whole stage) and the point at the middle of the view, kept while on one stage.
-  let zoom = 1;
-  let center = null;
-  let zoomStage = "";
+  let scene = null; // { svg, link, frame, base, size, floor, rooms, doors, boss, dots, ... }
+  // Zoom: a step of LEVELS, kept across stages (and page loads). The view (center and zoom) moves
+  // smoothly toward its target; it follows the room Link is in.
+  let level = loadLevel();
+  let view = null; // { x, y, zoom } as drawn
+  let anim = null;
+  let viewStage = "";
+  let followRoom = null; // the room the view was last centered on
+  let lastPos = null; // Link's position when the view last followed him
+  let manual = false; // moved or zoomed by hand since then
+  let pressing = false; // a mouse button is down on the map
+
+  function loadLevel() {
+    try {
+      const n = Number(localStorage.getItem(LEVEL_KEY));
+      return Number.isInteger(n) && n >= 0 && n < LEVELS.length ? n : 0;
+    } catch {
+      return 0;
+    }
+  }
+  function saveLevel() {
+    try { localStorage.setItem(LEVEL_KEY, String(level)); } catch { /* not kept */ }
+  }
 
   async function tick() {
     timer = null;
@@ -117,6 +189,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   function setVisible(on) {
     visible = on;
     if (on && !timer) tick();
+    if (on && scene) requestAnimationFrame(() => scene && applyView());
   }
 
   // Rooms the game would draw: every room on the overworld; in a dungeon the visited ones, Link's,
@@ -147,14 +220,44 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       d, d?.name === "Goron Mines" ? items["Goron Mines Key Shard"] : 0]);
     if (key !== sceneKey) {
       sceneKey = key;
-      if (zoomStage !== map.stage) {
-        zoomStage = map.stage;
-        zoom = 1;
-        center = null;
+      if (viewStage !== map.stage) {
+        viewStage = map.stage;
+        view = null;
+        followRoom = null;
+        lastPos = null;
       }
       build(dungeon, rooms, floors, floor, title, d);
     }
     placeLink();
+    follow();
+  }
+
+  // Each room's extent on the floor shown (or on any floor when it has nothing there).
+  function roomBoxes(rooms, floor) {
+    const boxes = new Map();
+    for (const room of rooms) {
+      const v = room.vertices;
+      const measure = (onFloor) => {
+        const b = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity };
+        for (const f of room.floors) {
+          if (onFloor && f.no !== floor) continue;
+          for (const g of f.groups) {
+            if (!g.shown) continue;
+            for (const p of g.polys) {
+              if (p.type & 0x80) continue;
+              for (const i of p.strip) {
+                b.minX = Math.min(b.minX, v[i * 2]); b.maxX = Math.max(b.maxX, v[i * 2]);
+                b.minZ = Math.min(b.minZ, v[i * 2 + 1]); b.maxZ = Math.max(b.maxZ, v[i * 2 + 1]);
+              }
+            }
+          }
+        }
+        return b.minX === Infinity ? null : b;
+      };
+      const b = measure(true) ?? measure(false);
+      if (b) boxes.set(room.no, { x: (b.minX + b.maxX) / 2, y: (b.minZ + b.maxZ) / 2, w: b.maxX - b.minX, h: b.maxZ - b.minZ });
+    }
+    return boxes;
   }
 
   function build(dungeon, rooms, floors, floor, title, d) {
@@ -179,6 +282,8 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     const base = { x: minX - pad, y: minZ - pad, w: maxX - minX + pad * 2, h: maxZ - minZ + pad * 2 };
 
     const drawing = svg("svg", { class: "map-svg", preserveAspectRatio: "xMidYMid meet" });
+    const defs = svg("defs");
+    defs.innerHTML = DOOR_DEFS;
     const shapes = svg("g", { class: "map-shapes" });
     const stay = svg("g", { class: "map-shapes map-stay" });
     const outlines = svg("g", { class: "map-outlines" });
@@ -203,8 +308,11 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
         }
       }
     }
+    const doors = dungeon ? buildDoors(rooms, floor) : [];
+    const doorLayer = svg("g", { class: "map-doors" });
+    doorLayer.append(...doors.map((x) => x.node));
     const link = svg("polygon", { class: "map-link" });
-    drawing.append(shapes, stay, outlines, link);
+    drawing.append(defs, shapes, stay, outlines, doorLayer, link);
 
     // Floors, top first, as in the game: Link's face (or the wolf's) beside his floor, outside the
     // button so every floor label lines up.
@@ -224,14 +332,89 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
         })))) : null;
     const reticle = el("div", { className: "map-reticle", hidden: true });
     reticle.innerHTML = RETICLE;
-    const frame = el("div", { className: "map-frame " + (dungeon ? "parchment" : "field"), title: "Click: zoom in · Right-click: zoom out · Drag: move" }, drawing, reticle);
-    scene = { svg: drawing, link, frame, base, size, floor };
-    applyView();
+    const overlay = el("div", { className: "map-overlay" });
+    const boss = d ? bossMark(d, rooms, floor) : null;
+    if (boss) overlay.append(boss.node);
+    const frame = el("div", { className: "map-frame " + (dungeon ? "parchment" : "field"), title: "Click: zoom in · Right-click: zoom out · Drag: move" }, drawing, overlay, reticle);
+    const zoomBar = zoomIndicator();
+    scene = { svg: drawing, link, frame, base, size, floor, rooms: roomBoxes(rooms, floor), doors, boss, zoomBar };
     bindFrame(frame, reticle);
-    const below = floorButtons || d ? el("div", { className: "map-below" }, floorButtons, d ? dungeonItems(d) : null) : null;
-    root.replaceChildren(el("div", { className: "map-pane" },
+    root.replaceChildren(el("div", { className: "map-pane" + (floorButtons ? " has-floors" : "") },
       el("div", { className: "loc-banner map-title" }, el("span", { className: "loc-banner-title", textContent: title })),
-      frame, below));
+      el("div", { className: "map-layout" },
+        floorButtons,
+        el("div", { className: "map-stage" }, frame, zoomBar.node),
+        d ? dungeonItems(d) : null)));
+    if (view) view = clampView(view);
+    applyView();
+  }
+
+  // ---- Doors and the boss ----
+
+  // The doors the game marks on this floor (as renderingPlusDoor_c: a door shows when a room on
+  // either side is drawn and the door is on the floor shown).
+  function buildDoors(rooms, floor) {
+    const drawn = new Set(rooms.map((r) => r.no));
+    const out = [];
+    for (const door of map.doors ?? []) {
+      if (!door.rooms.some((r) => drawn.has(r))) continue;
+      if (!door.floors.includes(floor)) continue;
+      const here = door.rooms.includes(player.stayRoom);
+      const node = svg("g", { class: "map-door" + (here ? " here" : "") });
+      const square = svg("rect", { class: "map-door-square", x: -50, y: -50, width: 100, height: 100 });
+      const mark = svg("g", { class: "map-door-mark" });
+      let state = "";
+      if (door.kind === "stop" && door.closed) {
+        state = "barred";
+        mark.innerHTML = NO_ENTRY;
+      } else if (door.kind === "key" || door.kind === "boss") {
+        state = door.locked === false ? "unlocked" : "locked";
+        const lock = door.kind === "boss" ? LOCK_BIG : LOCK_SMALL;
+        mark.innerHTML = `<g class="detail-high">${lock.high}</g><g class="detail-low">${lock.low}</g>`;
+      }
+      if (state !== "barred") node.append(square);
+      if (state) node.append(mark);
+      node.classList.add(state || "open", door.kind);
+      node.setAttribute("transform", `translate(${door.x} ${door.z})`);
+      square.setAttribute("transform", `rotate(${(door.angle / 65536) * 360})`);
+      out.push({ node, square, mark: state ? mark : null });
+    }
+    return out;
+  }
+
+  // The dungeon's boss icon (the one set in the Dungeons tab) in the middle of the boss's room.
+  function bossMark(d, rooms, floor) {
+    const icon = DUNGEON_ICONS.bosses[d.name];
+    if (!map.boss || !icon || map.boss.floor !== floor) return null;
+    const box = roomBoxes(rooms.filter((r) => r.no === map.boss.room), floor).get(map.boss.room);
+    const at = box ? { x: box.x, y: box.y } : { x: map.boss.x, y: map.boss.z };
+    const node = el("div", { className: "map-boss" + (d.bossDefeated ? " defeated" : ""), title: d.bossDefeated ? `${icon} (defeated)` : icon },
+      iconSlot(icon, icon, "map-boss-icon", el("span", { className: "map-boss-fallback", textContent: "☠" })));
+    return { node, at };
+  }
+
+  // Door marks and the boss icon keep a readable size on screen: never smaller than about 13 px,
+  // and the locks switch to their plain look when small.
+  function placeMarks(k, rect, vb) {
+    if (!scene) return;
+    const squarePx = DOOR_SIZE / k;
+    const squareScale = Math.max(DOOR_SIZE, 6 * k) / 100;
+    const markPx = Math.max(squarePx, 13);
+    const markScale = (markPx * k) / 24;
+    scene.svg.classList.toggle("detail-low", markPx < 20);
+    for (const door of scene.doors) {
+      door.square.setAttribute("transform", door.square.getAttribute("transform").replace(/ scale\([^)]*\)/, "") + ` scale(${squareScale})`);
+      door.mark?.setAttribute("transform", `scale(${markScale}) translate(-12 -12)`);
+    }
+    if (scene.boss) {
+      const px = 26 + 4 * Math.log2(view.zoom);
+      const x = (scene.boss.at.x - vb.x) / k + (rect.width - vb.width / k) / 2;
+      const y = (scene.boss.at.y - vb.y) / k + (rect.height - vb.height / k) / 2;
+      const fr = scene.frame.getBoundingClientRect();
+      const off = rect.left - fr.left - scene.frame.clientLeft;
+      const offY = rect.top - fr.top - scene.frame.clientTop;
+      Object.assign(scene.boss.node.style, { width: `${px}px`, height: `${px}px`, transform: `translate(${off + x - px / 2}px, ${offY + y - px / 2}px)` });
+    }
   }
 
   // Link: a yellow arrowhead toward where he faces (angle 0 = +z), on Link's floor only.
@@ -241,26 +424,111 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     scene.link.style.display = shown ? "" : "none";
     if (!shown) return;
     const a = (player.player.angle / 65536) * Math.PI * 2;
-    const s = (scene.size * 0.022) / Math.sqrt(zoom);
+    const s = (scene.size * 0.022) / Math.sqrt(view?.zoom ?? 1);
     const { x, z } = player.player;
     const pt = (ang, r) => `${x + Math.sin(ang) * r},${z + Math.cos(ang) * r}`;
     scene.link.setAttribute("points", `${pt(a, s * 1.5)} ${pt(a + 2.45, s)} ${pt(a - 2.45, s)}`);
     scene.link.setAttribute("stroke-width", s * 0.18);
   }
 
-  // ---- Zoom and drag ----
+  // ---- The view: zoom, drag, and following Link ----
+
+  const baseCenter = () => ({ x: scene.base.x + scene.base.w / 2, y: scene.base.y + scene.base.h / 2 });
+
+  // Keep the view on the map.
+  function clampView(v) {
+    const { base } = scene;
+    const w = base.w / v.zoom;
+    const h = base.h / v.zoom;
+    return {
+      zoom: v.zoom,
+      x: Math.min(Math.max(v.x, base.x + w / 2), base.x + base.w - w / 2),
+      y: Math.min(Math.max(v.y, base.y + h / 2), base.y + base.h - h / 2),
+    };
+  }
 
   function applyView() {
+    if (!scene) return;
+    if (!view) view = clampView({ ...baseCenter(), zoom: LEVELS[level] });
     const { base } = scene;
-    const w = base.w / zoom;
-    const h = base.h / zoom;
-    const c = center ?? { x: base.x + base.w / 2, y: base.y + base.h / 2 };
-    // Keep the view on the map.
-    const cx = Math.min(Math.max(c.x, base.x + w / 2), base.x + base.w - w / 2);
-    const cy = Math.min(Math.max(c.y, base.y + h / 2), base.y + base.h - h / 2);
-    center = zoom > 1 ? { x: cx, y: cy } : null;
-    scene.svg.setAttribute("viewBox", `${cx - w / 2} ${cy - h / 2} ${w} ${h}`);
-    scene.frame.classList.toggle("zoomed", zoom > 1);
+    const w = base.w / view.zoom;
+    const h = base.h / view.zoom;
+    const vb = { x: view.x - w / 2, y: view.y - h / 2, width: w, height: h };
+    scene.svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${w} ${h}`);
+    scene.frame.classList.toggle("zoomed", view.zoom > 1.001);
+    const rect = scene.svg.getBoundingClientRect();
+    if (rect.width > 0) placeMarks(Math.max(w / rect.width, h / rect.height), rect, vb);
+    placeLink();
+    scene.zoomBar.update();
+  }
+
+  // Move the view to a target, smoothly unless told not to.
+  function goTo(target, smooth = true) {
+    target = clampView(target);
+    if (anim) cancelAnimationFrame(anim.frame);
+    anim = null;
+    if (!smooth || !view || !visible) {
+      view = target;
+      applyView();
+      return;
+    }
+    const from = { ...view };
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / ZOOM_MS);
+      const e = 1 - Math.pow(1 - t, 3);
+      // Zoom in even steps of scale; the center so that a fixed point stays put while zooming.
+      const zoom = from.zoom * Math.pow(target.zoom / from.zoom, e);
+      const f = from.zoom === target.zoom ? e : (1 / zoom - 1 / from.zoom) / (1 / target.zoom - 1 / from.zoom);
+      view = { zoom, x: from.x + (target.x - from.x) * f, y: from.y + (target.y - from.y) * f };
+      applyView();
+      if (t < 1) anim.frame = requestAnimationFrame(step);
+      else anim = null;
+    };
+    anim = { frame: requestAnimationFrame(step) };
+  }
+
+  const targetView = () => (anim ? null : view);
+
+  // Zoom to a level, keeping a map point (the clicked one, or the middle) where it is on screen.
+  function zoomTo(next, at) {
+    next = Math.min(LEVELS.length - 1, Math.max(0, next));
+    if (next === level && !anim) return;
+    const cur = targetView() ?? view;
+    const p = at ?? { x: cur.x, y: cur.y };
+    const z = LEVELS[next];
+    level = next;
+    saveLevel();
+    manual = true;
+    goTo({ zoom: z, x: p.x - (p.x - cur.x) * (cur.zoom / z), y: p.y - (p.y - cur.y) * (cur.zoom / z) });
+  }
+
+  // Center the room Link is in when he enters another room, or when he moves after the view was
+  // moved by hand; zoom out when the room does not fit.
+  function follow() {
+    if (!scene || !player.player || pressing) return;
+    if (player.stayFloor !== undefined && player.stayFloor !== scene.floor) return;
+    const box = scene.rooms.get(player.stayRoom);
+    if (!box) return;
+    const pos = { x: player.player.x, y: player.player.z };
+    const moved = !lastPos || Math.hypot(pos.x - lastPos.x, pos.y - lastPos.y) > 8;
+    const roomChanged = followRoom !== player.stayRoom;
+    if (!roomChanged && !(manual && moved)) {
+      if (moved) lastPos = pos;
+      return;
+    }
+    const first = followRoom === null;
+    followRoom = player.stayRoom;
+    lastPos = pos;
+    manual = false;
+    const fits = (z) => Math.max(box.w, box.h) <= (Math.max(scene.base.w, scene.base.h) / z) * 0.92;
+    let next = level;
+    while (next > 0 && !fits(LEVELS[next])) next--;
+    if (next !== level) {
+      level = next;
+      saveLevel();
+    }
+    goTo({ zoom: LEVELS[level], x: box.x, y: box.y }, !first);
   }
 
   // A point of the frame (client px) in map units.
@@ -271,23 +539,12 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     return { x: vb.x + vb.width / 2 + (e.clientX - (r.left + r.width / 2)) * k, y: vb.y + vb.height / 2 + (e.clientY - (r.top + r.height / 2)) * k, k };
   }
 
-  function zoomAt(e, factor) {
-    const next = Math.min(MAX_ZOOM, Math.max(1, zoom * factor));
-    if (next === zoom) return;
-    const p = toMap(e);
-    const c = center ?? { x: scene.base.x + scene.base.w / 2, y: scene.base.y + scene.base.h / 2 };
-    // Keep the clicked point under the cursor.
-    center = { x: p.x - (p.x - c.x) * (zoom / next), y: p.y - (p.y - c.y) * (zoom / next) };
-    zoom = next;
-    applyView();
-    placeLink();
-  }
-
   function bindFrame(frame, reticle) {
     let press = null;
     frame.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
-      press = { x: e.clientX, y: e.clientY, center: center && { ...center }, dragged: false, id: e.pointerId };
+      press = { x: e.clientX, y: e.clientY, view: null, dragged: false };
+      pressing = true;
       frame.setPointerCapture(e.pointerId);
     });
     frame.addEventListener("pointermove", (e) => {
@@ -298,11 +555,16 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       const dx = e.clientX - press.x;
       const dy = e.clientY - press.y;
       if (!press.dragged && Math.hypot(dx, dy) < 5) return;
-      press.dragged = true;
-      if (zoom <= 1) return;
+      if (!press.dragged) {
+        press.dragged = true;
+        if (anim) cancelAnimationFrame(anim.frame);
+        anim = null;
+        press.view = { ...view };
+      }
+      if (view.zoom <= 1.001) return;
       const { k } = toMap(e);
-      const c = press.center ?? { x: scene.base.x + scene.base.w / 2, y: scene.base.y + scene.base.h / 2 };
-      center = { x: c.x - dx * k, y: c.y - dy * k };
+      manual = true;
+      view = clampView({ zoom: press.view.zoom, x: press.view.x - dx * k, y: press.view.y - dy * k });
       applyView();
       frame.classList.add("dragging");
     });
@@ -310,16 +572,41 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       if (!press) return;
       const wasDrag = press.dragged;
       press = null;
+      pressing = false;
       frame.classList.remove("dragging");
-      if (!wasDrag && e.type === "pointerup") zoomAt(e, 2);
+      if (!wasDrag && e.type === "pointerup") zoomTo(level + 1, toMap(e));
     };
     frame.addEventListener("pointerup", release);
     frame.addEventListener("pointercancel", release);
     frame.addEventListener("pointerleave", () => { reticle.hidden = true; });
     frame.addEventListener("contextmenu", (e) => {
+      // A right click on the boss icon opens the icon editor instead.
+      if (e.target.closest?.("[data-icon]")) return;
       e.preventDefault();
-      zoomAt(e, 0.5);
+      zoomTo(level - 1, toMap(e));
     });
+  }
+
+  // The zoom indicator beside the map: four glowing dots, the top one the closest zoom, between
+  // an up arrow (zoom in) and a down arrow (zoom out).
+  function zoomIndicator() {
+    const arrow = (dir, label, delta) => {
+      const b = el("button", { type: "button", className: `map-zoom-arrow ${dir}`, title: label, ariaLabel: label, onclick: () => zoomTo(level + delta) });
+      b.innerHTML = ARROW;
+      return b;
+    };
+    const up = arrow("up", "Zoom in", 1);
+    const down = arrow("down", "Zoom out", -1);
+    const dots = LEVELS.map((z, i) => el("span", { className: `map-zoom-dot l${i}`, title: `×${z}` })).reverse();
+    const node = el("div", { className: "map-zoom", role: "group", ariaLabel: "Zoom" }, up, el("div", { className: "map-zoom-dots" }, ...dots), down);
+    return {
+      node,
+      update() {
+        dots.forEach((dot, n) => dot.classList.toggle("on", LEVELS.length - 1 - n === level));
+        up.disabled = level >= LEVELS.length - 1;
+        down.disabled = level <= 0;
+      },
+    };
   }
 
   // An icon that can be changed with a right click (data-icon, as in the Items and Dungeons tabs).
