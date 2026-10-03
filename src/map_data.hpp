@@ -7,10 +7,14 @@
 // own x/z coordinates. Game thread only.
 namespace tracker::map {
 
-// {"stage", "stayRoom", "floors": [bottom, top], "player": {x, z, angle}, "hasMap", "hasCompass",
+// {"stage", "stayRoom", "floors": [bottom, top], "player": {x, z, angle}, "stayFloor" (when the
+//  game has decided it), "hasMap", "hasCompass",
 //  "rooms": [{"no", "layer", "visited", "vertices": [x, z, ...], "floors": [{"no", "groups":
 //  [{"sw", "swType", "shown", "polys": [{"type", "strip": [index...]}], "lines": [{"type",
 //  "width", "strip": [index...]}]}]}]}]}. Shapes are triangle strips over the room's vertices.
 std::string build_json();
+
+// Just {"stage", "stayRoom", "player", "stayFloor"}, for following Link several times a second.
+std::string build_player_json();
 
 }  // namespace tracker::map

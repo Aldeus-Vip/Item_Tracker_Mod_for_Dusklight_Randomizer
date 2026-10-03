@@ -1517,6 +1517,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       evaluate();
       render();
     },
+    // Logic region of a stage room (the Map tab's title), once the logic data is loaded.
+    regionName: (stage, room) => roomRegion(stage, room),
   };
 }
 

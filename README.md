@@ -61,6 +61,8 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | Select a check, **Ctrl+C**; select another, **Ctrl+V** | Copy a custom requirement to another check. A popup shows it first; OK has the focus, so **Enter** pastes and **Esc** cancels |
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
+| Locations | **Checks / Map / Checks + Map** | Switch between the check list, the map of where Link is, or both side by side (needs a window at least 900 px wide) |
+| Map | — | The map of the stage Link is in, drawn from the game's own map data: rooms by floor (a dungeon shows the visited rooms, or all once you have its map), Link's position and facing, the room he is in glowing. It follows Link from room to room and floor to floor; click a floor button to look at another floor |
 | Locations | **Reachable Regions ▾** | The logic regions by province, each marked reachable or not (marked when Link enters it). Switch one, or a whole province with **All on / All off**. Used by Map entries of custom requirements; kept with the game save |
 | Locations | **Requirements ▾** | **Export / Import Custom Requirements** as JSON, **Load Preset Custom Requirements**, or **Use Randomizer Logic for All** (removes every custom requirement) |
 | Locations | **Seed ▾** | Pick the seed whose spoiler log is used for found items; **Reload Data** reads the seeds and the logic data again |

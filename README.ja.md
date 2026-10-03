@@ -59,6 +59,8 @@ English: [README.md](README.md)
 | Locations | チェックを選んで **Ctrl+C**、別のチェックを選んで **Ctrl+V** | 自分で設定した条件を別のチェックにコピー。貼り付ける内容を確認するポップアップが出る(OK にフォーカスがあるので **Enter** で貼り付け、**Esc** で取り消し) |
 | Locations | 右クリック | チェックや地域を強調する |
 | Locations | **Logic ON/OFF** | 到達判定の ON/OFF |
+| Locations | **Checks / Map / Checks + Map** | チェック一覧・リンクのいる場所の地図・その両方(横並び、幅900px以上)を切り替え |
+| Map | — | ゲーム自身の地図データから、リンクのいるステージの地図を表示。階ごとの部屋(ダンジョンは訪れた部屋、マップ入手後は全部屋)、リンクの位置と向き、今いる部屋は光る。部屋や階の移動に自動で追従し、階ボタンで別の階も見られる |
 | Locations | **Reachable Regions ▾** | ロジックの地域を地方ごとに表示し、「到達可能」を ON/OFF(リンクが入ると自動で ON)。地方ごとに **All on / All off** も可能。自分で設定した条件の Map 項目で使い、セーブデータと一緒に保存 |
 | Locations | **Requirements ▾** | 自分で設定した条件の **Export / Import Custom Requirements**(JSON)、**Load Preset Custom Requirements**、**Use Randomizer Logic for All**(自分で設定した条件をすべて削除) |
 | Locations | **Seed ▾** | 見つけたチェックの中身に使うシードの選択と、**Reload Data**(シードとロジックデータの再読み込み) |

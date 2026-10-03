@@ -1027,22 +1027,22 @@ body.rule-window { margin: 0; min-height: 100vh; }
    check list scrolls (--bar-h and --loc-toolbar-h are measured by the page). */
 #view-locations .loc-toolbar {
   position: sticky;
-  top: var(--bar-h, 0px);
+  top: calc(var(--bar-h, 0px) + var(--loc-sub-h, 0px));
   z-index: 3;
-  margin: -12px -12px 10px;
-  padding: 10px 12px 8px;
+  margin: 0 -12px 10px;
+  padding: 8px 12px 8px;
   background: var(--bg);
 }
 #view-locations .loc-groups,
 #view-locations .loc-banner {
   position: sticky;
-  top: calc(var(--bar-h, 0px) + var(--loc-toolbar-h, 0px));
+  top: calc(var(--bar-h, 0px) + var(--loc-sub-h, 0px) + var(--loc-toolbar-h, 0px));
   z-index: 2;
 }
 /* Covers the rows scrolling by in the gap above the title */
 #view-locations .loc-banner { box-shadow: 0 -10px 0 var(--bg); }
 #view-locations .loc-groups {
-  max-height: calc(100vh - var(--bar-h, 0px) - var(--loc-toolbar-h, 0px) - 16px);
+  max-height: calc(100vh - var(--bar-h, 0px) - var(--loc-sub-h, 0px) - var(--loc-toolbar-h, 0px) - 16px);
   overflow-y: auto;
 }
 .loc-narrow .loc-groups { position: static; max-height: none; }
@@ -1082,3 +1082,63 @@ select option:checked { background: #5c5230; color: #fff; }
 #view-locations .loc-groups { overflow-x: hidden; padding: 7px; }
 .loc-narrow .loc-groups { overflow: visible; }
 .loc-menu-items > .tool { text-align: center; }
+
+/* ---- Locations sub-tabs: Checks / Map / Checks + Map ---- */
+.loc-subtabs {
+  position: sticky;
+  top: var(--bar-h, 0px);
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+  margin: -12px -12px 0;
+  padding: 8px 12px 6px;
+  background: var(--bg);
+}
+.loc-subtab {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.loc-subtab[aria-selected="true"] { color: var(--gold); border-color: var(--gold-dim); }
+.loc-subtab:disabled { opacity: 0.4; cursor: not-allowed; }
+.loc-split[data-tab="both"] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.loc-split[data-tab="both"] .loc-checks-pane .loc-toolbar { margin-right: 0; }
+.loc-split[data-tab="both"] .loc-map-pane { position: sticky; top: calc(var(--bar-h, 0px) + var(--loc-sub-h, 0px) + 10px); }
+.loc-map-pane { padding-top: 10px; }
+
+/* ---- Map ---- */
+.map-pane { display: flex; flex-direction: column; gap: 10px; }
+.map-body { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: center; }
+.map-body.with-floors { grid-template-columns: auto minmax(0, 1fr); }
+.map-floors { display: flex; flex-direction: column; gap: 8px; }
+.map-floor { min-width: 64px; }
+.map-floor.here::before { content: "◆ "; color: #ffe23a; }
+.map-frame {
+  position: relative;
+  aspect-ratio: 1;
+  max-height: calc(100vh - var(--bar-h, 0px) - var(--loc-sub-h, 0px) - 120px);
+  width: 100%;
+  padding: 14px;
+  border-radius: 6px;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(120, 110, 70, 0.22), transparent 70%),
+    linear-gradient(180deg, #1c1b12, #0c0c07);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+}
+.map-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+/* The game's maps glow: a soft light around the shapes, brighter where Link is */
+.map-shapes { filter: drop-shadow(0 0 3px rgba(110, 255, 190, 0.45)) drop-shadow(0 0 10px rgba(70, 230, 160, 0.25)); }
+.map-stay { animation: map-glow 2.4s ease-in-out infinite; }
+@keyframes map-glow {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(150, 255, 150, 0.55)) drop-shadow(0 0 10px rgba(90, 240, 110, 0.3)); }
+  50% { filter: drop-shadow(0 0 5px rgba(170, 255, 170, 0.85)) drop-shadow(0 0 18px rgba(110, 255, 130, 0.5)) brightness(1.12); }
+}
+.map-line { fill: none; vector-effect: non-scaling-stroke; opacity: 0.55; stroke-linejoin: round; }
+.map-line.w1 { stroke-width: 0.7px; opacity: 0.35; }
+.map-line.w2 { stroke-width: 1.3px; }
+.map-link { fill: #ffe23a; stroke: #2a1d00; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(255, 230, 80, 0.9)); }

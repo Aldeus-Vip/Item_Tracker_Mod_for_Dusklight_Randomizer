@@ -80,7 +80,33 @@ void write_room(JsonWriter& w, int layer, int roomNo, dDrawPath_c::room_class* r
     w.endObject();
 }
 
+// Link's position on the map, his angle and the floor the game puts him on.
+void write_player(JsonWriter& w) {
+    const Vec pos = dMapInfo_n::getMapPlayerPos();
+    w.key("player").beginObject();
+    w.key("x").number(pos.x);
+    w.key("y").number(pos.y);
+    w.key("z").number(pos.z);
+    // Game angle units (0x10000 = a full turn).
+    w.member("angle", static_cast<int>(static_cast<u16>(dMapInfo_n::getMapPlayerAngleY())));
+    w.endObject();
+    if (dMapInfo_c::mNowStayFloorNoDecisionFlg) {
+        w.member("stayFloor", static_cast<int>(dMapInfo_c::mNowStayFloorNo));
+    }
+}
+
 }  // namespace
+
+std::string build_player_json() {
+    JsonWriter w;
+    w.beginObject();
+    const char* stage = dComIfGp_getStartStageName();
+    w.member("stage", stage != nullptr ? stage : "");
+    w.member("stayRoom", static_cast<int>(dComIfGp_roomControl_getStayNo()));
+    if (dMpath_c::mLayerList != nullptr && dMpath_c::isExistMapPathData()) write_player(w);
+    w.endObject();
+    return w.str();
+}
 
 std::string build_json() {
     JsonWriter w;
@@ -103,14 +129,7 @@ std::string build_json() {
         w.endObject();
         w.member("hasMap", dMapInfo_n::chkGetMap());
         w.member("hasCompass", dMapInfo_n::chkGetCompass());
-        const Vec pos = dMapInfo_n::getMapPlayerPos();
-        w.key("player").beginObject();
-        w.key("x").number(pos.x);
-        w.key("y").number(pos.y);
-        w.key("z").number(pos.z);
-        // Game angle units (0x10000 = a full turn).
-        w.member("angle", static_cast<int>(static_cast<u16>(dMapInfo_n::getMapPlayerAngleY())));
-        w.endObject();
+        write_player(w);
         w.key("rooms").beginArray();
         for (int layer = 0; layer < 2; layer++) {
             for (int roomNo = 0; roomNo < 0x40; roomNo++) {

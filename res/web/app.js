@@ -1,5 +1,6 @@
 import { BUG_SCREEN_ORDER, GOLDEN_BUGS, bugIcon, COLUMNS, DEFAULT_LAYOUT, DUNGEON_EXTRAS, DUNGEON_ICONS, GAME_ICON_BACKGROUNDS, GAME_ICON_IDS, GAME_ICON_TINTS, TILES, normalizeLayout } from "./layout.js";
 import { createLocationsView, normalizeOverrides } from "./locations_view.js";
+import { createMapView } from "./map_view.js";
 
 const PROTOCOL_VERSION = 1;
 const params = new URLSearchParams(location.search);
@@ -20,6 +21,7 @@ const views = {
   dungeons: document.getElementById("view-dungeons"),
   locations: document.getElementById("view-locations"),
 };
+let mapView = null; // Map sub-tab of Locations (created with it)
 
 let state = null;          // last state from the mod
 let lastRendered = {};     // tile id -> signature, to flash changed tiles
@@ -38,6 +40,7 @@ function showView(name) {
   }
   editButton.hidden = name !== "items" || editing;
   if (name === "items") fitCaptions(views.items);
+  if (mapView) showLocTab(locTab); // the map follows Link only while it is shown
   try { localStorage.setItem("tracker.view", name); } catch {}
 }
 
@@ -868,7 +871,54 @@ function renderDungeons(dungeons) {
 
 // ---- Locations view ----
 
-const locationsView = createLocationsView(views.locations, {
+// Locations has sub-tabs: the checks, the map, or both side by side (when the page is wide enough).
+const LOC_TABS = [["checks", "Checks"], ["map", "Map"], ["both", "Checks + Map"]];
+const BOTH_MIN_WIDTH = 900;
+const locChecks = document.createElement("div");
+locChecks.className = "loc-checks-pane";
+const locMap = document.createElement("div");
+locMap.className = "loc-map-pane";
+const locSplit = document.createElement("div");
+locSplit.className = "loc-split";
+locSplit.append(locChecks, locMap);
+const locTabBar = document.createElement("nav");
+locTabBar.className = "loc-subtabs";
+locTabBar.setAttribute("role", "tablist");
+views.locations.append(locTabBar, locSplit);
+let locTab = "checks";
+try { locTab = localStorage.getItem("tracker.locTab") || "checks"; } catch {}
+
+function showLocTab(name) {
+  const wide = views.locations.clientWidth === 0 || views.locations.clientWidth >= BOTH_MIN_WIDTH;
+  locTab = name;
+  try { localStorage.setItem("tracker.locTab", name); } catch {}
+  // Both side by side needs the room; a narrow page shows the map alone instead.
+  const shown = name === "both" && !wide ? "map" : name;
+  locTabBar.replaceChildren(...LOC_TABS.map(([id, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "loc-subtab";
+    button.textContent = label;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(id === shown));
+    if (id === "both" && !wide) {
+      button.disabled = true;
+      button.title = `Widen the window (at least ${BOTH_MIN_WIDTH}px) to show both`;
+    }
+    button.addEventListener("click", () => showLocTab(id));
+    return button;
+  }));
+  locSplit.dataset.tab = shown;
+  locChecks.hidden = shown === "map";
+  locMap.hidden = shown === "checks";
+  mapView?.setVisible(!views.locations.hidden && shown !== "checks");
+}
+new ResizeObserver(() => {
+  if (!views.locations.hidden) showLocTab(locTab);
+  document.documentElement.style.setProperty("--loc-sub-h", `${locTabBar.offsetHeight}px`);
+}).observe(views.locations);
+
+const locationsView = createLocationsView(locChecks, {
   getOverrides: () => settings.logicOverrides,
   getPresetOverrides: fetchPresetOverrides,
   saveOverrides: async (overrides) => {
@@ -890,6 +940,11 @@ const locationsView = createLocationsView(views.locations, {
   saveEntries,
   setStatus,
 });
+mapView = createMapView(locMap, {
+  getState: () => state,
+  regionName: (stage, room) => locationsView.regionName(stage, room),
+});
+showLocTab(locTab);
 let locationsLoaded = false;
 
 // Height of the sticky header bar, for the sticky parts of the views below it.

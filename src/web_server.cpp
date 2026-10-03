@@ -54,6 +54,7 @@ std::filesystem::path g_randoSettingsFile;
 std::filesystem::path g_seedsDir;  // the randomizer's seeds/<hash>/ folders
 FoundSink g_foundSink = nullptr;
 MapProvider g_mapSource = nullptr;
+MapProvider g_mapPlayer = nullptr;
 
 // Icons are at most a few hundred KB; anything larger is not an icon.
 constexpr std::uintmax_t kMaxIconBytes = 4 * 1024 * 1024;
@@ -651,6 +652,11 @@ bool handle_request(Client& client, const Request& req) {
         else send_response(client, "200 OK", "application/json; charset=utf-8", g_mapSource());
         return false;
     }
+    if (target == "/map-player") {
+        if (g_mapPlayer == nullptr) send_error(client, "404 Not Found");
+        else send_response(client, "200 OK", "application/json; charset=utf-8", g_mapPlayer());
+        return false;
+    }
     if (target == "/layout") {
         serve_json_file(client, kLayoutFile);
         return false;
@@ -845,8 +851,9 @@ void set_found_sink(FoundSink sink) {
     g_foundSink = sink;
 }
 
-void set_map_source(MapProvider provider) {
-    g_mapSource = provider;
+void set_map_source(MapProvider map, MapProvider player) {
+    g_mapSource = map;
+    g_mapPlayer = player;
 }
 
 void set_seeds_dir(std::string dir) {

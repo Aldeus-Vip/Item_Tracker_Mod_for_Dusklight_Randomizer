@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### New
+- **Map** in Locations (sub-tabs Checks / Map / Checks + Map): the map of the stage Link is in,
+  drawn from the game's own map data, with Link's position and facing, following him between
+  rooms and floors. Overworld maps are teal, dungeon maps green with the room Link is in glowing.
+
 ## 1.1.0 — 2026-10-02
 
 ### New

@@ -181,6 +181,24 @@ createServer(async (req, res) => {
       return res.writeHead(404).end();
     }
   }
+  // MAP_JSON: a /map file saved from the game (map-preview.html, "Download map.json") to serve
+  // instead of the made-up stage. STAY_FLOOR overrides the floor Link is on.
+  if (process.env.MAP_JSON && (path === "/map" || path === "/map-player")) {
+    const map = JSON.parse(await readFile(process.env.MAP_JSON, "utf8"));
+    if (process.env.STAY_FLOOR) map.stayFloor = Number(process.env.STAY_FLOOR);
+    else if (map.stayFloor === undefined) {
+      // Older dumps have no stayFloor: the floor of Link's room (the higher one if it has two).
+      const room = map.rooms?.find((r) => r.no === map.stayRoom);
+      map.stayFloor = Math.max(...(room?.floors.map((f) => f.no) ?? [0]));
+    }
+    const out = path === "/map" ? map : { stage: map.stage, stayRoom: map.stayRoom, player: map.player, stayFloor: map.stayFloor };
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify(out));
+  }
+  if (path === "/map-player") {
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify({ stage: state.stage, stayRoom: 0, player: { x: 0, y: 0, z: 0, angle: 0 }, stayFloor: 0 }));
+  }
   if (path === "/map") {
     // A made-up two-room stage in the mod's /map format (src/map_data.hpp).
     const square = (x, z, w, h) => [x, z, x + w, z, x, z + h, x + w, z + h];

@@ -427,7 +427,8 @@ table.dungeons .mark.on { color: var(--owned); }
 @media (max-width: 640px) {
   main { padding: 10px 8px; }
   /* The sticky toolbars reach the page edges: match the smaller page padding */
-  #view-locations .loc-toolbar { margin: -10px -8px 10px; padding-left: 8px; padding-right: 8px; }
+  #view-locations .loc-toolbar { margin: 0 -8px 10px; padding-left: 8px; padding-right: 8px; }
+  .loc-subtabs { margin: -10px -8px 0; padding-left: 8px; padding-right: 8px; }
   table.dungeons th, table.dungeons td { padding: 5px 3px; }
   table.dungeons th { font-size: 9px; letter-spacing: 0.03em; white-space: normal; }
   table.dungeons td:first-child { white-space: normal; font-size: 12px; }
@@ -452,3 +453,55 @@ table.dungeons .mark.on { color: var(--owned); }
 .loc-row.checked .loc-dot { background: url("art/ui/sold-out.svg") center / 100% 100% no-repeat; box-shadow: none; }
 .loc-dot.clickable:hover { filter: brightness(1.3) drop-shadow(0 0 3px var(--tp-gold)); }
 .loc-regions-head { color: var(--tp-gold); text-shadow: var(--tp-outline); }
+
+/* Locations sub-tabs and the map */
+.loc-subtab {
+  position: relative;
+  background: var(--tp-metal);
+  color: var(--tp-cream);
+  border: 1px solid #14130d;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 0 rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.7);
+  font-family: inherit;
+  font-weight: 800;
+  text-shadow: var(--tp-outline);
+}
+.loc-subtab[aria-selected="true"] { background: var(--tp-metal-lit); color: #fffbe6; border-color: #14130d; }
+.loc-subtab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--tp-gold);
+  border-radius: 2px;
+  pointer-events: none;
+  -webkit-mask: var(--tp-cursor-mask);
+  mask: var(--tp-cursor-mask);
+}
+.map-frame {
+  background:
+    url("art/ui/corner-tl.svg") top 4px left 4px / 30px 30px no-repeat,
+    url("art/ui/corner-tr.svg") top 4px right 4px / 30px 30px no-repeat,
+    url("art/ui/corner-bl.svg") bottom 4px left 4px / 30px 30px no-repeat,
+    url("art/ui/corner-br.svg") bottom 4px right 4px / 30px 30px no-repeat,
+    url("art/ui/noise.svg"),
+    radial-gradient(ellipse at 50% 45%, rgba(120, 110, 70, 0.22), transparent 70%),
+    linear-gradient(180deg, #1c1b12, #0c0c07);
+  border: 1px solid #000;
+  box-shadow:
+    inset 0 0 0 1px var(--tp-gold-lo),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.65),
+    inset 0 0 0 4px var(--tp-gold-line),
+    inset 0 0 40px rgba(0, 0, 0, 0.75);
+  padding: 22px;
+}
+.map-floor.selected { background: var(--tp-metal-lit); color: #fffbe6; }
+.map-floor.selected::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--tp-gold);
+  border-radius: 2px;
+  pointer-events: none;
+  -webkit-mask: var(--tp-cursor-mask);
+  mask: var(--tp-cursor-mask);
+}
