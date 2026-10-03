@@ -361,19 +361,19 @@ body {
   background: radial-gradient(circle, #ffd8c8 0 10%, #e3402c 12% 34%, #3a0804 36% 48%, #d63a29 50% 70%, #2a0503 72%);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8), 0 0 5px rgba(227, 64, 44, 0.55);
 }
-.loc-row.reachable .loc-dot {
+.loc-row.reachable .loc-dot, .map-check.reachable .loc-dot {
   background: radial-gradient(circle, #f0ffe8 0 10%, #58e06a 12% 34%, #07360f 36% 48%, #3fc454 50% 70%, #062a0b 72%);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8), 0 0 7px rgba(90, 230, 110, 0.75);
 }
-.loc-row.unknown .loc-dot {
+.loc-row.unknown .loc-dot, .map-check.unknown .loc-dot {
   background: radial-gradient(circle, #fff6d0 0 10%, #d8b44c 12% 34%, #3a2e08 36% 48%, #b9973e 50% 70%, #231b04 72%);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8);
 }
-.loc-row.obtained .loc-dot {
+.loc-row.obtained .loc-dot, .map-check.obtained .loc-dot {
   background: radial-gradient(circle, #d9d7c8 0 10%, #7d7b6c 12% 34%, #1f1e18 36% 48%, #6b695c 50% 70%, #161510 72%);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8);
 }
-.loc-row.excluded .loc-dot {
+.loc-row.excluded .loc-dot, .map-check.excluded .loc-dot {
   background: radial-gradient(circle, transparent 0 48%, var(--muted) 50% 60%, transparent 62%);
   border: 0;
   box-shadow: none;
@@ -450,7 +450,7 @@ table.dungeons .mark.on { color: var(--owned); }
 }
 
 /* Checked by hand: the shop's sold-out sign instead of the bullseye */
-.loc-row.checked .loc-dot { background: url("art/ui/sold-out.svg") center / 100% 100% no-repeat; box-shadow: none; }
+.loc-row.checked .loc-dot, .map-check.checked .loc-dot { background: url("art/ui/sold-out.svg") center / 100% 100% no-repeat; box-shadow: none; }
 .loc-dot.clickable:hover { filter: brightness(1.3) drop-shadow(0 0 3px var(--tp-gold)); }
 .loc-regions-head { color: var(--tp-gold); text-shadow: var(--tp-outline); }
 

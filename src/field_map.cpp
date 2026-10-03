@@ -17,6 +17,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <string>
 #include <vector>
 
 namespace tracker::fieldmap {
@@ -254,21 +255,43 @@ void update() {
     if (!tracker::is_playing()) return;
     switch (g_phase) {
     case Phase::Idle:
-        if (g_requested) g_phase = Phase::Index;
+        if (g_requested) {
+            g_phase = Phase::Index;
+            g_json = R"({"ready":false,"reading":true})";
+        }
         break;
     case Phase::Index:
-        if (read_index() && !g_stages.empty()) {
+        if (dComIfGp_getFieldMapArchive2() == nullptr) {
+            g_phase = Phase::Failed;
+            g_json = R"({"ready":false,"error":"The game's field map archive is not loaded."})";
+        } else if (!read_index()) {
+            g_phase = Phase::Failed;
+            g_json = R"({"ready":false,"error":"dat/field.dat could not be read."})";
+        } else if (g_stages.empty()) {
+            g_phase = Phase::Failed;
+            g_json = R"({"ready":false,"error":"dat/field.dat lists no stages."})";
+        } else {
             g_phase = Phase::Stages;
             g_stage = 0;
-        } else {
-            g_phase = Phase::Failed;
-            g_json = R"({"ready":false,"error":"The field map data could not be read."})";
+            g_json = R"({"ready":false,"reading":true})";
         }
         break;
     case Phase::Stages: {
+        // Progress for the page while reading.
+        if (g_frame % 30 == 0) {
+            int rooms = 0;
+            for (const Stage& st : g_stages) rooms += static_cast<int>(st.roomJson.size());
+            g_json = R"({"ready":false,"reading":true,"stage":)" + std::to_string(g_stage) + R"(,"stages":)" +
+                     std::to_string(g_stages.size()) + R"(,"rooms":)" + std::to_string(rooms) + "}";
+        }
         // One stage header or one room a frame.
         if (g_stage >= g_stages.size()) {
             finish();
+            if (g_json == R"({"ready":true,"regions":[]})") {
+                g_phase = Phase::Failed;
+                g_json = R"({"ready":false,"error":"No room of the field stages had map data."})";
+                break;
+            }
             build_visited();
             g_phase = Phase::Done;
             break;

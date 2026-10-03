@@ -13,13 +13,22 @@
 - Map: click to zoom in, right-click to zoom out, drag to move around a zoomed map; a turning
   map cursor like the game's. Zooming is animated, in four steps shown by a glowing indicator
   beside the map whose arrows zoom too. The zoom is kept between stages, and the map follows the
-  room Link is in (zooming out when the room does not fit).
+  room Link is in (in a dungeon, zooming out when the room does not fit; on the overworld, the
+  zoom stays and the map slides to keep Link near the middle).
 - Map: zoom out of an overworld map to see its whole province, and once more for all of Hyrule,
   as on the game's map screen (the places you have been, read from the game's field map data);
   click to zoom back in.
+- **Checks on the map**: chests, items lying around and poes are placed where they are in the
+  stage (read from the game's room files), with the marker of the check list (reachable, not
+  reachable, checked, ...). Boxes above the map choose which statuses are shown. Click a check
+  for its requirement under the map; right-click to show it in Checks. With Checks + Map, a
+  click shows it in the check list next to the map.
+- When the overworld map cannot be shown yet, zooming out says why (still being read, or what
+  went wrong).
 - Dungeon maps show the doors as the game does (white squares), a silver padlock on locked doors
   (a heavier one on the big key door, grayed out once opened), a "no entry" sign on barred doors,
-  and the boss icon from the Dungeons tab in the boss's room. Pits and rooms not yet opened are
+  and the boss icon from the Dungeons tab in the boss's room. Doors update a few times a second,
+  including bars that drop behind Link until a room is cleared. Pits and rooms not yet opened are
   black, as in the game.
 
 ### Fixed

@@ -952,6 +952,16 @@ mapView = createMapView(locMap, {
   getState: () => state,
   regionName: (stage, room) => locationsView.regionName(stage, room),
   makeIcon: (name, className, fallback) => iconImg(name, className, (img) => img.replaceWith(fallback ?? "")),
+  // Checks on the map: a right click (or any click with Checks + Map) shows the check in Checks.
+  checks: {
+    list: () => locationsView.mapChecks(),
+    requirement: (name) => locationsView.requirementView(name),
+    bothShown: () => locSplit.dataset.tab === "both",
+    jump(name) {
+      if (locSplit.dataset.tab !== "both") showLocTab("checks");
+      locationsView.jumpTo(name);
+    },
+  },
 });
 locMap.addEventListener("contextmenu", onIconContextMenu);
 showLocTab(locTab);

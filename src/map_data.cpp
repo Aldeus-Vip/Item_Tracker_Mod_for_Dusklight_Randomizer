@@ -7,9 +7,18 @@
 #include "d/d_save.h"
 #include "d/d_stage.h"
 #include "d/d_tresure.h"
+#include "d/d_lib.h"
+#include "JSystem/JKernel/JKRAramArchive.h"
+#include "d/actor/d_a_door_shutter.h"
+#include "f_op/f_op_actor_mng.h"
 #include "tracker_state.hpp"
 
+#include <cmath>
+#include <cstdio>
 #include <cstring>
+#include <memory>
+#include <new>
+#include <vector>
 #include <functional>
 
 namespace tracker::map {
@@ -65,76 +74,235 @@ int switch_state(int sw, int roomNo) {
     return dComIfGs_isSwitch(sw, roomNo) ? 1 : 0;
 }
 
+// Door shutters alive in the loaded rooms (daDoor20_c), to see bars that drop behind Link (a room
+// that shuts until its enemies are beaten) as they happen.
+struct LiveDoor {
+    float x;
+    float z;
+    bool barred;
+};
+
+void* collect_door(void* actor, void* data) {
+    auto* ac = static_cast<fopAc_ac_c*>(actor);
+    if (ac == nullptr || fopAcM_GetName(ac) != fpcNm_DOOR20_e) return nullptr;
+    auto* door = static_cast<daDoor20_c*>(ac);
+    // The bar is down while its stop exists and is not raised all the way (300 = open).
+    const bool barred = door->mDoorStop.field_0x8 != 0 && door->mDoorStop.field_0x4 < 299.0f;
+    static_cast<std::vector<LiveDoor>*>(data)->push_back({ac->home.pos.x, ac->home.pos.z, barred});
+    return nullptr;
+}
+
+std::vector<LiveDoor> live_doors() {
+    std::vector<LiveDoor> out;
+    fopAcM_Search(collect_door, &out);
+    return out;
+}
+
 // One door the game marks on its maps (renderingPlusDoor_c::drawDoorCommon): its place, the
-// rooms on both sides and floors, and how it is shut. Kinds: "boss" (big key door), "key" (small
-// key lock), "stop" (bars until a switch, e.g. enemies beaten), "door". "locked" / "closed" are
-// the current state (absent when the switch is unknown).
-void write_door(JsonWriter& w, const stage_tgsc_data_class& d, bool stageDoor) {
+// rooms on both sides and floors, its kind and its state now.
+struct DoorInfo {
+    char name[9] = {};
+    int front = 0;
+    int back = 0;
+    float rawX = 0;
+    float rawZ = 0;
+    BE(Vec) pos;
+    int angle = 0;
+    // "boss" (big key door), "key" (small key lock), "stop" (bars until a switch), "door".
+    const char* kind = "door";
+    // 'L' locked, 'U' unlocked, 'C' barred, 'O' open, '?' unknown.
+    char state = 'O';
+};
+
+DoorInfo door_info(const stage_tgsc_data_class& d, bool stageDoor, const std::vector<LiveDoor>& live) {
+    DoorInfo out;
     const u32 prm = d.base.parameters;
-    const int front = (prm >> 13) & 0x3F;
-    const int back = (prm >> 19) & 0x3F;
+    out.front = (prm >> 13) & 0x3F;
+    out.back = (prm >> 19) & 0x3F;
     const int frontOpt = (prm >> 8) & 0x3;
     const int backOpt = (prm >> 10) & 0x7;
     const u16 angleZ = static_cast<u16>(static_cast<s16>(d.base.angle.z));
     const int sw = angleZ & 0xFF;
     const int sw2 = angleZ >> 8;
-    BE(Vec) pos;
-    pos.x = d.base.position.x;
-    pos.y = d.base.position.y;
-    pos.z = d.base.position.z;
-    if (stageDoor) dMapInfo_n::correctionOriginPos(static_cast<s8>(front), &pos);
+    out.rawX = d.base.position.x;
+    out.rawZ = d.base.position.z;
+    out.pos.x = d.base.position.x;
+    out.pos.y = d.base.position.y;
+    out.pos.z = d.base.position.z;
+    if (stageDoor) dMapInfo_n::correctionOriginPos(static_cast<s8>(out.front), &out.pos);
+    out.angle = static_cast<u16>(static_cast<s16>(d.base.angle.y));
+    std::memcpy(out.name, d.name, 8);
 
-    char name[9] = {};
-    std::memcpy(name, d.name, 8);
-    const bool boss = std::strcmp(name, "bdoor") == 0 || std::strstr(name, "Bdoor") != nullptr;
-
-    w.beginObject();
-    w.member("name", name);
-    w.key("rooms").beginArray().value(front).value(back).endArray();
-    w.key("x").number(static_cast<f32>(pos.x));
-    w.key("z").number(static_cast<f32>(pos.z));
-    w.member("angle", static_cast<int>(static_cast<u16>(static_cast<s16>(d.base.angle.y))));
-    w.key("floors").beginArray()
-        .value(static_cast<int>(dMapInfo_c::calcFloorNo(pos.y, true, front)))
-        .value(static_cast<int>(dMapInfo_c::calcFloorNo(pos.y, true, back)))
-        .endArray();
+    const bool boss = std::strcmp(out.name, "bdoor") == 0 || std::strstr(out.name, "Bdoor") != nullptr;
     if (boss) {
-        w.member("kind", "boss");
-        const int s = switch_state(sw, front);
-        if (s >= 0) w.member("locked", s == 0);
-        else if (sw == 0xFF) w.member("locked", dComIfGs_isDungeonItemBossKey() == 0);
+        out.kind = "boss";
+        const int s = switch_state(sw, out.front);
+        if (s >= 0) out.state = s == 0 ? 'L' : 'U';
+        else out.state = sw == 0xFF ? (dComIfGs_isDungeonItemBossKey() == 0 ? 'L' : 'U') : '?';
     } else if (frontOpt == 2 || backOpt == 2) {
-        w.member("kind", "key");
-        const int s = switch_state(sw, front);
-        if (s >= 0) w.member("locked", s == 0);
-    } else if (frontOpt == 1 || frontOpt == 3 || backOpt == 1 || backOpt == 3) {
-        w.member("kind", "stop");
-        bool known = false;
-        bool closed = false;
-        if (frontOpt == 1 || frontOpt == 3) {
-            const int s = switch_state(sw, front);
-            if (s >= 0) { known = true; closed = closed || s == 0; }
-        }
-        if (backOpt == 1 || backOpt == 3) {
-            const int s = switch_state(sw2, back);
-            if (s >= 0) { known = true; closed = closed || s == 0; }
-        }
-        if (known) w.member("closed", closed);
+        out.kind = "key";
+        const int s = switch_state(sw, out.front);
+        out.state = s < 0 ? '?' : s == 0 ? 'L' : 'U';
     } else {
-        w.member("kind", "door");
+        const bool stop = frontOpt == 1 || frontOpt == 3 || backOpt == 1 || backOpt == 3;
+        if (stop) {
+            out.kind = "stop";
+            bool known = false;
+            bool closed = false;
+            if (frontOpt == 1 || frontOpt == 3) {
+                const int s = switch_state(sw, out.front);
+                if (s >= 0) { known = true; closed = closed || s == 0; }
+            }
+            if (backOpt == 1 || backOpt == 3) {
+                const int s = switch_state(sw2, out.back);
+                if (s >= 0) { known = true; closed = closed || s == 0; }
+            }
+            out.state = !known ? '?' : closed ? 'C' : 'O';
+        }
     }
-    w.endObject();
+    // A door alive now tells best whether its bars are down.
+    if (out.state != 'L') {
+        for (const LiveDoor& l : live) {
+            if (std::fabs(l.x - out.rawX) < 1.0f && std::fabs(l.z - out.rawZ) < 1.0f) {
+                if (l.barred) out.state = 'C';
+                else if (out.state == 'C' || out.state == '?') out.state = 'O';
+                break;
+            }
+        }
+    }
+    return out;
+}
+
+template <typename F>
+void for_each_door(F&& f) {
+    const std::vector<LiveDoor> live = live_doors();
+    const dStage_KeepDoorInfo* stageDoors = dStage_GetKeepDoorInfo();
+    for (int i = 0; stageDoors != nullptr && i < stageDoors->mNum && i < 0x40; i++) {
+        f(door_info(stageDoors->mDrTgData[i], true, live));
+    }
+    const dStage_KeepDoorInfo* roomDoors = dStage_GetRoomKeepDoorInfo();
+    for (int i = 0; roomDoors != nullptr && i < roomDoors->mNum && i < 0x40; i++) {
+        f(door_info(roomDoors->mDrTgData[i], false, live));
+    }
 }
 
 void write_doors(JsonWriter& w) {
     w.key("doors").beginArray();
-    const dStage_KeepDoorInfo* stageDoors = dStage_GetKeepDoorInfo();
-    for (int i = 0; stageDoors != nullptr && i < stageDoors->mNum && i < 0x40; i++) {
-        write_door(w, stageDoors->mDrTgData[i], true);
+    for_each_door([&](const DoorInfo& d) {
+        w.beginObject();
+        w.member("name", d.name);
+        w.key("rooms").beginArray().value(d.front).value(d.back).endArray();
+        w.key("x").number(static_cast<f32>(d.pos.x));
+        w.key("z").number(static_cast<f32>(d.pos.z));
+        w.member("angle", d.angle);
+        w.key("floors").beginArray()
+            .value(static_cast<int>(dMapInfo_c::calcFloorNo(d.pos.y, true, d.front)))
+            .value(static_cast<int>(dMapInfo_c::calcFloorNo(d.pos.y, true, d.back)))
+            .endArray();
+        w.member("kind", d.kind);
+        if (d.state == 'L' || d.state == 'U') w.member("locked", d.state == 'L');
+        if (d.state == 'C' || d.state == 'O') w.member("closed", d.state == 'C');
+        w.endObject();
+    });
+    w.endArray();
+}
+
+// The doors' states now, one letter each in the order of "doors" (see DoorInfo::state).
+std::string door_states() {
+    std::string out;
+    for_each_door([&](const DoorInfo& d) { out += d.state; });
+    return out;
+}
+
+// ---- Where the checks are ----
+
+// Checks placed in the stage's rooms, read from the room files (<stage>/room<n>.dzs in the field
+// map archive, which the game also loads rooms from): chests (tbox*: box number), items lying
+// around (item / witem: item bit) and poes (E_hp: switch), keyed like the randomizer's check
+// names (mods/items.h).
+struct CheckPlace {
+    std::string key;
+    int room;
+    float x;
+    float y;
+    float z;
+};
+
+std::vector<CheckPlace> g_checks;
+int g_checkRoom = 0;      // next room to read
+int g_checkRoomsRead = 0; // room files found
+std::string g_checkStage;
+
+u32 be32(const u8* p) { return (u32{p[0]} << 24) | (u32{p[1]} << 16) | (u32{p[2]} << 8) | p[3]; }
+float befloat(const u8* p) {
+    const u32 v = be32(p);
+    float f;
+    std::memcpy(&f, &v, sizeof f);
+    return f;
+}
+
+struct FreeAligned {
+    void operator()(void* p) const { ::operator delete(p, std::align_val_t{32}); }
+};
+
+void scan_room(const std::string& stage, int roomNo) {
+    JKRAramArchive* arc = dComIfGp_getFieldMapArchive2();
+    if (arc == nullptr) return;
+    char path[32];
+    std::snprintf(path, sizeof(path), "%s/room%d.dzs", stage.c_str(), roomNo);
+    const u32 size = dLib_getExpandSizeFromAramArchive(arc, path);
+    if (size < 4) return;
+    std::unique_ptr<void, FreeAligned> buf{::operator new(size, std::align_val_t{32})};
+    const u32 read = arc->readResource(buf.get(), size, path);
+    if (read < 4) return;
+    g_checkRoomsRead++;
+    const auto* b = static_cast<const u8*>(buf.get());
+    const u32 chunks = be32(b);
+    for (u32 c = 0; c < chunks && 4 + (c + 1) * 12 <= read; c++) {
+        const u8* node = b + 4 + c * 12;
+        const bool actors = std::memcmp(node, "ACT", 3) == 0 || std::memcmp(node, "TRE", 3) == 0;
+        if (!actors) continue;
+        const u32 num = be32(node + 4);
+        const u32 off = be32(node + 8) & 0x3FFFFFFF;
+        if (num > 1024 || off + num * 0x20 > read) continue;
+        for (u32 i = 0; i < num; i++) {
+            const u8* e = b + off + i * 0x20;
+            char name[9] = {};
+            std::memcpy(name, e, 8);
+            const u32 prm = be32(e + 8);
+            char key[64] = {};
+            if (std::strncmp(name, "tbox", 4) == 0) {
+                std::snprintf(key, sizeof(key), "chest:%s:%u", stage.c_str(), (prm >> 6) & 0x3F);
+            } else if (std::strcmp(name, "item") == 0 || std::strcmp(name, "witem") == 0) {
+                const u32 bit = (prm >> 8) & 0xFF;
+                if (bit == 0xFF) continue;
+                std::snprintf(key, sizeof(key), "freestanding:%s:%u", stage.c_str(), bit);
+            } else if (std::strcmp(name, "E_hp") == 0) {
+                const u32 sw = (prm >> 8) & 0xFF;
+                if (sw == 0xFF) continue;
+                std::snprintf(key, sizeof(key), "poe:%s:%u", stage.c_str(), sw);
+            } else {
+                continue;
+            }
+            bool known = false;
+            for (const CheckPlace& p : g_checks) known = known || p.key == key;
+            if (!known) g_checks.push_back({key, roomNo, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)});
+        }
     }
-    const dStage_KeepDoorInfo* roomDoors = dStage_GetRoomKeepDoorInfo();
-    for (int i = 0; roomDoors != nullptr && i < roomDoors->mNum && i < 0x40; i++) {
-        write_door(w, roomDoors->mDrTgData[i], false);
+}
+
+void write_checks(JsonWriter& w) {
+    w.member("checkRooms", g_checkRoomsRead);
+    w.member("checksDone", g_checkRoom >= 64);
+    w.key("checks").beginArray();
+    for (const CheckPlace& c : g_checks) {
+        w.beginObject();
+        w.member("key", c.key);
+        w.member("room", c.room);
+        w.key("x").number(c.x);
+        w.key("z").number(c.z);
+        w.member("floor", static_cast<int>(dMapInfo_c::calcFloorNo(c.y, true, c.room)));
+        w.endObject();
     }
     w.endArray();
 }
@@ -211,7 +379,10 @@ std::string build_player_json() {
     const char* stage = dComIfGp_getStartStageName();
     w.member("stage", stage != nullptr ? stage : "");
     w.member("stayRoom", static_cast<int>(dComIfGp_roomControl_getStayNo()));
-    if (dMpath_c::mLayerList != nullptr && dMpath_c::isExistMapPathData()) write_player(w);
+    if (dMpath_c::mLayerList != nullptr && dMpath_c::isExistMapPathData()) {
+        write_player(w);
+        if (stage != nullptr && std::strncmp(stage, "D_", 2) == 0) w.member("doors", door_states());
+    }
     w.endObject();
     return w.str();
 }
@@ -240,6 +411,7 @@ std::string build_json() {
         write_player(w);
         write_doors(w);
         write_boss(w);
+        write_checks(w);
         w.key("rooms").beginArray();
         for (int layer = 0; layer < 2; layer++) {
             for (int roomNo = 0; roomNo < 0x40; roomNo++) {
@@ -265,6 +437,7 @@ std::string g_stage;
 int g_stableFrames = 0;
 int g_frame = 0;
 bool g_mapStale = true;
+int g_doorCount = -1;
 
 }  // namespace
 
@@ -282,13 +455,32 @@ void update() {
         g_stableFrames = 0;
         g_mapStale = true;
         g_map = R"({"exists":false})";
+        g_checks.clear();
+        g_checkRoom = 0;
+        g_checkRoomsRead = 0;
+        g_checkStage = g_stage;
         return;
     }
     if (g_stableFrames < kSettleFrames) {
         g_stableFrames++;
         return;
     }
-    if (g_frame % kPlayerEveryFrames == 0) g_player = build_player_json();
+    // The checks: one room file a frame, then the map is rebuilt with them.
+    if (g_checkRoom < 64) {
+        scan_room(g_checkStage, g_checkRoom++);
+        if (g_checkRoom == 64) g_mapStale = true;
+    }
+    if (g_frame % kPlayerEveryFrames == 0) {
+        g_player = build_player_json();
+        // Doors appear as rooms load: rebuild the map when their number changes.
+        const dStage_KeepDoorInfo* a = dStage_GetKeepDoorInfo();
+        const dStage_KeepDoorInfo* b = dStage_GetRoomKeepDoorInfo();
+        const int doors = (a != nullptr ? a->mNum : 0) + (b != nullptr ? b->mNum : 0);
+        if (doors != g_doorCount) {
+            g_doorCount = doors;
+            g_mapStale = true;
+        }
+    }
     if (g_mapStale || g_frame % kMapEveryFrames == 0) {
         g_map = build_json();
         g_mapStale = false;

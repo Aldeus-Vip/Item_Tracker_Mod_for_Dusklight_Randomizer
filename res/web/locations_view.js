@@ -1519,6 +1519,47 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     },
     // Logic region of a stage room (the Map tab's title), once the logic data is loaded.
     regionName: (stage, room) => roomRegion(stage, room),
+    // The checks the Map tab can place, by the key the mod finds them under (chest:, freestanding:,
+    // poe:): [{ name, key, status }] with the status of the marker left of the check.
+    mapChecks() {
+      const out = [];
+      for (const loc of locations) {
+        const key = checkName(loc);
+        if (key) out.push({ name: loc.name, key, status: results.get(loc.name) ?? "unknown" });
+      }
+      return out;
+    },
+    // A check's status and requirement, for showing under the map.
+    requirementView(name) {
+      if (!world) return null;
+      const status = results.get(name) ?? "unknown";
+      const custom = getOverrides()[name];
+      const access = world.locationAccess.get(name) ?? [];
+      const panel = el("div", { className: "loc-req map-req-body" });
+      panel.append(el("div", { className: "loc-detail-head" },
+        el("h3", { textContent: name }),
+        el("span", { className: `loc-status ${status}`, textContent: { obtained: "Obtained", checked: "Marked checked", reachable: "Reachable", blocked: "Not reachable", excluded: "Excluded", unknown: "Logic off" }[status] })));
+      if (custom) {
+        panel.append(el("h4", {}, "Requirement ", el("span", { className: "loc-tag", textContent: "custom" })),
+          el("div", { className: "req-tree" }, renderReq(routesTree(custom))));
+      } else {
+        panel.append(el("h4", { textContent: "Requirement" }), ...randomizerReq(access));
+      }
+      return panel;
+    },
+    // Shows a check in the list: its region opened, the check highlighted and scrolled to, and (with
+    // open) its requirement panel.
+    jumpTo(name, open = false) {
+      const loc = locations.find((l) => l.name === name);
+      if (!loc) return;
+      selectedGroup = loc.group;
+      highlightedGroup = loc.group;
+      showChecks = true;
+      setFocus(name);
+      if (open) openDetail(name);
+      else render();
+      requestAnimationFrame(() => root.querySelector(".loc-row.selected")?.scrollIntoView({ block: "center", behavior: "smooth" }));
+    },
   };
 }
 

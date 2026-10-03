@@ -22,6 +22,9 @@ const MAP_MS = 3000; // the map itself (switches, visited rooms) besides stage c
 const LEVELS = [1, 2, 4, 8]; // zoom steps; the indicator shows which one is on
 const ZOOM_MS = 280;
 const LEVEL_KEY = "dusklight-tracker.mapZoom";
+const FILTER_KEY = "dusklight-tracker.mapCheckFilter";
+// The check statuses (the marker left of each check in Checks), as filters above the map.
+const CHECK_STATUSES = [["reachable", "Reachable"], ["blocked", "Not reachable"], ["unknown", "Unknown"], ["checked", "Checked"], ["obtained", "Obtained"], ["excluded", "Excluded"]];
 const FIELD_MS = 2000; // asking for the overworld map until the mod has read it
 const VISITED_MS = 3000;
 // The game's region numbers (field.dat): the provinces, as the map screen names them.
@@ -116,7 +119,7 @@ const linePath = (v, strip) => strip.map((i, n) => `${n ? "L" : "M"}${v[i * 2]} 
  * @param options.makeIcon     (name, className, fallbackText) => <img> of a tracker icon (follows the
  *                             icon settings; right-click opens the icon editor via data-icon)
  */
-export function createMapView(root, { getState, regionName, makeIcon }) {
+export function createMapView(root, { getState, regionName, makeIcon, checks: checkSource = null }) {
   let visible = false;
   let map = null; // last /map
   let player = null; // last /map-player
@@ -148,6 +151,19 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   let fieldTime = 0;
   let visited = null; // /field-map-visited
   let visitedTime = 0;
+  // Checks on the map: which statuses are shown (the boxes above the map), and the check whose
+  // requirement is shown under it.
+  let checkFilter = loadCheckFilter();
+  let reqName = null;
+  let notice = null; // { text, until }
+
+  function loadCheckFilter() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FILTER_KEY));
+      if (Array.isArray(saved)) return new Set(saved);
+    } catch { /* default */ }
+    return new Set(["reachable", "blocked", "unknown"]);
+  }
 
   function loadLevel() {
     try {
@@ -202,8 +218,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     const now = Date.now();
     if (!field?.ready && !field?.error && now - fieldTime > FIELD_MS) {
       fieldTime = now;
-      const next = await (await fetch("field-map", { cache: "no-store" })).json();
-      if (next.ready || next.error) field = next;
+      field = await (await fetch("field-map", { cache: "no-store" })).json();
     }
     if (field?.ready && (!visited || now - visitedTime > VISITED_MS)) {
       visitedTime = now;
@@ -260,6 +275,8 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       build(dungeon, rooms, floors, floor, title, d);
     }
     placeLink();
+    updateDoors();
+    updateChecks();
     follow();
   }
 
@@ -366,16 +383,21 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     const overlay = el("div", { className: "map-overlay" });
     const boss = d ? bossMark(d, rooms, floor) : null;
     if (boss) overlay.append(boss.node);
+    const checks = buildChecks(floors.length > 1 ? floor : null);
+    overlay.append(...checks.map((c) => c.node));
     const frame = el("div", { className: "map-frame " + (dungeon ? "parchment" : "field"), title: "Click: zoom in · Right-click: zoom out · Drag: move" }, drawing, overlay, reticle);
     const zoomBar = zoomIndicator();
-    scene = { kind: "stage", svg: drawing, link, frame, base, size, floor, rooms: roomBoxes(rooms, floor), doors, boss, zoomBar, offset: { x: 0, z: 0 } };
+    scene = { kind: "stage", svg: drawing, link, frame, base, size, floor, rooms: roomBoxes(rooms, floor), doors, boss, checks, zoomBar, offset: { x: 0, z: 0 } };
     bindFrame(frame, reticle);
     root.replaceChildren(el("div", { className: "map-pane" + (floorButtons ? " has-floors" : "") },
       el("div", { className: "loc-banner map-title" }, el("span", { className: "loc-banner-title", textContent: title })),
+      checkSource ? filterBar() : null,
       el("div", { className: "map-layout" },
         floorButtons,
         el("div", { className: "map-stage" }, frame, zoomBar.node),
-        d ? dungeonItems(d) : null)));
+        d ? dungeonItems(d) : null),
+      noticeBox(),
+      reqPanel()));
     if (view) view = clampView(view);
     applyView();
   }
@@ -387,30 +409,49 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   function buildDoors(rooms, floor) {
     const drawn = new Set(rooms.map((r) => r.no));
     const out = [];
-    for (const door of map.doors ?? []) {
-      if (!door.rooms.some((r) => drawn.has(r))) continue;
-      if (!door.floors.includes(floor)) continue;
+    (map.doors ?? []).forEach((door, index) => {
+      if (!door.rooms.some((r) => drawn.has(r))) return;
+      if (!door.floors.includes(floor)) return;
       const here = door.rooms.includes(player.stayRoom);
-      const node = svg("g", { class: "map-door" + (here ? " here" : "") });
+      const node = svg("g", { class: `map-door ${door.kind}` + (here ? " here" : "") });
       const square = svg("rect", { class: "map-door-square", x: -50, y: -50, width: 100, height: 100 });
-      const mark = svg("g", { class: "map-door-mark" });
-      let state = "";
-      if (door.kind === "stop" && door.closed) {
-        state = "barred";
-        mark.innerHTML = NO_ENTRY;
-      } else if (door.kind === "key" || door.kind === "boss") {
-        state = door.locked === false ? "unlocked" : "locked";
+      const marks = [];
+      node.append(square);
+      if (door.kind === "key" || door.kind === "boss") {
         const lock = door.kind === "boss" ? LOCK_BIG : LOCK_SMALL;
+        const mark = svg("g", { class: "map-door-mark map-door-lock" });
         mark.innerHTML = `<g class="detail-high">${lock.high}</g><g class="detail-low">${lock.low}</g>`;
+        node.append(mark);
+        marks.push(mark);
       }
-      if (state !== "barred") node.append(square);
-      if (state) node.append(mark);
-      node.classList.add(state || "open", door.kind);
+      // Any door can be barred (a room that shuts behind Link): the sign is there, shown when so.
+      const bar = svg("g", { class: "map-door-mark map-door-bar" });
+      bar.innerHTML = NO_ENTRY;
+      node.append(bar);
+      marks.push(bar);
       node.setAttribute("transform", `translate(${door.x} ${door.z})`);
       square.setAttribute("transform", `rotate(${(door.angle / 65536) * 360})`);
-      out.push({ node, square, mark: state ? mark : null });
-    }
+      const item = { node, square, marks, index, kind: door.kind, state: "" };
+      setDoorState(item, door.closed ? "C" : door.locked === true ? "L" : door.locked === false ? "U" : "O");
+      out.push(item);
+    });
     return out;
+  }
+
+  // A door's state letter from the mod (L locked, U unlocked, C barred, O open, ? unknown).
+  function setDoorState(door, letter) {
+    let state = { L: "locked", U: "unlocked", C: "barred", O: "open" }[letter] ?? (door.kind === "key" || door.kind === "boss" ? "locked" : "open");
+    if (state === "open" && (door.kind === "key" || door.kind === "boss")) state = "unlocked";
+    if (state === door.state) return;
+    door.node.classList.remove(door.state || "none");
+    door.node.classList.add(state);
+    door.state = state;
+  }
+
+  // Door states change often (keys used, bars dropping behind Link): taken from /map-player.
+  function updateDoors() {
+    if (!scene?.doors?.length || typeof player.doors !== "string" || player.doors.length !== (map.doors?.length ?? -1)) return;
+    for (const door of scene.doors) setDoorState(door, player.doors[door.index]);
   }
 
   // The dungeon's boss icon (the one set in the Dungeons tab) in the middle of the boss's room.
@@ -435,17 +476,20 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     scene.svg.classList.toggle("detail-low", markPx < 20);
     for (const door of scene.doors) {
       door.square.setAttribute("transform", door.square.getAttribute("transform").replace(/ scale\([^)]*\)/, "") + ` scale(${squareScale})`);
-      door.mark?.setAttribute("transform", `scale(${markScale}) translate(-12 -12)`);
+      for (const mark of door.marks) mark.setAttribute("transform", `scale(${markScale}) translate(-12 -12)`);
     }
-    if (scene.boss) {
-      const px = 26 + 4 * Math.log2(view.zoom);
-      const x = (scene.boss.at.x - vb.x) / k + (rect.width - vb.width / k) / 2;
-      const y = (scene.boss.at.y - vb.y) / k + (rect.height - vb.height / k) / 2;
-      const fr = scene.frame.getBoundingClientRect();
-      const off = rect.left - fr.left - scene.frame.clientLeft;
-      const offY = rect.top - fr.top - scene.frame.clientTop;
-      Object.assign(scene.boss.node.style, { width: `${px}px`, height: `${px}px`, transform: `translate(${off + x - px / 2}px, ${offY + y - px / 2}px)` });
-    }
+    // HTML marks over the map: the boss and the checks.
+    const fr = scene.frame.getBoundingClientRect();
+    const off = rect.left - fr.left - scene.frame.clientLeft;
+    const offY = rect.top - fr.top - scene.frame.clientTop;
+    const place = (node, at, px) => {
+      const x = (at.x - vb.x) / k + (rect.width - vb.width / k) / 2;
+      const y = (at.y - vb.y) / k + (rect.height - vb.height / k) / 2;
+      Object.assign(node.style, { width: `${px}px`, height: `${px}px`, transform: `translate(${off + x - px / 2}px, ${offY + y - px / 2}px)` });
+    };
+    if (scene.boss) place(scene.boss.node, scene.boss.at, 26 + 4 * Math.log2(view.zoom));
+    const checkPx = 16 + 2 * Math.log2(view.zoom);
+    for (const c of scene.checks ?? []) place(c.node, c.at, checkPx);
   }
 
   // Link: a yellow arrowhead toward where he faces (angle 0 = +z), on Link's floor only.
@@ -543,29 +587,141 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   // Center the room Link is in when he enters another room, or when he moves after the view was
   // moved by hand; zoom out when the room does not fit.
   function follow() {
-    if (!scene || scene.kind !== "stage" || !player.player || pressing) return;
+    if (!scene || scene.kind !== "stage" || !player.player || pressing || anim) return;
     if (player.stayFloor !== undefined && player.stayFloor !== scene.floor) return;
     const box = scene.rooms.get(player.stayRoom);
     if (!box) return;
     const pos = { x: player.player.x, y: player.player.z };
     const moved = !lastPos || Math.hypot(pos.x - lastPos.x, pos.y - lastPos.y) > 8;
     const roomChanged = followRoom !== player.stayRoom;
-    if (!roomChanged && !(manual && moved)) {
-      if (moved) lastPos = pos;
+    const first = followRoom === null;
+    const dungeon = map.stage.startsWith("D_");
+    const fits = (z) => Math.max(box.w, box.h) <= span(scene.base, z) * 0.92;
+    if (dungeon || fits(LEVELS[level])) {
+      // The room fits (or a dungeon room, zoomed out until it does): keep it in the middle.
+      if (!roomChanged && !(manual && moved)) {
+        if (moved) lastPos = pos;
+        return;
+      }
+      let next = level;
+      while (next > 0 && !fits(LEVELS[next])) next--;
+      if (next !== level) {
+        level = next;
+        saveLevel();
+      }
+      followRoom = player.stayRoom;
+      lastPos = pos;
+      manual = false;
+      return goTo({ zoom: LEVELS[level], x: box.x, y: box.y }, !first);
+    }
+    // An overworld area larger than the view: the zoom stays, and the view slides to keep Link
+    // near the middle (a margin around it, as his position comes a few times a second).
+    if (moved) lastPos = pos;
+    const near = span(scene.base, view.zoom) * 0.18;
+    const away = Math.abs(pos.x - view.x) > near || Math.abs(pos.y - view.y) > near;
+    if (!roomChanged && !(manual && moved) && !away) return;
+    followRoom = player.stayRoom;
+    manual = false;
+    goTo({ zoom: LEVELS[level], x: pos.x, y: pos.y }, !first);
+  }
+
+  // ---- Checks on the map ----
+
+  // Markers for the checks the mod found in this stage's rooms, with the status of their marker
+  // in Checks; only those on the floor shown (floor null: every one).
+  function buildChecks(floor) {
+    if (!checkSource || !map.checks?.length) return [];
+    const byKey = new Map(checkSource.list().map((c) => [c.key, c]));
+    const out = [];
+    for (const place of map.checks) {
+      const info = byKey.get(place.key);
+      if (!info || (floor !== null && place.floor !== floor)) continue;
+      const node = el("button", { type: "button", className: `map-check ${info.status}`, title: `${info.name}\nClick: requirement · Right-click: show in Checks` },
+        el("span", { className: "loc-dot" }));
+      node.addEventListener("pointerdown", (e) => e.stopPropagation());
+      node.addEventListener("pointerup", (e) => e.stopPropagation());
+      node.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (checkSource.bothShown()) checkSource.jump(info.name);
+        else {
+          reqName = reqName === info.name ? null : info.name;
+          showReq();
+        }
+      });
+      node.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        checkSource.jump(info.name);
+      });
+      node.hidden = !checkFilter.has(info.status);
+      out.push({ node, at: { x: place.x, y: place.z }, name: info.name, status: info.status });
+    }
+    return out;
+  }
+
+  // Statuses change as items come in: the markers follow, and the filter hides or shows them.
+  function updateChecks() {
+    if (!scene?.checks?.length) return;
+    const status = new Map(checkSource.list().map((c) => [c.name, c.status]));
+    for (const c of scene.checks) {
+      const now = status.get(c.name) ?? "unknown";
+      if (now !== c.status) {
+        c.node.classList.replace(c.status, now);
+        c.status = now;
+      }
+      c.node.hidden = !checkFilter.has(c.status);
+    }
+    if (reqName) showReq(false);
+  }
+
+  function filterBar() {
+    return el("div", { className: "map-filter", role: "group", ariaLabel: "Checks shown on the map" },
+      el("span", { className: "map-filter-label", textContent: "Checks:" }),
+      ...CHECK_STATUSES.map(([status, label]) => el("label", { className: `map-filter-item ${status}` },
+        el("input", { type: "checkbox", checked: checkFilter.has(status), onchange: (e) => {
+          if (e.target.checked) checkFilter.add(status);
+          else checkFilter.delete(status);
+          try { localStorage.setItem(FILTER_KEY, JSON.stringify([...checkFilter])); } catch { /* not kept */ }
+          updateChecks();
+        } }),
+        el("span", { className: "map-check " + status }, el("span", { className: "loc-dot" })), label)));
+  }
+
+  // The requirement of the check clicked on the map, under it.
+  function reqPanel() {
+    return el("div", { className: "map-req", hidden: true });
+  }
+
+  let reqShown = "";
+  function showReq(force = true) {
+    const box = root.querySelector(".map-req");
+    if (!box) return;
+    const body = reqName ? checkSource?.requirement(reqName) : null;
+    if (!body) {
+      box.hidden = true;
+      box.replaceChildren();
+      reqShown = "";
       return;
     }
-    const first = followRoom === null;
-    followRoom = player.stayRoom;
-    lastPos = pos;
-    manual = false;
-    const fits = (z) => Math.max(box.w, box.h) <= (Math.max(scene.base.w, scene.base.h) / z) * 0.92;
-    let next = level;
-    while (next > 0 && !fits(LEVELS[next])) next--;
-    if (next !== level) {
-      level = next;
-      saveLevel();
-    }
-    goTo({ zoom: LEVELS[level], x: box.x, y: box.y }, !first);
+    // Redrawn only when its content changes (statuses update a few times a second).
+    const html = body.outerHTML;
+    if (!force && html === reqShown) return;
+    reqShown = html;
+    box.hidden = false;
+    box.replaceChildren(body, el("button", { type: "button", className: "tool map-req-close", textContent: "Close", onclick: () => { reqName = null; showReq(); } }));
+  }
+
+  // A short message under the map (why it cannot zoom out yet).
+  function noticeBox() {
+    return el("p", { className: "map-notice", hidden: true });
+  }
+  function showNotice(text) {
+    const box = root.querySelector(".map-notice");
+    if (!box) return;
+    box.textContent = text;
+    box.hidden = false;
+    clearTimeout(showNotice.timer);
+    showNotice.timer = setTimeout(() => { box.hidden = true; }, 5000);
   }
 
   // ---- Zooming out to the province and to Hyrule ----
@@ -589,8 +745,8 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   const span = (base, zoom) => Math.max(base.w, base.h) / zoom;
 
   function zoomIn(at) {
-    if (anim) return;
     if (!scene || scene.kind === "stage") return zoomTo(level + 1, at);
+    if (anim) return;
     if (scene.kind === "world") {
       // Into the province clicked, or Link's.
       const region = (at && regionAt(at)) ?? fieldPlace()?.region;
@@ -604,13 +760,19 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   }
 
   function zoomOut(at) {
-    if (anim) return;
     if (!scene || scene.kind === "stage") {
       if (level > 0) return zoomTo(level - 1, at);
-      if (fieldPlace()) switchField("region", fieldPlace().region);
+      if (anim) return;
+      if (fieldPlace()) return switchField("region", fieldPlace().region);
+      if (map?.stage.startsWith("D_")) return;
+      // Say why the province cannot be shown (yet).
+      if (field?.error) showNotice(`The overworld map could not be read: ${field.error}`);
+      else if (field?.ready) showNotice(`This place (${map.stage}, room ${player.stayRoom}) is not on the overworld map.`);
+      else if (field?.reading && field.stages) showNotice(`Reading the overworld map from the game… (${field.stage} / ${field.stages} places)`);
+      else showNotice("Reading the overworld map from the game…");
       return;
     }
-    if (scene.kind === "region") switchField("world");
+    if (scene.kind === "region" && !anim) switchField("world");
   }
 
   function switchStage() {
@@ -814,7 +976,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
         const stage = scene?.kind === "stage";
         dots.forEach((dot, n) => dot.classList.toggle("on", stage && LEVELS.length - 1 - n === level));
         up.disabled = stage && level >= LEVELS.length - 1;
-        down.disabled = stage ? level <= 0 && !fieldPlace() : scene?.kind === "world";
+        down.disabled = stage ? level <= 0 && map?.stage.startsWith("D_") : scene?.kind === "world";
         down.title = stage && level <= 0 ? "Zoom out to the province" : scene?.kind === "region" ? "Zoom out to Hyrule" : "Zoom out";
       },
     };

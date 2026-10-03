@@ -571,14 +571,14 @@ label.tool { display: inline-block; }
 .loc-row { display: flex; align-items: center; gap: 9px; padding: 7px 11px; }
 .loc-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--bad); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6); }
 .loc-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.loc-row.reachable .loc-dot { background: var(--owned); box-shadow: 0 0 6px var(--owned); }
+.loc-row.reachable .loc-dot, .map-check.reachable .loc-dot { background: var(--owned); box-shadow: 0 0 6px var(--owned); }
 .loc-row.blocked { color: var(--muted); }
-.loc-row.unknown .loc-dot { background: var(--gold-dim); }
+.loc-row.unknown .loc-dot, .map-check.unknown .loc-dot { background: var(--gold-dim); }
 .loc-row.obtained { opacity: 0.4; }
-.loc-row.obtained .loc-dot { background: var(--line); }
+.loc-row.obtained .loc-dot, .map-check.obtained .loc-dot { background: var(--line); }
 .loc-row.obtained .loc-name { text-decoration: line-through; }
 .loc-row.excluded { opacity: 0.45; font-style: italic; }
-.loc-row.excluded .loc-dot { background: transparent; border: 1px solid var(--muted); }
+.loc-row.excluded .loc-dot, .map-check.excluded .loc-dot { background: transparent; border: 1px solid var(--muted); }
 .loc-tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; border: 1px solid var(--warn); color: var(--warn); }
 /* What a found check held */
 .loc-found { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--gold); }
@@ -1068,7 +1068,7 @@ select option:checked { background: #5c5230; color: #fff; }
 .loc-dot.clickable { cursor: pointer; }
 .loc-dot { position: relative; }
 .loc-dot.clickable::after { content: ""; position: absolute; inset: -7px; }
-.loc-row.checked .loc-dot {
+.loc-row.checked .loc-dot, .map-check.checked .loc-dot {
   width: 20px;
   height: 20px;
   margin: -3px;
@@ -1246,3 +1246,25 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-reticle svg { width: 100%; height: 100%; overflow: visible; }
 .map-reticle-ring { animation: map-reticle-turn 2.2s linear infinite; transform-origin: 0 0; }
 @keyframes map-reticle-turn { to { transform: rotate(360deg); } }
+
+/* Checks on the map: the markers of the check list, over the map; the filter above it */
+.map-check { position: absolute; left: 0; top: 0; display: grid; place-items: center; padding: 0; border: 0; background: none; pointer-events: auto; }
+.map-check .loc-dot { width: 72%; height: 72%; transition: transform 0.12s; }
+.map-check:hover .loc-dot { transform: scale(1.35); filter: brightness(1.25); }
+.map-check.checked .loc-dot { width: 100%; height: 100%; margin: 0; }
+.map-check[hidden] { display: none; }
+.map-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+.map-filter-label { font-weight: 700; color: var(--text); }
+.map-filter-item { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.map-filter-item .map-check { position: static; width: 14px; height: 14px; pointer-events: none; }
+.map-filter-item .map-check .loc-dot { width: 100%; height: 100%; }
+.map-req { position: relative; padding: 12px 14px; background: var(--bar); border: 1px solid var(--gold-dim); border-radius: 10px; }
+.map-req .loc-detail-head h3 { margin: 0; flex: 1; font-size: 15px; color: var(--gold); }
+.map-req h4 { margin: 12px 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.map-req-close { position: absolute; top: 10px; right: 12px; }
+.map-req .loc-detail-head { padding-right: 70px; }
+.map-notice { margin: 0; padding: 6px 10px; font-size: 13px; color: var(--text); background: rgba(0, 0, 0, 0.35); border-left: 3px solid var(--gold-dim); }
+/* Doors: every mark is drawn; the state shows the one that applies */
+.map-door .map-door-bar { display: none; }
+.map-door.barred .map-door-bar { display: inline; }
+.map-door.barred .map-door-square, .map-door.barred .map-door-lock { display: none; }
