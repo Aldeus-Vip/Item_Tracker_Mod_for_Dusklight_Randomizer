@@ -1,6 +1,11 @@
 #pragma once
 
+#include <functional>
 #include <string>
+
+#include "d/d_map_path.h"
+
+namespace tracker { class JsonWriter; }
 
 // The map the game draws in its pause menu and minimap, read from the rooms it has loaded for the
 // current stage (dMpath_c): per room, floors of groups of filled shapes and lines, in the map's
@@ -28,5 +33,10 @@ const std::string& cached_player();
 // Just {"stage", "stayRoom", "player", "wolf", "stayFloor"}, for following Link several times a
 // second ("wolf": Link is a wolf).
 std::string build_player_json();
+
+// Writes a room's map shapes as "floors" and "vertices" (the format above); shown(group) gives
+// each group's "shown".
+void write_room_shapes(JsonWriter& w, const dDrawPath_c::room_class* room,
+                       const std::function<bool(const dDrawPath_c::group_class&)>& shown);
 
 }  // namespace tracker::map

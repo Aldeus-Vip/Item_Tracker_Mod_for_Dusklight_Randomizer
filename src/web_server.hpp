@@ -80,6 +80,10 @@ void set_found_sink(FoundSink sink);
 using MapProvider = std::string (*)();
 void set_map_source(MapProvider map, MapProvider player);
 
+// The overworld map (see field_map.hpp) and the visited stages on it. Enable /field-map and
+// /field-map-visited.
+void set_field_map_source(MapProvider map, MapProvider visited);
+
 // The randomizer's seeds folder (seeds/<hash>/). Enables /rando-seeds/.
 void set_seeds_dir(std::string dir);
 

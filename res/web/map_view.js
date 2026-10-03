@@ -22,6 +22,10 @@ const MAP_MS = 3000; // the map itself (switches, visited rooms) besides stage c
 const LEVELS = [1, 2, 4, 8]; // zoom steps; the indicator shows which one is on
 const ZOOM_MS = 280;
 const LEVEL_KEY = "dusklight-tracker.mapZoom";
+const FIELD_MS = 2000; // asking for the overworld map until the mod has read it
+const VISITED_MS = 3000;
+// The game's region numbers (field.dat): the provinces, as the map screen names them.
+const PROVINCES = { 1: "Ordona Province", 2: "Faron Province", 3: "Eldin Province", 4: "Lanayru Province", 5: "Gerudo Desert", 6: "Snowpeak Province" };
 
 // The map cursor: a ring of four ticks turning around a dot, like the game's map cursor (original).
 const RETICLE = `<svg viewBox="-20 -20 40 40" aria-hidden="true"><g class="map-reticle-ring" fill="none" stroke-linecap="round">
@@ -137,6 +141,13 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   let lastPos = null; // Link's position when the view last followed him
   let manual = false; // moved or zoomed by hand since then
   let pressing = false; // a mouse button is down on the map
+  // Zooming out of an overworld stage shows its province, then all of Hyrule (the game's map
+  // screen), from /field-map: every field stage placed where the map screen puts it.
+  let mode = "stage"; // "stage" | "region" | "world"
+  let field = null; // /field-map once read
+  let fieldTime = 0;
+  let visited = null; // /field-map-visited
+  let visitedTime = 0;
 
   function loadLevel() {
     try {
@@ -170,6 +181,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
             }
           }
         }
+        await fetchField();
         if (player.stayFloor !== undefined && player.stayFloor !== lastStayFloor) {
           lastStayFloor = player.stayFloor;
           pickedFloor = null;
@@ -184,6 +196,19 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       render();
     }
     timer = setTimeout(tick, PLAYER_MS);
+  }
+
+  async function fetchField() {
+    const now = Date.now();
+    if (!field?.ready && !field?.error && now - fieldTime > FIELD_MS) {
+      fieldTime = now;
+      const next = await (await fetch("field-map", { cache: "no-store" })).json();
+      if (next.ready || next.error) field = next;
+    }
+    if (field?.ready && (!visited || now - visitedTime > VISITED_MS)) {
+      visitedTime = now;
+      visited = await (await fetch("field-map-visited", { cache: "no-store" })).json();
+    }
   }
 
   function setVisible(on) {
@@ -208,6 +233,10 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     if (!visible) return;
     if (!getState()?.inGame) return message("Waiting for a save file…");
     if (!map || !player) return message("Loading the map…");
+    if (mode !== "stage") {
+      if (fieldPlace()) return renderField();
+      mode = "stage";
+    }
     if (!map.exists) return message("This place has no map.");
     const dungeon = map.stage.startsWith("D_");
     const rooms = drawnRooms(dungeon);
@@ -216,7 +245,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     const title = regionName(map.stage, map.stayRoom) ?? map.stage;
     const d = dungeon ? findDungeon(title) : null;
     const items = getState()?.items ?? {};
-    const key = JSON.stringify([mapVersion, map.stage, floor, player.stayRoom, player.stayFloor, player.wolf, title,
+    const key = JSON.stringify(["stage", mapVersion, map.stage, floor, player.stayRoom, player.stayFloor, player.wolf, title,
       d, d?.name === "Goron Mines" ? items["Goron Mines Key Shard"] : 0]);
     if (key !== sceneKey) {
       sceneKey = key;
@@ -225,6 +254,8 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
         view = null;
         followRoom = null;
         lastPos = null;
+      } else if (scene && scene.kind !== "stage") {
+        view = null;
       }
       build(dungeon, rooms, floors, floor, title, d);
     }
@@ -337,7 +368,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     if (boss) overlay.append(boss.node);
     const frame = el("div", { className: "map-frame " + (dungeon ? "parchment" : "field"), title: "Click: zoom in · Right-click: zoom out · Drag: move" }, drawing, overlay, reticle);
     const zoomBar = zoomIndicator();
-    scene = { svg: drawing, link, frame, base, size, floor, rooms: roomBoxes(rooms, floor), doors, boss, zoomBar };
+    scene = { kind: "stage", svg: drawing, link, frame, base, size, floor, rooms: roomBoxes(rooms, floor), doors, boss, zoomBar, offset: { x: 0, z: 0 } };
     bindFrame(frame, reticle);
     root.replaceChildren(el("div", { className: "map-pane" + (floorButtons ? " has-floors" : "") },
       el("div", { className: "loc-banner map-title" }, el("span", { className: "loc-banner-title", textContent: title })),
@@ -420,12 +451,13 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   // Link: a yellow arrowhead toward where he faces (angle 0 = +z), on Link's floor only.
   function placeLink() {
     if (!scene) return;
-    const shown = player.player && (player.stayFloor === undefined || player.stayFloor === scene.floor);
+    const shown = player.player && (scene.kind !== "stage" ? scene.linkShown : player.stayFloor === undefined || player.stayFloor === scene.floor);
     scene.link.style.display = shown ? "" : "none";
     if (!shown) return;
     const a = (player.player.angle / 65536) * Math.PI * 2;
     const s = (scene.size * 0.022) / Math.sqrt(view?.zoom ?? 1);
-    const { x, z } = player.player;
+    const x = player.player.x + scene.offset.x;
+    const z = player.player.z + scene.offset.z;
     const pt = (ang, r) => `${x + Math.sin(ang) * r},${z + Math.cos(ang) * r}`;
     scene.link.setAttribute("points", `${pt(a, s * 1.5)} ${pt(a + 2.45, s)} ${pt(a - 2.45, s)}`);
     scene.link.setAttribute("stroke-width", s * 0.18);
@@ -440,10 +472,11 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     const { base } = scene;
     const w = base.w / v.zoom;
     const h = base.h / v.zoom;
+    // (A view wider than the map, while zooming between maps, is left as it is.)
     return {
       zoom: v.zoom,
-      x: Math.min(Math.max(v.x, base.x + w / 2), base.x + base.w - w / 2),
-      y: Math.min(Math.max(v.y, base.y + h / 2), base.y + base.h - h / 2),
+      x: w > base.w ? v.x : Math.min(Math.max(v.x, base.x + w / 2), base.x + base.w - w / 2),
+      y: h > base.h ? v.y : Math.min(Math.max(v.y, base.y + h / 2), base.y + base.h - h / 2),
     };
   }
 
@@ -463,13 +496,14 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   }
 
   // Move the view to a target, smoothly unless told not to.
-  function goTo(target, smooth = true) {
+  function goTo(target, smooth = true, done = null) {
     target = clampView(target);
     if (anim) cancelAnimationFrame(anim.frame);
     anim = null;
     if (!smooth || !view || !visible) {
       view = target;
       applyView();
+      done?.();
       return;
     }
     const from = { ...view };
@@ -483,7 +517,10 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       view = { zoom, x: from.x + (target.x - from.x) * f, y: from.y + (target.y - from.y) * f };
       applyView();
       if (t < 1) anim.frame = requestAnimationFrame(step);
-      else anim = null;
+      else {
+        anim = null;
+        done?.();
+      }
     };
     anim = { frame: requestAnimationFrame(step) };
   }
@@ -506,7 +543,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   // Center the room Link is in when he enters another room, or when he moves after the view was
   // moved by hand; zoom out when the room does not fit.
   function follow() {
-    if (!scene || !player.player || pressing) return;
+    if (!scene || scene.kind !== "stage" || !player.player || pressing) return;
     if (player.stayFloor !== undefined && player.stayFloor !== scene.floor) return;
     const box = scene.rooms.get(player.stayRoom);
     if (!box) return;
@@ -529,6 +566,178 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       saveLevel();
     }
     goTo({ zoom: LEVELS[level], x: box.x, y: box.y }, !first);
+  }
+
+  // ---- Zooming out to the province and to Hyrule ----
+
+  // Where this stage sits on the overworld map: the province and stage entry that hold Link's room.
+  function fieldPlace() {
+    if (!field?.ready || !map?.exists || map.stage.startsWith("D_")) return null;
+    let found = null;
+    for (const region of field.regions) {
+      for (const stage of region.stages) {
+        if (stage.name !== map.stage) continue;
+        const place = { region, stage, x: region.x + stage.x, z: region.z + stage.z };
+        if (stage.rooms.some((r) => r.no === player?.stayRoom)) return place;
+        found ??= place;
+      }
+    }
+    return found;
+  }
+
+  // The span of the map a view shows (the larger side, as the frame is square).
+  const span = (base, zoom) => Math.max(base.w, base.h) / zoom;
+
+  function zoomIn(at) {
+    if (anim) return;
+    if (!scene || scene.kind === "stage") return zoomTo(level + 1, at);
+    if (scene.kind === "world") {
+      // Into the province clicked, or Link's.
+      const region = (at && regionAt(at)) ?? fieldPlace()?.region;
+      return switchField("region", region);
+    }
+    // Back to the stage Link is in: zoom onto it, then show its own map.
+    const place = fieldPlace();
+    const b = place && scene.stageBoxes.get(place.stage);
+    if (!b) return switchStage();
+    goTo({ x: b.x, y: b.y, zoom: span(scene.base, 1) / Math.max(b.w, b.h) }, true, switchStage);
+  }
+
+  function zoomOut(at) {
+    if (anim) return;
+    if (!scene || scene.kind === "stage") {
+      if (level > 0) return zoomTo(level - 1, at);
+      if (fieldPlace()) switchField("region", fieldPlace().region);
+      return;
+    }
+    if (scene.kind === "region") switchField("world");
+  }
+
+  function switchStage() {
+    mode = "stage";
+    level = 0;
+    saveLevel();
+    sceneKey = "";
+    followRoom = null;
+    render();
+  }
+
+  // Shows the province (or Hyrule), zooming out from what is on screen now.
+  function switchField(kind, region) {
+    const from = scene && view ? { x: view.x + scene.offset.x, y: view.y + scene.offset.z, span: span(scene.base, view.zoom) } : null;
+    mode = kind;
+    fieldRegion = region?.no ?? null;
+    sceneKey = "";
+    renderField(from);
+  }
+
+  let fieldRegion = null;
+  let fieldStage = null;
+
+  function regionAt(p) {
+    for (const [region, b] of scene.regionBoxes ?? []) {
+      if (Math.abs(p.x - b.x) <= b.w / 2 && Math.abs(p.y - b.y) <= b.h / 2) return region;
+    }
+    return null;
+  }
+
+  // Stages the map screen shows: those with a visited room, and the one Link is in.
+  function shownStage(stage) {
+    return stage.name === map.stage || (visited?.stages?.[stage.name]?.length ?? 0) > 0;
+  }
+
+  function renderField(from = null) {
+    const place = fieldPlace();
+    // A new stage: its own province.
+    if (fieldStage !== map.stage) {
+      fieldStage = map.stage;
+      if (mode === "region" && place) fieldRegion = place.region.no;
+    }
+    if (mode === "region" && fieldRegion === null) fieldRegion = place?.region.no ?? null;
+    const regions = mode === "world" ? field.regions : field.regions.filter((r) => r.no === fieldRegion);
+    const key = JSON.stringify([mode, fieldRegion, map.stage, player.stayRoom, visited?.stages]);
+    if (key !== sceneKey || from) {
+      sceneKey = key;
+      buildField(regions, place, from);
+    }
+    placeLink();
+  }
+
+  function buildField(regions, place, from) {
+    const drawing = svg("svg", { class: "map-svg", preserveAspectRatio: "xMidYMid meet" });
+    const shapes = svg("g", { class: "map-shapes" });
+    const stay = svg("g", { class: "map-shapes map-stay" });
+    const outlines = svg("g", { class: "map-outlines" });
+    const all = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity };
+    const stageBoxes = new Map();
+    const regionBoxes = new Map();
+    for (const region of regions) {
+      const rb = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity };
+      for (const stage of region.stages) {
+        if (!shownStage(stage)) continue;
+        const ox = region.x + stage.x;
+        const oz = region.z + stage.z;
+        const here = place?.stage === stage;
+        const sb = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity };
+        for (const room of stage.rooms) {
+          const v = room.vertices.map((n, i) => n + (i % 2 ? oz : ox));
+          for (const f of room.floors) for (const g of f.groups) {
+            if (!g.shown) continue;
+            for (const p of g.polys) {
+              if (p.type & 0x80) continue;
+              const color = FIELD[p.type & 0x3f] ?? FIELD[0];
+              (here ? stay : shapes).append(svg("path", { d: stripPath(v, p.strip), fill: color, stroke: color, "stroke-width": 40, "stroke-linejoin": "round" }));
+              for (const i of p.strip) {
+                sb.minX = Math.min(sb.minX, v[i * 2]); sb.maxX = Math.max(sb.maxX, v[i * 2]);
+                sb.minZ = Math.min(sb.minZ, v[i * 2 + 1]); sb.maxZ = Math.max(sb.maxZ, v[i * 2 + 1]);
+              }
+            }
+            for (const l of g.lines) {
+              if (l.type & 0x80 || l.width < 1 || l.width > 2) continue;
+              outlines.append(svg("path", { d: linePath(v, l.strip), class: `map-line w${l.width}`, stroke: OUTLINE.field }));
+            }
+          }
+        }
+        if (sb.minX === Infinity) continue;
+        stageBoxes.set(stage, { x: (sb.minX + sb.maxX) / 2, y: (sb.minZ + sb.maxZ) / 2, w: sb.maxX - sb.minX, h: sb.maxZ - sb.minZ });
+        for (const k of ["minX", "minZ"]) { rb[k] = Math.min(rb[k], sb[k]); all[k] = Math.min(all[k], sb[k]); }
+        for (const k of ["maxX", "maxZ"]) { rb[k] = Math.max(rb[k], sb[k]); all[k] = Math.max(all[k], sb[k]); }
+      }
+      if (rb.minX !== Infinity) regionBoxes.set(region, { x: (rb.minX + rb.maxX) / 2, y: (rb.minZ + rb.maxZ) / 2, w: rb.maxX - rb.minX, h: rb.maxZ - rb.minZ });
+    }
+    if (all.minX === Infinity) {
+      mode = "stage";
+      return switchStage();
+    }
+    const size = Math.max(all.maxX - all.minX, all.maxZ - all.minZ, 1);
+    const pad = size * 0.05;
+    const base = { x: all.minX - pad, y: all.minZ - pad, w: all.maxX - all.minX + pad * 2, h: all.maxZ - all.minZ + pad * 2 };
+    const link = svg("polygon", { class: "map-link" });
+    drawing.append(shapes, stay, outlines, link);
+    const reticle = el("div", { className: "map-reticle", hidden: true });
+    reticle.innerHTML = RETICLE;
+    const hint = mode === "world" ? "Click: zoom into a province" : "Click: back to this place · Right-click: all of Hyrule";
+    const frame = el("div", { className: "map-frame field", title: hint }, drawing, el("div", { className: "map-overlay" }), reticle);
+    const zoomBar = zoomIndicator();
+    const regionNo = mode === "region" ? fieldRegion : null;
+    const title = mode === "world" ? "Hyrule" : PROVINCES[regionNo] ?? `Region ${regionNo}`;
+    scene = { kind: mode, svg: drawing, link, frame, base, size, floor: null, rooms: new Map(), doors: [], boss: null, zoomBar,
+      offset: place ? { x: place.x, z: place.z } : { x: 0, z: 0 }, linkShown: !!place && (mode === "world" || place.region.no === regionNo),
+      stageBoxes, regionBoxes };
+    bindFrame(frame, reticle);
+    root.replaceChildren(el("div", { className: "map-pane" },
+      el("div", { className: "loc-banner map-title" }, el("span", { className: "loc-banner-title", textContent: title })),
+      el("div", { className: "map-layout" }, el("div", { className: "map-stage" }, frame, zoomBar.node))));
+    const whole = { ...{ x: base.x + base.w / 2, y: base.y + base.h / 2 }, zoom: 1 };
+    if (from) {
+      // Start where the last map was on screen, then zoom out to the whole province or Hyrule.
+      view = { x: from.x, y: from.y, zoom: span(base, 1) / from.span };
+      applyView();
+      goTo(whole);
+    } else {
+      view = whole;
+      applyView();
+    }
   }
 
   // A point of the frame (client px) in map units.
@@ -574,7 +783,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       press = null;
       pressing = false;
       frame.classList.remove("dragging");
-      if (!wasDrag && e.type === "pointerup") zoomTo(level + 1, toMap(e));
+      if (!wasDrag && e.type === "pointerup") zoomIn(toMap(e));
     };
     frame.addEventListener("pointerup", release);
     frame.addEventListener("pointercancel", release);
@@ -583,7 +792,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
       // A right click on the boss icon opens the icon editor instead.
       if (e.target.closest?.("[data-icon]")) return;
       e.preventDefault();
-      zoomTo(level - 1, toMap(e));
+      zoomOut(toMap(e));
     });
   }
 
@@ -591,7 +800,7 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
   // an up arrow (zoom in) and a down arrow (zoom out).
   function zoomIndicator() {
     const arrow = (dir, label, delta) => {
-      const b = el("button", { type: "button", className: `map-zoom-arrow ${dir}`, title: label, ariaLabel: label, onclick: () => zoomTo(level + delta) });
+      const b = el("button", { type: "button", className: `map-zoom-arrow ${dir}`, title: label, ariaLabel: label, onclick: () => (delta > 0 ? zoomIn() : zoomOut()) });
       b.innerHTML = ARROW;
       return b;
     };
@@ -602,9 +811,11 @@ export function createMapView(root, { getState, regionName, makeIcon }) {
     return {
       node,
       update() {
-        dots.forEach((dot, n) => dot.classList.toggle("on", LEVELS.length - 1 - n === level));
-        up.disabled = level >= LEVELS.length - 1;
-        down.disabled = level <= 0;
+        const stage = scene?.kind === "stage";
+        dots.forEach((dot, n) => dot.classList.toggle("on", stage && LEVELS.length - 1 - n === level));
+        up.disabled = stage && level >= LEVELS.length - 1;
+        down.disabled = stage ? level <= 0 && !fieldPlace() : scene?.kind === "world";
+        down.title = stage && level <= 0 ? "Zoom out to the province" : scene?.kind === "region" ? "Zoom out to Hyrule" : "Zoom out";
       },
     };
   }

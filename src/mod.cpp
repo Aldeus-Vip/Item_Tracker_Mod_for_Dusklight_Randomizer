@@ -11,6 +11,7 @@
 #include "mods/svc/ui.h"
 
 #include "found_checks.hpp"
+#include "field_map.hpp"
 #include "map_data.hpp"
 #include "game_icons.hpp"
 #include "game_textures.hpp"
@@ -251,6 +252,8 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     tracker::web::set_found_sink([](const std::string& body) { tracker::found::add_from_page(body); });
     // Built each frame only when safe (see map_data.hpp); the server sends the last copy.
     tracker::web::set_map_source([] { return tracker::map::cached_map(); }, [] { return tracker::map::cached_player(); });
+    tracker::web::set_field_map_source([] { return tracker::fieldmap::cached_map(); },
+                                       [] { return tracker::fieldmap::cached_visited(); });
     tracker::rando::download(logic_data_ref(), /*force=*/false);
 
     // A busy port is not fatal: the panel reports it and a port change retries.
@@ -267,6 +270,7 @@ MOD_EXPORT ModResult mod_update(ModError*) {
     tracker::web::poll();
     tracker::found::update();
     tracker::map::update();
+    tracker::fieldmap::update();
 
     if (--g_framesUntilPoll <= 0) {
         g_framesUntilPoll = kPollIntervalFrames;

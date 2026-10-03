@@ -195,6 +195,19 @@ createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end(JSON.stringify(out));
   }
+  // FIELD_JSON: an overworld map in the mod's /field-map format (src/field_map.hpp); every stage
+  // in it counts as visited.
+  if (path === "/field-map" || path === "/field-map-visited") {
+    if (!process.env.FIELD_JSON) {
+      res.writeHead(200, { "Content-Type": TYPES[".json"] });
+      return res.end(JSON.stringify(path === "/field-map" ? { ready: false, error: "no field map in the mock" } : { stages: {} }));
+    }
+    const fieldMap = JSON.parse(await readFile(process.env.FIELD_JSON, "utf8"));
+    const out = path === "/field-map" ? fieldMap
+      : { level: 0, stages: Object.fromEntries(fieldMap.regions.flatMap((r) => r.stages.map((s) => [s.name, s.rooms.map((x) => x.no)]))) };
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify(out));
+  }
   if (path === "/map-player") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end(JSON.stringify({ stage: state.stage, stayRoom: 0, player: { x: 0, y: 0, z: 0, angle: 0 }, stayFloor: 0 }));
