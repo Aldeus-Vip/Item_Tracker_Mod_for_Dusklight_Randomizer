@@ -22,6 +22,7 @@ const MAP_MS = 3000; // the map itself (switches, visited rooms) besides stage c
 const LEVELS = [1, 2, 4, 8]; // zoom steps; the indicator shows which one is on
 const ZOOM_MS = 280;
 const LEVEL_KEY = "dusklight-tracker.mapZoom";
+const FOLLOW_KEY = "dusklight-tracker.mapFollow";
 const FILTER_KEY = "dusklight-tracker.mapCheckFilter";
 // The check statuses (the marker left of each check in Checks), as filters above the map.
 const CHECK_STATUSES = [["reachable", "Reachable"], ["blocked", "Not reachable"], ["unknown", "Unknown"], ["checked", "Checked"], ["obtained", "Obtained"], ["excluded", "Excluded"]];
@@ -144,6 +145,10 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
   let lastPos = null; // Link's position when the view last followed him
   let manual = false; // moved or zoomed by hand since then
   let pressing = false; // a mouse button is down on the map
+  // Following Link (the option beside the title): the view slides and zooms to his room, and when
+  // he moves the map goes back to his floor and stage from any other one being looked at.
+  let followOn = loadFollow();
+  let seenPos = null; // Link's position at the last update
   // Zooming out of an overworld stage shows its province, then all of Hyrule (the game's map
   // screen), from /field-map: every field stage placed where the map screen puts it.
   let mode = "stage"; // "stage" | "region" | "world"
@@ -163,6 +168,10 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       if (Array.isArray(saved)) return new Set(saved);
     } catch { /* default */ }
     return new Set(["reachable", "blocked", "unknown"]);
+  }
+
+  function loadFollow() {
+    try { return localStorage.getItem(FOLLOW_KEY) !== "0"; } catch { return true; }
   }
 
   function loadLevel() {
@@ -201,6 +210,14 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
         if (player.stayFloor !== undefined && player.stayFloor !== lastStayFloor) {
           lastStayFloor = player.stayFloor;
           pickedFloor = null;
+        }
+        // Link moved while another floor, the province or Hyrule is shown: back to his map.
+        const p = player.player;
+        const movedNow = p && seenPos && Math.hypot(p.x - seenPos.x, p.z - seenPos.z) > 8;
+        if (p) seenPos = { x: p.x, z: p.z };
+        if (followOn && movedNow) {
+          if (pickedFloor !== null) pickedFloor = null;
+          if (mode !== "stage" && !anim) switchStage();
         }
         render();
       } catch {
@@ -390,9 +407,9 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     scene = { kind: "stage", svg: drawing, link, frame, base, size, floor, rooms: roomBoxes(rooms, floor), doors, boss, checks, zoomBar, offset: { x: 0, z: 0 } };
     bindFrame(frame, reticle);
     root.replaceChildren(el("div", { className: "map-pane" + (floorButtons ? " has-floors" : "") },
-      el("div", { className: "loc-banner map-title" }, el("span", { className: "loc-banner-title", textContent: title })),
+      titleBar(title),
       checkSource ? filterBar() : null,
-      checkSource && !checks.length ? el("p", { className: "map-check-note", textContent: map.checks?.length
+      checkSource && !checks.length && !checksElsewhere() ? el("p", { className: "map-check-note", textContent: map.checks?.length
         ? "None of the checks found in this place's rooms is in the check list."
         : `No checks found in this place's rooms yet (${map.checkRooms ?? 0} room files read; more are read as rooms load).` }) : null,
       el("div", { className: "map-layout" },
@@ -593,7 +610,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
   // Center the room Link is in when he enters another room, or when he moves after the view was
   // moved by hand; zoom out when the room does not fit.
   function follow() {
-    if (!scene || scene.kind !== "stage" || !player.player || pressing || anim) return;
+    if (!followOn || !scene || scene.kind !== "stage" || !player.player || pressing || anim) return;
     if (player.stayFloor !== undefined && player.stayFloor !== scene.floor) return;
     const box = scene.rooms.get(player.stayRoom);
     if (!box) return;
@@ -633,6 +650,25 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     goTo({ zoom: LEVELS[level], x: pos.x, y: pos.y }, !first);
   }
 
+  // The title, with the option to follow Link.
+  function titleBar(title) {
+    return el("div", { className: "loc-banner map-title" },
+      el("span", { className: "loc-banner-title", textContent: title }),
+      el("label", { className: "map-follow", title: "Keep the map on Link: slide and zoom to his room, and go back to his floor and map when he moves" },
+        el("input", { type: "checkbox", checked: followOn, onchange: (e) => {
+          followOn = e.target.checked;
+          try { localStorage.setItem(FOLLOW_KEY, followOn ? "1" : "0"); } catch { /* not kept */ }
+          if (followOn) {
+            // Back on Link right away.
+            followRoom = null;
+            lastPos = null;
+            pickedFloor = null;
+            if (mode !== "stage") switchStage();
+            else render();
+          }
+        } }), "Follow Link"));
+  }
+
   // ---- Checks on the map ----
 
   // Markers for the checks the mod found in this stage's rooms, with the status of their marker
@@ -665,6 +701,13 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       out.push({ node, at: { x: place.x, y: place.z }, name: info.name, status: info.status });
     }
     return out;
+  }
+
+  // Whether some check of this place is in the check list (on another floor than the one shown).
+  function checksElsewhere() {
+    if (!map.checks?.length) return false;
+    const keys = new Set(checkSource.list().map((c) => c.key));
+    return map.checks.some((c) => keys.has(c.key));
   }
 
   // Statuses change as items come in: the markers follow, and the filter hides or shows them.
@@ -896,7 +939,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       stageBoxes, regionBoxes };
     bindFrame(frame, reticle);
     root.replaceChildren(el("div", { className: "map-pane" },
-      el("div", { className: "loc-banner map-title" }, el("span", { className: "loc-banner-title", textContent: title })),
+      titleBar(title),
       el("div", { className: "map-layout" }, el("div", { className: "map-stage" }, frame, zoomBar.node))));
     const whole = { ...{ x: base.x + base.w / 2, y: base.y + base.h / 2 }, zoom: 1 };
     if (from) {

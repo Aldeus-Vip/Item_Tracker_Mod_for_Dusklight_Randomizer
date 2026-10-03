@@ -1269,3 +1269,5 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-door.barred .map-door-bar { display: inline; }
 .map-door.barred .map-door-square, .map-door.barred .map-door-lock { display: none; }
 .map-check-note { margin: 0; font-size: 12px; color: var(--muted); }
+.map-follow { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.map-follow:hover { color: var(--text); }

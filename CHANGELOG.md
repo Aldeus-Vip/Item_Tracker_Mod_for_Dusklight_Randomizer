@@ -14,7 +14,9 @@
   map cursor like the game's. Zooming is animated, in four steps shown by a glowing indicator
   beside the map whose arrows zoom too. The zoom is kept between stages, and the map follows the
   room Link is in (in a dungeon, zooming out when the room does not fit; on the overworld, the
-  zoom stays and the map slides to keep Link near the middle, only as he moves).
+  zoom stays and the map slides to keep Link near the middle, only as he moves). When Link
+  moves while another floor, the province or Hyrule is shown, the map goes back to his. **Follow
+  Link** beside the map's title switches all of this off.
 - Map: zoom out of an overworld map to see its whole province, and once more for all of Hyrule,
   as on the game's map screen (the places you have been, read from the game's field map data);
   click to zoom back in.
