@@ -13,13 +13,17 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <set>
 #include <sstream>
 
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 2";
+constexpr const char* kCacheVersion = "check-places 3";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
+
+// Checks so far placed only from a layer chunk (stage/key).
+std::set<std::string> g_layered;
 
 uint32_t be32(const uint8_t* p) {
     return (uint32_t{p[0]} << 24) | (uint32_t{p[1]} << 16) | (uint32_t{p[2]} << 8) | p[3];
@@ -126,7 +130,19 @@ struct FloorSpacing {
     float gap = 0;
     float rangeUp = 0;
     float rangeDown = 0;
+    int mapKind = 0;  // STAG "up button": 2, 3, 6 = the map shows only the room Link is in
 };
+// The map screen's icons of a stage (TRES in the stage archive's room<n>.dzs: dTres_c::data_s):
+// monkeys, iron balls, statues, Sols, Ooccoo, small keys...
+struct Icon {
+    int type;
+    int room;
+    int sw;
+    float x;
+    float y;
+    float z;
+};
+std::map<std::string, std::vector<Icon>> g_icons;
 std::map<std::string, FloorSpacing> g_floors;
 std::string g_json = R"({"done":false,"read":0,"total":0})";
 
@@ -253,8 +269,9 @@ std::string room_map_json(int roomNo, const uint8_t* file, uint32_t size, const 
     return w.str();
 }
 
-// The map of a room file (its MPAT chunk), and the floor spacing of a stage file (STAG).
-void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint32_t size) {
+// The map of a room file (its MPAT chunk), its map icons (TRES, in the stage archive's room
+// files), and the floor spacing of a stage file (STAG).
+void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint32_t size, bool stageArchiveRoom) {
     const uint32_t chunks = be32(b);
     if (chunks > 256 || 4 + chunks * 12 > size) return;
     for (uint32_t c = 0; c < chunks; c++) {
@@ -263,14 +280,24 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
         if (data < b || data + 8 > b + size) continue;
         if (std::memcmp(node, "STAG", 4) == 0 && data + 0x20 <= b + size) {
             const auto s16 = [](const uint8_t* p) { return static_cast<float>(static_cast<int16_t>(be16(p))); };
-            g_floors[stage] = {s16(data + 0x1A), std::fabs(s16(data + 0x1C)), std::fabs(s16(data + 0x1E))};
+            g_floors[stage] = {s16(data + 0x1A), std::fabs(s16(data + 0x1C)), std::fabs(s16(data + 0x1E)), be16(data + 0x0A) & 7};
+        }
+        if (stageArchiveRoom && roomNo >= 0 && std::memcmp(node, "TRES", 4) == 0) {
+            const uint32_t num = be32(node + 4);
+            for (uint32_t i = 0; i < num && data + (i + 1) * 0x14 <= b + size && i < 512; i++) {
+                const uint8_t* e = data + i * 0x14;
+                const int type = e[0x11];
+                // dTres type groups the map screen draws as icons (d_menu_dmap.cpp).
+                if (type != 2 && type != 9 && type != 11 && type != 12 && type != 13 && type != 14 && type != 15 && type != 16) continue;
+                g_icons[stage].push_back({type, roomNo, e[0x10], befloat(e + 4), befloat(e + 8), befloat(e + 12)});
+            }
         }
         if (roomNo < 0 || (std::memcmp(node, "MPAT", 4) != 0 && std::memcmp(node, "MPA0", 4) != 0)) continue;
         if (g_maps[stage].count(roomNo)) continue;
-        // The room data: where the entry offset points (from the file, or from the field), or
-        // right after the chunk's header.
+        // The chunk's data is the room's map itself (dStage_mapPathInit: the node's count and
+        // offset read as a map_path_class); other layouts are tried in case.
         const uint32_t off = be32(data + 4);
-        for (const uint8_t* room : {b + off, data + 4 + off, data + 8}) {
+        for (const uint8_t* room : {data, data + 8, b + off, data + 4 + off}) {
             std::string json = room_map_json(roomNo, b, size, room);
             if (!json.empty()) {
                 g_maps[stage][roomNo] = std::move(json);
@@ -301,7 +328,7 @@ void parse_archive(const Job& job) {
         std::vector<uint8_t> file;
         if (!yaz0_decode(raw, file)) file = std::move(raw);
         parse_room_file(job.stage, room, file.data(), static_cast<uint32_t>(file.size()), out);
-        parse_room_map(job.stage, room, file.data(), static_cast<uint32_t>(file.size()));
+        parse_room_map(job.stage, room, file.data(), static_cast<uint32_t>(file.size()), job.room == -1);
     }
 }
 
@@ -397,6 +424,7 @@ bool load_cache() {
     g_places.clear();
     g_maps.clear();
     g_floors.clear();
+    g_icons.clear();
     while (std::getline(in, line)) {
         std::istringstream fields(line);
         std::string kind;
@@ -407,7 +435,10 @@ bool load_cache() {
             if (std::getline(fields, p.key, '\t') && (fields >> p.room >> p.x >> p.y >> p.z)) g_places[stage].push_back(std::move(p));
         } else if (kind == "F") {
             FloorSpacing f;
-            if (fields >> f.gap >> f.rangeUp >> f.rangeDown) g_floors[stage] = f;
+            if (fields >> f.gap >> f.rangeUp >> f.rangeDown >> f.mapKind) g_floors[stage] = f;
+        } else if (kind == "I") {
+            Icon i;
+            if (fields >> i.type >> i.room >> i.sw >> i.x >> i.y >> i.z) g_icons[stage].push_back(i);
         } else if (kind == "M") {
             std::string room;
             std::string json;
@@ -424,7 +455,10 @@ void save_cache() {
     for (const auto& [stage, places] : g_places) {
         for (const Place& p : places) out << "P\t" << stage << '\t' << p.key << '\t' << p.room << ' ' << p.x << ' ' << p.y << ' ' << p.z << "\n";
     }
-    for (const auto& [stage, f] : g_floors) out << "F\t" << stage << '\t' << f.gap << ' ' << f.rangeUp << ' ' << f.rangeDown << "\n";
+    for (const auto& [stage, f] : g_floors) out << "F\t" << stage << '\t' << f.gap << ' ' << f.rangeUp << ' ' << f.rangeDown << ' ' << f.mapKind << "\n";
+    for (const auto& [stage, icons] : g_icons) {
+        for (const Icon& i : icons) out << "I\t" << stage << '\t' << i.type << ' ' << i.room << ' ' << i.sw << ' ' << i.x << ' ' << i.y << ' ' << i.z << "\n";
+    }
     for (const auto& [stage, rooms] : g_maps) {
         for (const auto& [room, json] : rooms) out << "M\t" << stage << '\t' << room << '\t' << json << "\n";
     }
@@ -444,6 +478,10 @@ void parse_room_file(const std::string& stage, int room, const uint8_t* b, uint3
         if (std::memcmp(node, "ACT", 3) == 0 || std::memcmp(node, "TRE", 3) == 0 || std::memcmp(node, "TGOB", 4) == 0) stride = 0x20;
         else if (std::memcmp(node, "SCO", 3) == 0 || std::memcmp(node, "TGSC", 4) == 0) stride = 0x24;
         if (stride == 0) continue;
+        // Layer chunks (ACT0..ACTb, TRE0.., SCO0..) hold actors of one story stage only; a check
+        // placed both in a layer and in the common chunk takes the common one.
+        const bool layer = !(std::memcmp(node, "ACTR", 4) == 0 || std::memcmp(node, "TRES", 4) == 0 || std::memcmp(node, "SCOB", 4) == 0 ||
+                             std::memcmp(node, "TGOB", 4) == 0 || std::memcmp(node, "TGSC", 4) == 0);
         const uint32_t num = be32(node + 4);
         const uint8_t* data = chunk_data(b, node);
         if (num > 1024) continue;
@@ -472,9 +510,17 @@ void parse_room_file(const std::string& stage, int room, const uint8_t* b, uint3
             } else {
                 continue;
             }
-            bool known = false;
-            for (const Place& p : out) known = known || p.key == key;
-            if (!known) out.push_back({key, room, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)});
+            Place* known = nullptr;
+            for (Place& p : out) {
+                if (p.key == key) known = &p;
+            }
+            const std::string layerKey = stage + "/" + key;
+            if (known == nullptr) {
+                out.push_back({key, room, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)});
+                if (layer) g_layered.insert(layerKey);
+            } else if (!layer && g_layered.erase(layerKey) != 0) {
+                *known = {key, room, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)};
+            }
         }
     }
 }
@@ -502,6 +548,7 @@ void update() {
         g_places.clear();
         g_maps.clear();
         g_floors.clear();
+        g_icons.clear();
         g_phase = Phase::Read;
         build_json(false);
         break;
@@ -535,7 +582,26 @@ std::string stage_map_json(const std::string& stage) {
     if (g_phase != Phase::Done) return "";
     const auto it = g_maps.find(stage);
     if (it == g_maps.end() || it->second.empty()) return "";
-    std::string out = R"({"stage":")" + stage + R"(","rooms":[)";
+    std::string out = R"({"stage":")" + stage + R"(",)";
+    const auto fl = g_floors.find(stage);
+    out += R"("singleRoom":)" + std::string((fl != g_floors.end() && (fl->second.mapKind == 2 || fl->second.mapKind == 3 || fl->second.mapKind == 6)) ? "true" : "false") + ",";
+    {
+        JsonWriter w;
+        w.beginArray();
+        for (const Icon& i : g_icons[stage]) {
+            w.beginObject();
+            w.member("type", i.type);
+            w.member("room", i.room);
+            w.member("sw", i.sw);
+            w.key("x").number(i.x);
+            w.key("z").number(i.z);
+            w.member("floor", floor_of(stage, i.y));
+            w.endObject();
+        }
+        w.endArray();
+        out += R"("icons":)" + w.str() + ",";
+    }
+    out += R"("rooms":[)";
     bool first = true;
     for (const auto& [room, json] : it->second) {
         if (!first) out += ',';

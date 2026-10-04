@@ -44,6 +44,8 @@ constexpr int kPollIntervalFrames = 15;
 constexpr int kKeepaliveIntervalFrames = 60 * 15;
 
 ConfigVarHandle g_portVar = 0;
+ConfigVarHandle g_seeDistanceVar = 0;
+constexpr int kDefaultSeeDistance = 3000;
 ConfigVarHandle g_logicRefVar = 0;
 UiElementHandle g_logicStatusText = 0;
 ItemGiveHandle g_giveObserver = 0;
@@ -174,6 +176,17 @@ ModResult build_panel(ModContext*, UiElementHandle panel, void*, ModError*) {
     port.tooltip = "1024-65535. The server restarts on the new port.";
     svc_ui->pane_add_control(mod_ctx, panel, &port, nullptr);
 
+    UiControlDesc see = UI_CONTROL_DESC_INIT;
+    see.kind = UI_CONTROL_NUMBER;
+    see.label = "Seen item distance";
+    see.binding = UI_BINDING_CONFIG_VAR;
+    see.config_var = g_seeDistanceVar;
+    see.min = 500;
+    see.max = 30000;
+    see.step = 250;
+    see.tooltip = "How close Link must be to an item lying around for the tracker to note what it looks like (game units, about cm; 3000 by default).";
+    if (g_seeDistanceVar != 0) svc_ui->pane_add_control(mod_ctx, panel, &see, nullptr);
+
     UiControlDesc copy = UI_CONTROL_DESC_INIT;
     copy.kind = UI_CONTROL_BUTTON;
     copy.label = "Copy tracker URL";
@@ -234,6 +247,12 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     }
     svc_config->subscribe(mod_ctx, g_portVar, on_port_changed, nullptr, nullptr);
 
+    ConfigVarDesc seeDesc = CONFIG_VAR_DESC_INIT;
+    seeDesc.name = "seeDistance";
+    seeDesc.type = CONFIG_VAR_INT;
+    seeDesc.default_int = kDefaultSeeDistance;
+    svc_config->register_var(mod_ctx, &seeDesc, &g_seeDistanceVar);
+
     if (svc_item != nullptr) {
         svc_item->observe_gives(mod_ctx, on_item_given, nullptr, &g_giveObserver);
     }
@@ -279,6 +298,9 @@ MOD_EXPORT ModResult mod_update(ModError*) {
 
     if (--g_framesUntilPoll <= 0) {
         g_framesUntilPoll = kPollIntervalFrames;
+        int64_t see = kDefaultSeeDistance;
+        if (g_seeDistanceVar != 0) svc_config->get_int(mod_ctx, g_seeDistanceVar, &see);
+        tracker::found::set_see_distance(static_cast<float>(see));
         std::string state = tracker::build_state_json();
         if (state != g_lastState) {
             g_lastState = std::move(state);

@@ -286,6 +286,28 @@ void write_checks(JsonWriter& w) {
     w.endArray();
 }
 
+// The map screen's icons of the stage (dTres type groups: small keys 2, monkeys 9, iron balls 11,
+// Sols 12, Yeto 13, Yeta 14, statues 15, Ooccoo 16; as d_menu_dmap.cpp draws them).
+void write_icons(JsonWriter& w) {
+    w.key("icons").beginArray();
+    for (int type : {2, 9, 11, 12, 13, 14, 15, 16}) {
+        dTres_c::typeGroupData_c* d = dTres_c::getFirstData(static_cast<u8>(type));
+        const int count = dTres_c::getTypeGroupNumber(type);
+        for (int i = 0; i < count && d != nullptr && i < 256; i++, d = dTres_c::getNextData(d)) {
+            const BE(Vec)* pos = d->getPos();
+            w.beginObject();
+            w.member("type", type);
+            w.member("room", static_cast<int>(d->getRoomNo()));
+            w.member("sw", static_cast<int>(d->getSwBit()));
+            w.key("x").number(static_cast<f32>(pos->x));
+            w.key("z").number(static_cast<f32>(pos->z));
+            w.member("floor", static_cast<int>(dMapInfo_c::calcFloorNo(pos->y, true, d->getRoomNo())));
+            w.endObject();
+        }
+    }
+    w.endArray();
+}
+
 // Where the dungeon's boss is (the game's boss map icon, treasure type group 3).
 void write_boss(JsonWriter& w) {
     dTres_c::typeGroupData_c* boss = dTres_c::getFirstData(3);
@@ -391,6 +413,12 @@ std::string build_json() {
         write_doors(w);
         write_boss(w);
         write_checks(w);
+        write_icons(w);
+        // Stages whose map shows only the room Link is in (STAG up button 2, 3, 6: renderingAmap_c::
+        // isRendAllRoom), such as Lake Hylia and Lanayru Spring.
+        stage_stag_info_class* stag = dComIfGp_getStage() != nullptr ? dComIfGp_getStage()->getStagInfo() : nullptr;
+        const int upButton = stag != nullptr ? dStage_stagInfo_GetUpButton(stag) : 0;
+        w.member("singleRoom", upButton == 2 || upButton == 3 || upButton == 6);
         w.key("rooms").beginArray();
         for (int layer = 0; layer < 2; layer++) {
             for (int roomNo = 0; roomNo < 0x40; roomNo++) {

@@ -32,4 +32,7 @@ void add_from_page(const std::string& body);
 // Writes "found": {"seed": "<hash or empty>", "entries": [...]} into the state object.
 void write_json(tracker::JsonWriter& w);
 
+// How close Link must be to an item lying around to count it as seen (game units, ~cm).
+void set_see_distance(float distance);
+
 }  // namespace tracker::found

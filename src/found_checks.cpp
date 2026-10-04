@@ -29,8 +29,9 @@ namespace {
 constexpr const char* kBlobName = "found";
 constexpr size_t kMaxEntries = 3000;
 constexpr size_t kMaxEntryBytes = 600;
-// A freestanding item counts as seen once Link is this close (game units, about centimeters).
-constexpr float kSeeDistance = 1500.0f;
+// A freestanding item counts as seen once Link is this close (game units, about centimeters);
+// set from the mod's settings (set_see_distance).
+float g_seeDistance = 3000.0f;
 
 std::set<std::string> g_entries;  // known now (saved + learned since the last save)
 std::string g_seed;               // seed hash the page is showing for this save
@@ -157,7 +158,7 @@ void check_watched() {
     std::erase_if(g_watched, [&](const Watched& w) {
         fopAc_ac_c* actor = fopAcM_SearchByID(w.actor);
         if (actor == nullptr) return true;  // collected or unloaded
-        if (fopAcM_searchActorDistance(actor, link) > kSeeDistance) return false;
+        if (fopAcM_searchActorDistance(actor, link) > g_seeDistance) return false;
         // Hidden (under a boulder, behind a wall): not seen yet. Seen means in sight from Link's
         // eyes and from the camera: pressed into a boulder, Link's eyes are inside it and the
         // line from them misses its surface, but the camera behind him is still outside.
@@ -285,5 +286,7 @@ void write_json(tracker::JsonWriter& w) {
     w.endArray();
     w.endObject();
 }
+
+void set_see_distance(float distance) { g_seeDistance = distance; }
 
 }  // namespace tracker::found

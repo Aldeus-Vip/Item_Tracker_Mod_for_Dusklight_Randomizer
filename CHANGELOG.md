@@ -32,11 +32,17 @@
   - **By area** (beside the check list's title) groups the checks by the area they are in.
   - Under the map: how many of the place's checks are on this map, on another floor, in another
     part of the place or not found (hover for which).
+- The dungeon map screen's icons on the map: monkeys, iron balls, statues, Sols, Ooccoo, Yeto and
+  Yeta, small keys lying around (pictures from the game; right-click to change; "Map icons" in
+  Checks Filter).
+- **Seen item distance** in the mod's settings: how close Link must be to an item lying around
+  for the tracker to note what it looks like (3000 by default; it was 1500).
 - **Field / Dungeons / Other** tabs above the map: Hyrule and its provinces; every dungeon's map
   (buttons in the dungeons' colors); and every other place with a map (houses, caves, grottos...)
-  by province, with a search. Their maps come from the game files; zoom out to go back.
+  by province, with a search. Their maps come from the game files; zoom out to go back (also from
+  the dungeon or place Link is in, to its list).
 - Province and Hyrule views look like the game's map screen: dark, with the place (or province)
-  under the cursor lit and named under the map. They are framed on the whole province (or
+  under the cursor lit and named in the title. They are framed on the whole province (or
   Hyrule), also where Link has not been. Clicking another place of a province opens its map (zoom
   in and out on it; zooming out goes back to the province).
 - The map says how many of a place's checks were found in its rooms, and names the others on
@@ -64,10 +70,11 @@
   full width; when wide, the floors are left of the map and the items in a column right of it.
   Many floors get smaller buttons, and with Checks + Map the map pane scrolls on its own.
 - Dungeon (and other) maps are framed on all their rooms, also those not visited yet, so the scale
-  does not change as rooms are found. On the overworld, only the place Link is in is drawn (Hyrule
-  Field by province; Lake Hylia and Lanayru Spring apart).
-- In a province, water picks the place below where places overlap (Lake Hylia under the Great
-  Bridge of Hylia).
+  does not change as rooms are found. Rooms are drawn as the game's map draws them: on stages whose
+  map shows one room at a time (Lake Hylia, Lanayru Spring...) only Link's room, elsewhere the
+  visited ones (Hyrule Field by province).
+- In a province, where places overlap the water goes with the place that has the most of it, for
+  lighting and picking (Lake Hylia's water under the Great Bridge of Hylia).
 - Locations sub-tabs look like tabs (streaked plates), not like the other buttons.
 - Dungeons tab: the Goron Mines key shard icon can be changed for every stage (1/3, 2/3, 3/3) in
   the icon editor, not only the one shown.

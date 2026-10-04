@@ -451,6 +451,15 @@ export const GAME_ICON_IDS = {
   // Link's face and the wolf's beside the floor he is on (Map tab), from the dungeon map screen.
   Map_Link: "dmap/im_dungeon_map_icon_rink_ci8_44x45_04.bti",
   Map_Wolf: "dmap/im_dungeon_map_icon_wolf_ci8_48x45_ind_06.bti",
+  // The dungeon map screen's icons (dMenuMapCommon_c::initiate).
+  Map_Small_Key: "dmap/tt_map_icon_key_ci8_32_00.bti",
+  Map_Monkey: "dmap/tt_map_icon_monkey_ci8_32_00.bti",
+  Map_Iron_Ball: "dmap/im_map_icon_iron_ball_ci8_32_00.bti",
+  Map_Sol: "dmap/im_zelda_map_icon_hikari_ball_03.bti",
+  Map_Statue: "dmap/im_zelda_map_icon_copy_stone_statue_snup_try_00_04.bti",
+  Map_Ooccoo: "dmap/ni_obacyan.bti",
+  Map_Yeto: "dmap/st_yuki_M.bti",
+  Map_Yeta: "dmap/st_yuki_W.bti",
   // Field map marks: the warp portal and, until a boss has an icon of its own, the boss skull.
   Portal: "fmap/#30", // IM_MAP_ICON_PORTAL_4IA_40_05
   ...Object.fromEntries(["Diababa", "Fyrus", "Morpheel", "Stallord", "Blizzeta", "Armogohma", "Argorok", "Zant", "Ganondorf"]
