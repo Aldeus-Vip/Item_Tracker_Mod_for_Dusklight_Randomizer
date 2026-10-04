@@ -966,6 +966,7 @@ const locationsView = createLocationsView(locChecks, {
 mapView = createMapView(locMap, {
   getState: () => state,
   regionName: (stage, room) => locationsView.regionName(stage, room),
+  roomName: (stage, room) => locationsView.roomName(stage, room),
   makeIcon: (name, className, fallback) => iconImg(name, className, (img) => img.replaceWith(fallback ?? "")),
   // Checks on the map: a right click (or any click with Checks + Map) shows the check in Checks.
   checks: {

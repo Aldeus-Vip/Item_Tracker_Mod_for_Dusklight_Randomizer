@@ -67,6 +67,15 @@
   events) get **Place on map** under their row when picked; the next click on a map puts them
   there (kept in the page's settings; **Move on map** / **Remove place**).
 - Doors opened by a switch are told apart from barred ones.
+- Houses, caves and grottos are named after the place (from the randomizer's entrances: Agitha's
+  House, Jovani's House, Doctor's Office, ...; else what their checks' names share), in the Other
+  list (one entry each, only that room and its checks) and as the map's title.
+- **People and golden wolves on the map**: where the game files place them (Agitha, Jovani,
+  Borville, golden wolves, ...; hover for who). The check places are read again once for them.
+  "People and golden wolves" in Checks Filter.
+- Checks placed with the mod (presets): Agitha's 24 rewards across her house in the golden bugs'
+  order, Jovani's 20 and 60 Poe Soul rewards in his house. Your own places win over them
+  (**Back to preset** undoes yours); **Copy my places** copies yours as JSON for the presets.
 - The Dungeons and Other lists look like the game's menus: a dark twilight panel with drifting
   black squares, gold-ruled headings, and plates that light up with gold corners under the
   cursor. Dungeons are numbered in story order with the land they are in (the per-dungeon colors

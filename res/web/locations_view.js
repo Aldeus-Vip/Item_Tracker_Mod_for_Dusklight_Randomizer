@@ -4,7 +4,7 @@
 
 import yaml from "./vendor/js-yaml.mjs";
 import { World, Search, itemsFromState, routeSatisfied, routeEntrySatisfied, routeEntryLabel, trackerEntry, parseDisplay, atomLabel, BOSS_NAMES } from "./logic.js";
-import { REGION_GROUPS, OTHER_GROUP, STAGE_NAMES, FlagReader, buildLocationList, buildRoomRegions, isObtained } from "./locations.js";
+import { REGION_GROUPS, OTHER_GROUP, STAGE_NAMES, FlagReader, buildLocationList, buildRoomRegions, buildRoomNames, isObtained } from "./locations.js";
 import { TILE_ITEMS, OTHER_ITEM_GROUPS, DUNGEON_ICONS, isDungeonKey, dungeonKeyIcon } from "./layout.js";
 
 const DATA_FILES = [
@@ -136,6 +136,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let mapGroups = []; // [{ title: province, regions }] in the order of the randomizer's world files
   let randoFlags = [];
   let roomRegion = () => null; // (stage, room) -> logic region
+  let roomName = () => null; // (stage, room) -> the place's own name (interiors, caves, grottos)
   let lastRegion = null; // region Link was last seen in (marked reachable on entry)
   let seeds = []; // generated seeds with a spoiler log, newest first
   let seedHash = null; // seed whose placements are loaded
@@ -251,7 +252,9 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       // Optional: older downloads of the logic data lack this file; regions are then only marked by hand.
       roomRegion = () => null;
       try {
-        roomRegion = buildRoomRegions(yaml.load(await fetchText("rando/entrance_shuffle_data.yaml")), world);
+        const entrances = yaml.load(await fetchText("rando/entrance_shuffle_data.yaml"));
+        roomRegion = buildRoomRegions(entrances, world);
+        roomName = buildRoomNames(entrances, world);
       } catch {}
       retries = 0;
     } catch (err) {
@@ -1588,6 +1591,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     },
     // Logic region of a stage room (the Map tab's title), once the logic data is loaded.
     regionName: (stage, room) => roomRegion(stage, room),
+    // The name of an interior, cave or grotto (null elsewhere).
+    roomName: (stage, room) => roomName(stage, room),
     // The checks the Map tab can place, by the key the mod finds them under (chest:, freestanding:,
     // poe:; manual:<name> for those placed by hand): [{ name, key, status }] with the status of the marker left of the check.
     mapChecks() {

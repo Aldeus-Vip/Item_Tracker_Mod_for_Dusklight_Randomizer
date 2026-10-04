@@ -1500,3 +1500,7 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-frame.placing { cursor: copy; }
 .map-select.twilight { aspect-ratio: auto; min-height: min(70vh, 640px); max-height: none; touch-action: auto; user-select: auto; }
 .map-select.twilight.centered { justify-content: safe center; }
+/* People and golden wolves on the map (original glyphs) */
+.map-npc-mark { position: absolute; left: 0; top: 0; display: grid; place-items: center; padding: 3px; border-radius: 50%; border: 1.5px solid #d8cf9f; background: rgba(20, 30, 40, 0.85); color: #e8f0f4; pointer-events: auto; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
+.map-npc-mark svg { width: 100%; height: 100%; display: block; }
+.map-npc-mark.wolf { border-color: #f0c64a; background: rgba(60, 40, 0, 0.85); color: #f6d36b; }

@@ -51,6 +51,42 @@ export function buildRoomRegions(entranceData, world) {
   };
 }
 
+// The name of the place a stage room is (an interior, cave or grotto), from the randomizer's
+// entrances: "Castle Town Agithas House" -> "Agitha's House" (the region's name dropped, door
+// sides merged). Rooms holding several places (grottos built alike) list them all.
+const POSSESSIVE = { Agithas: "Agitha's", Jovanis: "Jovani's", Telmas: "Telma's", Seras: "Sera's", Bos: "Bo's", Coros: "Coro's",
+  Renados: "Renado's", Links: "Link's", Doctors: "Doctor's", Barnes: "Barnes'", Impaz: "Impaz's", Zoras: "Zora's" };
+export function buildRoomNames(entranceData, world) {
+  const names = new Map(); // "stage/room" -> Set of names
+  for (const entry of entranceData ?? []) {
+    if (!["Interior", "Cave", "Grotto"].includes(entry?.Type)) continue;
+    const side = entry.Forward;
+    const target = String(side?.Connection ?? "").split(" -> ")[1];
+    const stage = STAGE_NAMES[side?.Stage];
+    if (!target || !stage || typeof side.Room !== "number") continue;
+    let name = target.replace(/ (?:(?:North|South|East|West|Front|Back|Left|Right)(?: (?:East|West))? Door Interior|Lower|Upper|Interior|Elevator)$/, "");
+    const region = world?.areas.get(target)?.region;
+    if (entry.Type === "Interior") for (const prefix of [region, "Castle Town", "Kakariko", "Ordon", "Faron Woods", "Death Mountain", "Hidden Village"]) {
+      if (prefix && prefix !== "None" && name.startsWith(prefix + " ") && name.length > prefix.length + 6) {
+        name = name.slice(prefix.length + 1);
+        break;
+      }
+    }
+    name = name.split(" ").map((w) => POSSESSIVE[w] ?? w).join(" ");
+    const key = `${stage}/${side.Room}`;
+    if (!names.has(key)) names.set(key, new Set());
+    names.get(key).add(name);
+  }
+  return (stage, room) => {
+    const set = names.get(`${stage}/${room}`);
+    if (!set) return null;
+    const all = [...set];
+    // Grottos built alike share one room: "Grottos: Ordon Ranch / Faron Field Corner / ...".
+    if (all.length > 1 && all.every((n) => n.endsWith(" Grotto"))) return `Grottos: ${all.map((n) => n.slice(0, -7)).join(" / ")}`;
+    return all.join(" / ");
+  };
+}
+
 // Region groups shown on the left, as in the randomizer's in-game tracker tab.
 export const REGION_GROUPS = [
   { name: "Ordon", categories: ["Ordona Province"] },

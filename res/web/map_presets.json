@@ -1,0 +1,161 @@
+{
+ "_comment": "Checks the game files do not place, put on the map by the Map tab (see map_view.js manualPlaces). x, z: map units; or u, v: 0..1 across the room's extent (left to right, top to bottom).",
+ "places": {
+  "Agitha Male Beetle Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.22,
+   "v": 0.3
+  },
+  "Agitha Female Beetle Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.332,
+   "v": 0.3
+  },
+  "Agitha Male Butterfly Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.444,
+   "v": 0.3
+  },
+  "Agitha Female Butterfly Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.556,
+   "v": 0.3
+  },
+  "Agitha Male Stag Beetle Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.668,
+   "v": 0.3
+  },
+  "Agitha Female Stag Beetle Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.78,
+   "v": 0.3
+  },
+  "Agitha Male Grasshopper Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.22,
+   "v": 0.433
+  },
+  "Agitha Female Grasshopper Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.332,
+   "v": 0.433
+  },
+  "Agitha Male Phasmid Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.444,
+   "v": 0.433
+  },
+  "Agitha Female Phasmid Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.556,
+   "v": 0.433
+  },
+  "Agitha Male Pill Bug Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.668,
+   "v": 0.433
+  },
+  "Agitha Female Pill Bug Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.78,
+   "v": 0.433
+  },
+  "Agitha Male Mantis Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.22,
+   "v": 0.567
+  },
+  "Agitha Female Mantis Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.332,
+   "v": 0.567
+  },
+  "Agitha Male Ladybug Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.444,
+   "v": 0.567
+  },
+  "Agitha Female Ladybug Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.556,
+   "v": 0.567
+  },
+  "Agitha Male Snail Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.668,
+   "v": 0.567
+  },
+  "Agitha Female Snail Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.78,
+   "v": 0.567
+  },
+  "Agitha Male Dragonfly Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.22,
+   "v": 0.7
+  },
+  "Agitha Female Dragonfly Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.332,
+   "v": 0.7
+  },
+  "Agitha Male Ant Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.444,
+   "v": 0.7
+  },
+  "Agitha Female Ant Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.556,
+   "v": 0.7
+  },
+  "Agitha Male Dayfly Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.668,
+   "v": 0.7
+  },
+  "Agitha Female Dayfly Reward": {
+   "stage": "R_SP160",
+   "room": 3,
+   "u": 0.78,
+   "v": 0.7
+  },
+  "Jovani 20 Poe Soul Reward": {
+   "stage": "R_SP160",
+   "room": 5,
+   "u": 0.43,
+   "v": 0.22
+  },
+  "Jovani 60 Poe Soul Reward": {
+   "stage": "R_SP160",
+   "room": 5,
+   "u": 0.57,
+   "v": 0.22
+  }
+ }
+}

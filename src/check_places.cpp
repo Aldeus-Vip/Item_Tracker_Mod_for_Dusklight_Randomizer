@@ -19,7 +19,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 4";
+constexpr const char* kCacheVersion = "check-places 5";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -517,6 +517,29 @@ void to_map(const std::string& stage, int room, float& x, float& z) {
 
 bool shift_known(const std::string& stage) { return g_shifts.count(stage) != 0; }
 
+// The people (and golden wolves) of the game, by their actor names (the NPC entries of the game's
+// object table, d_stage.cpp; not the townsfolk, soldiers or fish): kept as npc:<name>:<room>, so
+// checks given by them can be placed where they stand.
+static bool is_npc(const char* name) {
+    static const char* const kNames[] = {
+        "Aru", "Ash", "AshB", "Bans", "Besu", "Blue_NS", "Bou", "BouS", "Coach", "Doc", "DoorBoy",
+        "DrSol1", "DrSol2", "FSeirei", "Fairy", "GWolf", "Gnd", "Hanjo", "Henna", "Henna0", "Hoz",
+        "Jagar", "Kakashi", "Kdk", "Kkri", "Kn", "Knj", "Kolin", "Kolinb", "Kyury", "Len", "Lud",
+        "Maro", "Mk", "Moi", "MoiR", "NPC_TK", "Npc_du", "Npc_ks", "Npc_lf", "Npc_ne", "Npc_tr",
+        "PA_Besu", "PA_Maro", "PA_Taro", "Post", "Pouya", "Raca", "Rafrel", "Saru", "Seira", "Seira2",
+        "Seirei", "Sha", "Shad", "Shop0", "Taro", "The", "TheB", "Tkc", "Tkj", "Tkj2", "Tks", "Toby",
+        "Uri", "Yelia", "Zant", "ZelR", "ZelRo", "Zelda", "chin", "clerkA", "clerkB", "clerkT", "grA",
+        "grC", "grD", "grD1", "grM", "grMC", "grO", "grR", "grS", "grZ", "impal", "ins", "km_Hana",
+        "km_Kyu", "km_Mich", "midP", "prayer", "sMaro", "seiB", "seiC", "seiD", "shoe", "solA",
+        "yamiD", "yamiS", "yamiT", "ykM", "ykW", "zanB", "zrA", "zrC", "zrD", "zrR", "zrS", "zrSP",
+        "zrSPA", "zrWF", "zrZ",
+    };
+    for (const char* n : kNames) {
+        if (std::strcmp(n, name) == 0) return true;
+    }
+    return false;
+}
+
 void parse_room_file(const std::string& stage, int room, const uint8_t* b, uint32_t size, std::vector<Place>& out) {
     if (size != 0 && size < 4) return;
     const uint32_t chunks = be32(b);
@@ -558,6 +581,8 @@ void parse_room_file(const std::string& stage, int room, const uint8_t* b, uint3
                 const uint32_t sw = (prm >> 8) & 0xFF;
                 if (sw == 0xFF) continue;
                 std::snprintf(key, sizeof(key), "poe:%s:%u", stage.c_str(), sw);
+            } else if (is_npc(name)) {
+                std::snprintf(key, sizeof(key), "npc:%s:%d", name, room);
             } else {
                 continue;
             }

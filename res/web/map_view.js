@@ -120,7 +120,21 @@ const MAP_ICONS = {
   13: ["Map_Yeto", "Yeto"], 14: ["Map_Yeta", "Yeta"], 15: ["Map_Statue", "Statue"], 16: ["Map_Ooccoo", "Ooccoo"],
 };
 
-// The Dungeons tab: each dungeon's stage and a color of its own.
+// People by their actor names (d_stage.cpp's object table), for the map's markers.
+const NPC_NAMES = {
+  ins: "Agitha", Pouya: "Jovani", Doc: "Borville (doctor)", GWolf: "Golden wolf", Kn: "Hero's Shade", The: "Telma", TheB: "Telma",
+  Seira: "Sera", Seira2: "Sera", Bou: "Bo", BouS: "Bo", Moi: "Rusl", MoiR: "Rusl", Uri: "Uli", Taro: "Talo", Maro: "Malo",
+  sMaro: "Malo", Besu: "Beth", Kolin: "Colin", Kolinb: "Colin", Yelia: "Ilia", Zelda: "Zelda", Zant: "Zant", Rafrel: "Auru",
+  Shad: "Shad", Ash: "Ashei", AshB: "Ashei", Saru: "Monkey", Post: "Postman", Hanjo: "Hanch", Jagar: "Jaggle", Gnd: "Ganondorf",
+  Len: "Renado", Lud: "Luda", Bans: "Barnes", impal: "Impaz", Henna: "Hena", Henna0: "Hena", ykM: "Yeto", ykW: "Yeta",
+  Seirei: "Light Spirit", FSeirei: "Great Fairy", Fairy: "Fairy", Shop0: "Shopkeeper", Coach: "Gengle",
+  grA: "Goron", grC: "Goron", grD: "Goron", grD1: "Goron", grM: "Goron", grMC: "Goron", grO: "Goron", grR: "Goron", grS: "Goron", grZ: "Goron",
+  zrA: "Zora", zrC: "Zora", zrD: "Zora", zrR: "Zora", zrS: "Zora", zrSP: "Zora", zrSPA: "Zora", zrWF: "Zora", zrZ: "Zora",
+};
+// Original glyphs for people and golden wolves on the map.
+const PERSON_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3.4" fill="currentColor"/><path d="M3.5 18c0-4.2 2.9-7 6.5-7s6.5 2.8 6.5 7z" fill="currentColor"/></svg>`;
+const WOLF_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3l3.5 4L10 5.5 13.5 7 17 3l-.6 7.2L10 18 3.6 10.2z" fill="currentColor"/><circle cx="7.6" cy="10" r="1" fill="#000"/><circle cx="12.4" cy="10" r="1" fill="#000"/></svg>`;
+
 // The dungeons in the order of the story, with the land each is in (shown under the name).
 const DUNGEON_STAGES = [
   ["Forest Temple", "D_MN05", "Faron Woods"],
@@ -178,10 +192,11 @@ const linePath = (v, strip) => strip.map((i, n) => `${n ? "L" : "M"}${v[i * 2]} 
  * @param root    container element
  * @param options.getState     () => last state from the mod (for inGame)
  * @param options.regionName   (stage, room) => logic region name or null (the map's title)
+ * @param options.roomName     (stage, room) => an interior's, cave's or grotto's name, or null
  * @param options.makeIcon     (name, className, fallbackText) => <img> of a tracker icon (follows the
  *                             icon settings; right-click opens the icon editor via data-icon)
  */
-export function createMapView(root, { getState, regionName, makeIcon, checks: checkSource = null, onPlaces = null, provinceOf = () => null }) {
+export function createMapView(root, { getState, regionName, roomName = null, makeIcon, checks: checkSource = null, onPlaces = null, provinceOf = () => null }) {
   let visible = false;
   let map = null; // last /map
   let player = null; // last /map-player
@@ -236,9 +251,14 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
   function loadCheckFilter() {
     try {
       const saved = JSON.parse(localStorage.getItem(FILTER_KEY));
-      if (Array.isArray(saved)) return new Set(saved.includes("noicons") ? saved : [...saved, "icons"]);
+      if (Array.isArray(saved)) {
+        const out = new Set(saved);
+        if (!out.has("noicons")) out.add("icons");
+        if (!out.has("nonpcs")) out.add("npcs");
+        return out;
+      }
     } catch { /* default */ }
-    return new Set(["reachable", "blocked", "unknown", "icons"]);
+    return new Set(["reachable", "blocked", "unknown", "icons", "npcs"]);
   }
 
   function loadFollow() {
@@ -363,14 +383,40 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     return out;
   }
 
-  // Checks placed on the map by hand (NPCs, golden wolves, events: no place in the game files),
-  // kept in the page's settings: { [check name]: { stage, room, x, z, floor } }.
-  function manualPlaces() {
+  // Checks placed on the map by hand (NPCs, golden wolves, events: no place in the game files):
+  // the mod's presets (map_presets.json), and those placed in the page, kept in its settings
+  // ({ [check name]: { stage, room, x, z, floor } }), which win. A preset can give its place in the
+  // room's extent (u, v from 0 to 1, left to right and top to bottom) instead of x, z.
+  let presets = {};
+  fetch("map_presets.json", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      presets = j?.places ?? {};
+      sceneKey = "";
+      if (visible) render();
+    })
+    .catch(() => {});
+  function userPlaces() {
     return checkSource?.manualPlaces?.() ?? {};
   }
+  // A preset's x, z from its room's extent (once the stage's rooms are known).
+  function resolvePreset(p) {
+    if (Number.isFinite(p.x) && Number.isFinite(p.z)) return p;
+    const known = stageMaps.get(p.stage);
+    const rooms = map?.stage === p.stage ? map.rooms : typeof known === "object" ? known?.rooms : null;
+    const room = rooms?.find((r) => r.no === p.room);
+    const b = room && roomBoxes([room], p.floor ?? 0).get(room.no);
+    if (!b) return { ...p, x: undefined, z: undefined };
+    return { ...p, x: b.x + (p.u - 0.5) * b.w, z: b.y + (p.v - 0.5) * b.h };
+  }
+  function manualPlaces() {
+    const out = {};
+    for (const [name, p] of Object.entries(presets)) out[name] = resolvePreset(p);
+    return Object.assign(out, userPlaces());
+  }
   function manualChecks(stage) {
-    return Object.entries(manualPlaces()).filter(([, p]) => p.stage === stage)
-      .map(([name, p]) => ({ key: `manual:${name}`, name, room: p.room, x: p.x, z: p.z, floor: p.floor }));
+    return Object.entries(manualPlaces()).filter(([, p]) => p.stage === stage && Number.isFinite(p.x))
+      .map(([name, p]) => ({ key: `manual:${name}`, name, room: p.room ?? -1, x: p.x, z: p.z, floor: p.floor ?? 0 }));
   }
   // Whether the game files place a check (shops, golden wolves, people and events: not).
   function hasGamePlace(key) {
@@ -482,6 +528,13 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       showReq();
       return;
     }
+    if (here === null && byHand && map?.exists && map.stage === stageName && !isInterior(stageName)) {
+      if (mode !== "stage") switchStage();
+      render();
+      updatePick(true);
+      showReq();
+      return;
+    }
     // Another place: its map from the overworld map data, when it is there.
     const p = known;
     let found = null;
@@ -503,7 +556,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     if (p && (places?.maps ?? []).includes(stageName)) {
       const one = isInterior(stageName) && p.room >= 0;
       openRemote({ name: stageName, back: DUNGEON_STAGES.some(([, st]) => st === stageName) ? "dungeons" : "other",
-        ...(one ? { rooms: [p.room], title: regionName(stageName, p.room) ?? placeTitle(stageName) } : {}) });
+        ...(one ? { rooms: [p.room], title: roomTitle(stageName, p.room) } : {}) });
       if (stageName.startsWith("D_") && p.floor !== undefined) {
         areaFloor = p.floor;
         sceneKey = "";
@@ -511,7 +564,11 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       }
       // The map may still be loading: center once it is drawn.
       let tries = 0;
-      const later = () => (scene?.kind === "area" ? center(p.x, p.z) : ++tries < 25 && setTimeout(later, 200));
+      const later = () => {
+        const now = byHand ? placeFor(info.key, info.name) : p;
+        if (scene?.kind === "area" && Number.isFinite(now?.x)) return center(now.x, now.z);
+        if (++tries < 25) setTimeout(later, 200);
+      };
       later();
       return pick();
     }
@@ -575,7 +632,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     }
     const floors = [...new Set(rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
     const floor = pickedFloor ?? player.stayFloor ?? floors[floors.length - 1] ?? 0;
-    const title = regionName(map.stage, map.stayRoom) ?? map.stage;
+    const title = (isInterior(map.stage) ? roomTitle(map.stage, map.stayRoom) : regionName(map.stage, map.stayRoom)) ?? map.stage;
     const d = dungeon ? findDungeon(title) : null;
     const items = getState()?.items ?? {};
     const key = JSON.stringify(["stage", mapVersion, map.stage, floor, player.stayRoom, player.stayFloor, player.wolf, title,
@@ -806,19 +863,20 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
           updateChecks();
         } }),
         el("span", { className: "map-check " + status }, el("span", { className: "loc-dot" })), label)),
-      el("label", { className: "map-filter-item icons" },
-        el("input", { type: "checkbox", checked: checkFilter.has("icons"), onchange: (e) => {
-          if (e.target.checked) {
-            checkFilter.add("icons");
-            checkFilter.delete("noicons");
-          } else {
-            checkFilter.delete("icons");
-            checkFilter.add("noicons");
-          }
-          try { localStorage.setItem(FILTER_KEY, JSON.stringify([...checkFilter])); } catch { /* not kept */ }
-          sceneKey = "";
-          render();
-        } }), "Map icons (monkeys, Sols...)"));
+      ...[["icons", "Map icons (monkeys, Sols...)"], ["npcs", "People and golden wolves"]].map(([kind, label]) =>
+        el("label", { className: "map-filter-item icons" },
+          el("input", { type: "checkbox", checked: checkFilter.has(kind), onchange: (e) => {
+            if (e.target.checked) {
+              checkFilter.add(kind);
+              checkFilter.delete("no" + kind);
+            } else {
+              checkFilter.delete(kind);
+              checkFilter.add("no" + kind);
+            }
+            try { localStorage.setItem(FILTER_KEY, JSON.stringify([...checkFilter])); } catch { /* not kept */ }
+            sceneKey = "";
+            render();
+          } }), label)));
     const menu = el("div", { className: "map-filter-menu" });
     const button = el("button", { type: "button", className: "map-tab map-filter-button", textContent: "Checks Filter ▾", ariaExpanded: "false",
       onclick: (e) => {
@@ -869,14 +927,19 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     if (info && (info.key.startsWith("manual:") || (places?.done && !hasGamePlace(info.key)))) {
       const name = reqName;
       const placed = !!manualPlaces()[name];
+      const mine = !!userPlaces()[name];
+      const preset = !!presets[name];
       const now = placing === name;
       actions = el("div", { className: "map-pick-actions" },
         el("button", { type: "button", className: "map-place" + (now ? " active" : ""),
           textContent: now ? "Click the map to place it (cancel)" : placed ? "Move on map" : "Place on map",
           title: "Checks given by people, golden wolves and events have no place in the game files: put it where it is",
           onclick: () => { placing = now ? null : name; updatePick(true); } }),
-        placed ? el("button", { type: "button", className: "map-place", textContent: "Remove place",
-          onclick: () => { checkSource.setPlace(name, null); placing = null; sceneKey = ""; render(); updatePick(true); } }) : null);
+        mine ? el("button", { type: "button", className: "map-place", textContent: preset ? "Back to preset" : "Remove place",
+          onclick: () => { checkSource.setPlace(name, null); placing = null; sceneKey = ""; render(); updatePick(true); } }) : null,
+        Object.keys(userPlaces()).length ? el("button", { type: "button", className: "map-place", textContent: "Copy my places",
+          title: "Copy every check you placed (JSON), to send for the mod's presets",
+          onclick: (e) => copyPlaces(e.currentTarget) }) : null);
     }
     if (placing && placing !== reqName) placing = null;
     root.querySelector(".map-frame")?.classList.toggle("placing", !!placing);
@@ -885,6 +948,27 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     if (!force && html === pickShown) return;
     pickShown = html;
     slot.replaceChildren(row, ...(actions ? [actions] : []));
+  }
+
+  // Every check placed in the page, as JSON for the mod's presets (map_presets.json).
+  function copyPlaces(button) {
+    const text = JSON.stringify({ places: userPlaces() }, null, 1);
+    const done = (ok) => {
+      button.textContent = ok ? "Copied!" : "Could not copy";
+      setTimeout(() => updatePick(true), 1500);
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => fallback());
+    else fallback();
+    function fallback() {
+      const area = el("textarea", { value: text });
+      area.style.cssText = "position:fixed;opacity:0";
+      document.body.append(area);
+      area.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch { /* not allowed */ }
+      area.remove();
+      done(ok);
+    }
   }
 
   function unpick() {
@@ -1187,9 +1271,22 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
   // the rooms drawn, on the floor shown. Shown with the "Map icons" filter; right-click to change
   // one's picture.
   function buildIcons(rooms, floor) {
-    if (!checkFilter.has("icons")) return [];
     const drawn = new Set(rooms.map((r) => r.no));
     const out = [];
+    // People and golden wolves where the game places them (their actors in the room files).
+    if (checkFilter.has("npcs")) {
+      for (const c of map.checks ?? []) {
+        if (!c.key.startsWith("npc:")) continue;
+        if ((floor !== null && c.floor !== undefined && c.floor !== floor) || (c.room >= 0 && !drawn.has(c.room))) continue;
+        const actor = c.key.split(":")[1];
+        const who = NPC_NAMES[actor] ?? "Someone";
+        const node = el("div", { className: "map-npc-mark" + (actor === "GWolf" ? " wolf" : ""), title: `${who} (${actor})` });
+        node.innerHTML = actor === "GWolf" ? WOLF_GLYPH : PERSON_GLYPH;
+        node.addEventListener("pointerdown", (e) => e.stopPropagation());
+        out.push({ node, at: { x: c.x, y: c.z } });
+      }
+    }
+    if (!checkFilter.has("icons")) return out;
     for (const i of map.icons ?? []) {
       const kind = MAP_ICONS[i.type];
       if (!kind || (floor !== null && i.floor !== floor) || (i.room >= 0 && !drawn.has(i.room))) continue;
@@ -1250,11 +1347,19 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
   // How many of this place's checks (those the check list knows by a key: chests, items lying
   // around, poes) the mod has found in its rooms; the rest are named on hover.
   function checkNote() {
-    const mine = checkSource.list().filter((c) => c.key.split(":")[1] === map.stage);
-    if (!mine.length) return null;
     const placed = new Map(patchedChecks(map.stage, map.checks ?? []).map((c) => [c.key, c]));
     const shown = new Set((scene?.checks ?? []).map((c) => c.name));
     const drawn = new Set(map.rooms.map((r) => r.no));
+    let mine = checkSource.list().filter((c) => c.key.split(":")[1] === map.stage);
+    // A house, cave or grotto: only the checks of the room shown (a shop's room is in its key).
+    if (isInterior(map.stage)) {
+      mine = mine.filter((c) => {
+        const p = placed.get(c.key);
+        const room = p ? p.room : c.key.startsWith("shop:") ? Number(c.key.split(":")[2]) : null;
+        return shown.has(c.name) || (room !== null && (room < 0 || drawn.has(room)));
+      });
+    }
+    if (!mine.length) return null;
     const groups = { here: [], room: [], floor: [], missing: [] };
     for (const c of mine) {
       const p = placed.get(c.key);
@@ -1659,6 +1764,23 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     placeLink();
   }
 
+  // A room's name for people: the place it is (an interior, cave or grotto, from the randomizer's
+  // entrances), else what the names of its checks share ("Lanayru Spring Back Room"), else the
+  // logic region.
+  function roomTitle(stage, room) {
+    return roomName?.(stage, room) ?? checksTitle(stage, room) ?? regionName(stage, room) ?? placeTitle(stage);
+  }
+  function checksTitle(stage, room) {
+    if (!checkSource || room < 0) return null;
+    const keys = new Set((places?.stages?.[stage] ?? []).filter((p) => p.room === room).map((p) => p.key));
+    const names = checkSource.list().filter((c) => keys.has(c.key)).map((c) => c.name.split(" "));
+    for (const [name, p] of Object.entries(manualPlaces())) if (p.stage === stage && p.room === room) names.push(name.split(" "));
+    if (!names.length) return null;
+    let n = 0;
+    while (names.every((w) => w.length > n + 1 && w[n] === names[0][n])) n++;
+    return n >= 2 ? names[0].slice(0, n).join(" ") : null;
+  }
+
   // A stage's name for people: the dungeon, or the logic region of its first room.
   function placeTitle(name) {
     const dungeon = DUNGEON_STAGES.find(([, s]) => s === name);
@@ -1703,14 +1825,16 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
           const roomNos = places?.mapRooms?.[st] ?? [];
           const byTitle = new Map();
           for (const no of roomNos) {
-            const title = regionName(st, no) ?? placeTitle(st);
+            const title = roomTitle(st, no);
             if (!byTitle.has(title)) byTitle.set(title, []);
             byTitle.get(title).push(no);
           }
           if (!byTitle.size) byTitle.set(placeTitle(st), null);
           const whole = byTitle.size === 1;
-          return [...byTitle].map(([title, rooms]) => ({ stage: st, title, rooms: whole ? null : rooms,
-            province: provinceOf(title) ?? (st.startsWith("D_") ? "Dungeons" : "Other") }));
+          return [...byTitle].map(([title, rooms]) => {
+            const region = regionName(st, rooms?.[0] ?? 0) ?? placeTitle(st);
+            return { stage: st, title, rooms: whole ? null : rooms, province: provinceOf(region) ?? provinceOf(title) ?? (st.startsWith("D_") ? "Dungeons" : "Other") };
+          });
         })
         .sort((a, b) => a.province.localeCompare(b.province) || a.title.localeCompare(b.title));
       const groups = new Map();
