@@ -883,6 +883,13 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     const fr = scene.frame.getBoundingClientRect();
     const off = rect.left - fr.left - scene.frame.clientLeft;
     const offY = rect.top - fr.top - scene.frame.clientTop;
+    // Marks outside the map's drawing area (the frame's border) are cut off, as the map is.
+    const overlay = scene.frame.querySelector(".map-overlay");
+    if (overlay) {
+      const right = scene.frame.clientWidth - off - rect.width;
+      const bottom = scene.frame.clientHeight - offY - rect.height;
+      overlay.style.clipPath = `inset(${offY}px ${right}px ${bottom}px ${off}px)`;
+    }
     const place = (node, at, px) => {
       const x = (at.x - vb.x) / k + (rect.width - vb.width / k) / 2;
       const y = (at.y - vb.y) / k + (rect.height - vb.height / k) / 2;

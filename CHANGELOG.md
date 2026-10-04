@@ -32,6 +32,8 @@
   - **By area** (beside the check list's title) groups the checks by the area they are in.
   - Under the map: how many of the place's checks are on this map, on another floor, in another
     part of the place or not found (hover for which).
+- The map, its checks and icons stay inside the map's drawing area (no longer over the frame's
+  border when zoomed in or moved).
 - The dungeon map screen's icons on the map: monkeys, iron balls, statues, Sols, Ooccoo, Yeto and
   Yeta, small keys lying around (pictures from the game; right-click to change; "Map icons" in
   Checks Filter).
