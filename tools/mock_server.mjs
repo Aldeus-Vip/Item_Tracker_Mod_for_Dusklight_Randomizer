@@ -208,6 +208,12 @@ createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end(JSON.stringify(out));
   }
+  // PLACES_JSON: /check-places (src/check_places.hpp) as the mod serves it once read.
+  if (path === "/check-places") {
+    const out = process.env.PLACES_JSON ? await readFile(process.env.PLACES_JSON, "utf8") : JSON.stringify({ done: false, read: 0, total: 0 });
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(out);
+  }
   if (path === "/map-player") {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end(JSON.stringify({ stage: state.stage, stayRoom: 0, player: { x: 0, y: 0, z: 0, angle: 0 }, stayFloor: 0 }));

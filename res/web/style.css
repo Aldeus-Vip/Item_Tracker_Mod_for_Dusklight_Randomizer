@@ -1278,3 +1278,32 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-area.lit { filter: brightness(1.15) drop-shadow(0 0 4px rgba(150, 255, 220, 0.75)) drop-shadow(0 0 14px rgba(110, 240, 200, 0.35)); }
 .map-svg.field-select .map-outlines { opacity: 0.35; pointer-events: none; }
 .map-caption { display: block; min-height: 1.4em; text-align: center; font-weight: 700; color: var(--gold); letter-spacing: 0.04em; }
+.map-door .map-door-edge { display: none; }
+.map-door.shut-front .map-door-edge.front, .map-door.shut-back .map-door-edge.back,
+.map-door.shut-both .map-door-edge { display: inline; }
+/* A check picked on the map: a pulsing ring around its marker (the marker keeps its colors) */
+.map-check.selected { z-index: 1; }
+.map-check.selected::after {
+  content: "";
+  position: absolute;
+  inset: -45%;
+  border-radius: 50%;
+  border: 2px solid #fff3b8;
+  box-shadow: 0 0 6px 2px rgba(255, 236, 150, 0.85), inset 0 0 4px rgba(255, 236, 150, 0.6);
+  animation: map-check-pulse 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes map-check-pulse { 50% { transform: scale(1.18); opacity: 0.65; } }
+/* The check's row and requirement under the map, as in the check list */
+.map-req { display: flex; flex-direction: column; gap: 8px; padding: 0; background: none; border: 0; }
+.map-req > .loc-row { width: 100%; }
+.loc-detail.embedded { position: static; width: auto; max-height: none; box-shadow: none; z-index: auto; }
+/* Checks grouped by area */
+.loc-by-area { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 400; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.loc-banner .loc-count + .loc-by-area { margin-left: 12px; }
+.loc-subhead { margin: 10px 2px 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--gold); border-bottom: 1px solid var(--line); padding-bottom: 2px; }
+.loc-subhead:first-child { margin-top: 2px; }
+/* Reading the game files for the checks' places */
+.map-progress { position: relative; height: 18px; border: 1px solid var(--gold-dim); border-radius: 9px; overflow: hidden; background: rgba(0, 0, 0, 0.4); }
+.map-progress-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, #2a9cc0, #7fe0ff); transition: width 0.4s; }
+.map-progress-text { position: relative; display: block; text-align: center; font-size: 11px; line-height: 18px; color: #fff; text-shadow: 0 1px 2px #000; }

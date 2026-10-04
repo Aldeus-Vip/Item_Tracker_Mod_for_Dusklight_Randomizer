@@ -20,11 +20,17 @@
 - Map: zoom out of an overworld map to see its whole province, and once more for all of Hyrule,
   as on the game's map screen (the places you have been, read from the game's field map data);
   click to zoom back in.
-- **Checks on the map**: chests, items lying around (heart pieces, small keys too) and poes are placed where they are in the
-  stage (read from the game's room files, also from rooms as they load), with the marker of the check list (reachable, not
-  reachable, checked, ...). Boxes above the map choose which statuses are shown. Click a check
-  for its requirement under the map; right-click to show it in Checks. With Checks + Map, a
-  click shows it in the check list next to the map.
+- **Checks on the map**: chests, items lying around (heart pieces, small keys too) and poes are
+  placed where they are, with the marker of the check list (reachable, not reachable, checked,
+  ...). The mod finds them in the game files once (a bar shows the progress; the result is kept
+  in its data folder), so every room of every place has its checks, also places opened from the
+  province map. Boxes above the map choose which statuses are shown.
+  - Click a check: it is highlighted, and its row of the check list and its requirement panel (with
+    their buttons) show under the map. Right-click: highlight only. Double-click: the check in
+    the check list.
+  - In Checks, double-click a check to see it on the map (its map, centered, highlighted, with its
+    details).
+  - **By area** (beside the check list's title) groups the checks by the area they are in.
 - Province and Hyrule views look like the game's map screen: dark, with the place (or province)
   under the cursor lit and named under the map. They are framed on the whole province (or
   Hyrule), also where Link has not been. Clicking another place of a province opens its map (zoom
@@ -37,7 +43,8 @@
   (a heavier one on the big key door, grayed out once opened), a "no entry" sign on barred doors,
   and the boss icon from the Dungeons tab in the boss's room. Doors update a few times a second,
   including bars that drop behind Link until a room is cleared and the heavy doors that stay shut
-  until a mechanism in the room opens them (Snowpeak Ruins); hover a door for what the mod
+  until a mechanism in the room opens them (Snowpeak Ruins). A door shut from one side only shows
+  the sign on that side's edge; hover a door for what the mod
   knows about it. Pits and rooms not yet opened are
   black, as in the game.
 

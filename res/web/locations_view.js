@@ -127,7 +127,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -153,6 +153,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let focused = null; // highlighted check (left click, or right click to toggle)
   let highlightedGroup = null; // the one highlighted region (left or right click)
   let showChecks = false; // narrow layout: the check list of selectedGroup is open
+  let groupByArea = false; // the check list grouped by the area (logic region) each check is in
+  let detailHost = null; // where the Map tab shows a check's row and requirement (under the map)
   let sortReachable = false; // check list: reachable checks first
   let openMenu = null; // toolbar menu kept open across redraws ("regions", "req", "seed")
   let regionsScroll = 0; // scroll position of the Reachable regions menu
@@ -173,6 +175,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     focused = localStorage.getItem("tracker.locFocus") || null;
     highlightedGroup = localStorage.getItem("tracker.locMark") || null;
     sortReachable = localStorage.getItem("tracker.locSort") === "reachable";
+    groupByArea = localStorage.getItem("tracker.locByArea") === "1";
   } catch {}
 
   // ---- Data ----
@@ -635,6 +638,58 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     });
   }
 
+  // A check of the list: its marker (click: checked by hand), name, the item found there and its
+  // custom tag. Click: highlight and requirement; right-click: highlight only; double-click: on
+  // the map.
+  function checkRow(loc, overrides) {
+    const r = results.get(loc.name) ?? "unknown";
+    return el("button", {
+      type: "button",
+      className: `loc-row plate ${r}` + (loc.name === focused ? " selected" : ""),
+      title: { obtained: "Obtained", checked: "Marked as checked", reachable: "Reachable now", blocked: "Not reachable yet", excluded: "Excluded location", unknown: "Not obtained" }[r]
+        + (showOnMap ? " · Double-click: show on the map" : ""),
+      onclick: () => {
+        setFocus(loc.name);
+        // Under the map while that is on screen (Checks + Map); otherwise the panel of the list.
+        const host = editing?.host?.isConnected && editing.host.offsetParent !== null ? editing.host : null;
+        if (host) mountDetail(host, loc.name);
+        else openDetail(loc.name);
+      },
+      oncontextmenu: (e) => {
+        e.preventDefault();
+        setFocus(focused === loc.name ? null : loc.name);
+        render();
+      },
+      ondblclick: showOnMap ? () => showOnMap(loc.name) : null,
+    }, checkDot(loc.name, r), el("span", { className: "loc-name", textContent: loc.name }),
+    (() => {
+      const item = foundItem(loc);
+      return item ? el("span", { className: "loc-found", textContent: item, title: `Holds: ${item}` }) : null;
+    })(),
+    overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null);
+  }
+
+  // The area a check is in: the logic region of the room the game places it in (or its shop's).
+  function areaOf(loc) {
+    const key = checkName(loc);
+    const place = key ? placeOf(key) : null;
+    if (place) return roomRegion(place.stage, place.room) ?? roomRegion(place.stage, 0) ?? place.stage;
+    const first = (v) => (Array.isArray(v) ? v[0] : v);
+    const shop = first(loc.metadata.Shop);
+    if (shop) return roomRegion(STAGE_NAMES[shop.Stage], Number(shop.Room)) ?? "Elsewhere";
+    return "Elsewhere";
+  }
+
+  // Shows a check's row and requirement in host (under the map), kept up to date.
+  function mountDetail(host, name) {
+    closePopup();
+    detailHost = host;
+    const existing = getOverrides()[name];
+    editing = { name, routes: existing ? structuredClone(existing) : null, edit: false, host };
+    setFocus(name);
+    render();
+  }
+
   function render() {
     const toolbar = el("div", { className: "loc-toolbar" });
     if (loadError) {
@@ -752,44 +807,58 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       shown = shown.map((l, i) => [l, i]).sort(([a, i], [b, j]) =>
         (rank[results.get(a.name)] ?? 1) - (rank[results.get(b.name)] ?? 1) || i - j).map(([l]) => l);
     }
-    for (const loc of shown) {
+    const visibleLocs = shown.filter((loc) => {
       const r = results.get(loc.name) ?? "unknown";
-      if (hideObtained && (r === "obtained" || r === "checked")) continue;
-      list.append(el("button", {
-        type: "button",
-        className: `loc-row plate ${r}` + (loc.name === focused ? " selected" : ""),
-        title: { obtained: "Obtained", checked: "Marked as checked", reachable: "Reachable now", blocked: "Not reachable yet", excluded: "Excluded location", unknown: "Not obtained" }[r],
-        // Left click highlights the check and opens its requirement.
-        onclick: () => {
-          setFocus(loc.name);
-          openDetail(loc.name);
-        },
-        // Right click only toggles the highlight.
-        oncontextmenu: (e) => {
-          e.preventDefault();
-          setFocus(focused === loc.name ? null : loc.name);
-          render();
-        },
-      }, checkDot(loc.name, r), el("span", { className: "loc-name", textContent: loc.name }),
-      (() => {
-        const item = foundItem(loc);
-        return item ? el("span", { className: "loc-found", textContent: item, title: `Holds: ${item}` }) : null;
-      })(),
-      overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null));
+      return !(hideObtained && (r === "obtained" || r === "checked"));
+    });
+    if (groupByArea) {
+      // Areas in the order their first check comes.
+      const areas = new Map();
+      for (const loc of visibleLocs) {
+        const area = areaOf(loc);
+        if (!areas.has(area)) areas.set(area, []);
+        areas.get(area).push(loc);
+      }
+      for (const [area, locs] of areas) {
+        list.append(el("div", { className: "loc-subhead", textContent: area }));
+        for (const loc of locs) list.append(checkRow(loc, overrides));
+      }
+    } else {
+      for (const loc of visibleLocs) list.append(checkRow(loc, overrides));
     }
     if (!list.childElementCount) list.append(el("p", { className: "empty", textContent: "Nothing left here." }));
 
     const banner = el("div", { className: "loc-banner" },
       el("button", { type: "button", className: "loc-back", textContent: "‹ Back", onclick: () => { showChecks = false; render(); } }),
       el("span", { className: "loc-banner-title", textContent: selectedGroup }),
-      el("span", { className: "loc-count" }, ...countLabel(counts(selectedGroup))));
+      el("span", { className: "loc-count" }, ...countLabel(counts(selectedGroup))),
+      el("label", { className: "loc-by-area", title: "Group the checks by the area they are in (the places the map shows)" },
+        el("input", { type: "checkbox", checked: groupByArea, onchange: (e) => {
+          groupByArea = e.target.checked;
+          remember("tracker.locByArea", groupByArea ? "1" : null);
+          render();
+        } }), "By area"));
     const checks = el("div", { className: "loc-checks" }, banner, list);
     const body = el("div", { className: "loc-body" + (showChecks ? " show-checks" : "") }, groups, checks);
     const searching = document.activeElement?.classList.contains("rule-search") && root.contains(document.activeElement);
     root.replaceChildren(toolbar, body);
     toolbarSize.disconnect();
     toolbarSize.observe(toolbar);
-    if (editing) root.append(renderDetail());
+    if (editing && !editing.host) root.append(renderDetail());
+    // The Map tab's place for a check: its row (as in the list) and its requirement panel.
+    if (detailHost) {
+      if (editing?.host === detailHost) {
+        const loc = locations.find((l) => l.name === editing.name);
+        const panel = renderDetail();
+        panel.classList.add("embedded");
+        detailHost.replaceChildren(...(loc ? [checkRow(loc, overrides)] : []), panel);
+        detailHost.hidden = false;
+      } else {
+        detailHost.replaceChildren();
+        detailHost.hidden = true;
+        detailHost = null;
+      }
+    }
     if (searching) root.querySelector(".rule-search")?.focus();
   }
 
@@ -1546,6 +1615,18 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         panel.append(el("h4", { textContent: "Requirement" }), ...randomizerReq(access));
       }
       return panel;
+    },
+    focusedName: () => focused,
+    // Highlight a check (null: none), as a right click in the list does.
+    setFocused(name) {
+      setFocus(name);
+      render();
+    },
+    mountDetail,
+    // Closes a check shown under the map.
+    unmountDetail() {
+      if (editing?.host) editing = null;
+      render();
     },
     // Shows a check in the list: its region opened, the check highlighted and scrolled to, and (with
     // open) its requirement panel.

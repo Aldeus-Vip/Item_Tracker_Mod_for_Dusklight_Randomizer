@@ -23,6 +23,7 @@ add_mod(dusklight_item_tracker
             src/found_checks.cpp
             src/map_data.cpp
             src/field_map.cpp
+            src/check_places.cpp
             src/game_icons.cpp
             src/game_textures.cpp
             src/gx_texture.cpp

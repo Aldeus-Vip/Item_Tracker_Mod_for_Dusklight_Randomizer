@@ -84,6 +84,9 @@ void set_map_source(MapProvider map, MapProvider player);
 // /field-map-visited.
 void set_field_map_source(MapProvider map, MapProvider visited);
 
+// Where the checks are in every stage (see check_places.hpp). Enables /check-places.
+void set_places_source(MapProvider places);
+
 // The randomizer's seeds folder (seeds/<hash>/). Enables /rando-seeds/.
 void set_seeds_dir(std::string dir);
 

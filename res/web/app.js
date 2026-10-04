@@ -947,6 +947,12 @@ const locationsView = createLocationsView(locChecks, {
   makeIcon: (name, itemId) => iconImg(name, "", null, itemId),
   saveEntries,
   setStatus,
+  // The map knows where the game places each check (for grouping by area) and shows them.
+  placeOf: (key) => mapView?.placeOf(key) ?? null,
+  showOnMap(name) {
+    if (locSplit.dataset.tab === "checks") showLocTab("map");
+    mapView?.showCheck(name);
+  },
 });
 mapView = createMapView(locMap, {
   getState: () => state,
@@ -955,13 +961,17 @@ mapView = createMapView(locMap, {
   // Checks on the map: a right click (or any click with Checks + Map) shows the check in Checks.
   checks: {
     list: () => locationsView.mapChecks(),
-    requirement: (name) => locationsView.requirementView(name),
+    mount: (host, name) => locationsView.mountDetail(host, name),
+    unmount: () => locationsView.unmountDetail(),
+    focused: () => locationsView.focusedName(),
+    setFocused: (name) => locationsView.setFocused(name),
     bothShown: () => locSplit.dataset.tab === "both",
     jump(name) {
       if (locSplit.dataset.tab !== "both") showLocTab("checks");
       locationsView.jumpTo(name);
     },
   },
+  onPlaces: () => locationsView.refresh(),
 });
 locMap.addEventListener("contextmenu", onIconContextMenu);
 showLocTab(locTab);

@@ -11,6 +11,7 @@
 #include "mods/svc/ui.h"
 
 #include "found_checks.hpp"
+#include "check_places.hpp"
 #include "field_map.hpp"
 #include "map_data.hpp"
 #include "game_icons.hpp"
@@ -131,6 +132,7 @@ void init_data_dir() {
     }
     tracker::web::set_data_dir(dataDir);
     tracker::rando::init(dataDir);
+    tracker::places::set_cache_file((std::filesystem::path{dataDir} / "check_places.txt").string());
     tracker::web::set_game_icons(
         [](int itemNo) { return tracker::icons::item_icon_png(static_cast<uint8_t>(itemNo)); });
     tracker::web::set_game_textures(
@@ -252,6 +254,7 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     tracker::web::set_found_sink([](const std::string& body) { tracker::found::add_from_page(body); });
     // Built each frame only when safe (see map_data.hpp); the server sends the last copy.
     tracker::web::set_map_source([] { return tracker::map::cached_map(); }, [] { return tracker::map::cached_player(); });
+    tracker::web::set_places_source([] { return tracker::places::cached_json(); });
     tracker::web::set_field_map_source([] { return tracker::fieldmap::cached_map(); },
                                        [] { return tracker::fieldmap::cached_visited(); });
     tracker::rando::download(logic_data_ref(), /*force=*/false);
@@ -271,6 +274,7 @@ MOD_EXPORT ModResult mod_update(ModError*) {
     tracker::found::update();
     tracker::map::update();
     tracker::fieldmap::update();
+    tracker::places::update();
 
     if (--g_framesUntilPoll <= 0) {
         g_framesUntilPoll = kPollIntervalFrames;

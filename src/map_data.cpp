@@ -11,6 +11,7 @@
 #include "JSystem/JKernel/JKRAramArchive.h"
 #include "d/actor/d_a_door_shutter.h"
 #include "f_op/f_op_actor_mng.h"
+#include "check_places.hpp"
 #include "tracker_state.hpp"
 
 #include <cmath>
@@ -112,9 +113,19 @@ struct DoorInfo {
     // "boss" (big key door), "key" (small key lock), "stop" (bars until a switch), "switch" (a
     // heavy door shut until a mechanism sets its switch), "door".
     const char* kind = "door";
-    // 'L' locked, 'U' unlocked, 'C' barred, 'O' open, '?' unknown.
+    // 'L' locked, 'U' unlocked, 'C' barred (bars down now), 'F' / 'B' shut from the front / back
+    // side only (the front faces the front room, the door's facing), 'D' shut from both sides,
+    // 'O' open, '?' unknown.
     char state = 'O';
 };
+
+// A door shut per side by switches (1 open, 0 shut, -1 unknown).
+char side_state(int front, int back) {
+    if (front < 0 && back < 0) return '?';
+    const bool f = front == 0;
+    const bool b = back == 0;
+    return f && b ? 'D' : f ? 'F' : b ? 'B' : 'O';
+}
 
 DoorInfo door_info(const stage_tgsc_data_class& d, bool stageDoor, const std::vector<LiveDoor>& live) {
     DoorInfo out;
@@ -150,32 +161,14 @@ DoorInfo door_info(const stage_tgsc_data_class& d, bool stageDoor, const std::ve
         // The dungeons' heavy doors (L1Mdoor..., L5door, L7door: daMBdoorL1_c) also stay shut on a
         // plain switch (checkFrontSw / checkBackSw): a mechanism in the room opens them.
         out.kind = "switch";
-        bool known = false;
-        bool closed = false;
-        if (frontOpt == 0 && sw != 0xFF) {
-            const int s = switch_state(sw, out.front);
-            if (s >= 0) { known = true; closed = closed || s == 0; }
-        }
-        if (backOpt == 0 && sw2 != 0xFF) {
-            const int s = switch_state(sw2, out.back);
-            if (s >= 0) { known = true; closed = closed || s == 0; }
-        }
-        out.state = !known ? '?' : closed ? 'C' : 'O';
+        out.state = side_state(frontOpt == 0 && sw != 0xFF ? switch_state(sw, out.front) : 1,
+                               backOpt == 0 && sw2 != 0xFF ? switch_state(sw2, out.back) : 1);
     } else {
         const bool stop = frontOpt == 1 || frontOpt == 3 || backOpt == 1 || backOpt == 3;
         if (stop) {
             out.kind = "stop";
-            bool known = false;
-            bool closed = false;
-            if (frontOpt == 1 || frontOpt == 3) {
-                const int s = switch_state(sw, out.front);
-                if (s >= 0) { known = true; closed = closed || s == 0; }
-            }
-            if (backOpt == 1 || backOpt == 3) {
-                const int s = switch_state(sw2, out.back);
-                if (s >= 0) { known = true; closed = closed || s == 0; }
-            }
-            out.state = !known ? '?' : closed ? 'C' : 'O';
+            out.state = side_state(frontOpt == 1 || frontOpt == 3 ? switch_state(sw, out.front) : 1,
+                                   backOpt == 1 || backOpt == 3 ? switch_state(sw2, out.back) : 1);
         }
     }
     // A door alive now tells best whether its bars are down.
@@ -183,7 +176,7 @@ DoorInfo door_info(const stage_tgsc_data_class& d, bool stageDoor, const std::ve
         for (const LiveDoor& l : live) {
             if (std::fabs(l.x - out.rawX) < 1.0f && std::fabs(l.z - out.rawZ) < 1.0f) {
                 if (l.barred) out.state = 'C';
-                else if (out.state == 'C' || out.state == '?') out.state = 'O';
+                else if (out.state == '?') out.state = 'O';
                 break;
             }
         }
@@ -219,7 +212,7 @@ void write_doors(JsonWriter& w) {
             .endArray();
         w.member("kind", d.kind);
         if (d.state == 'L' || d.state == 'U') w.member("locked", d.state == 'L');
-        if (d.state == 'C' || d.state == 'O') w.member("closed", d.state == 'C');
+        w.member("state", std::string(1, d.state));
         w.endObject();
     });
     w.endArray();
@@ -238,128 +231,50 @@ std::string door_states() {
 // map archive, which the game also loads rooms from): chests (tbox*: box number), items lying
 // around (item / witem: item bit) and poes (E_hp: switch), keyed like the randomizer's check
 // names (mods/items.h).
-struct CheckPlace {
-    std::string key;
-    int room;
-    float x;
-    float y;
-    float z;
-};
-
-std::vector<CheckPlace> g_checks;
+std::vector<tracker::places::Place> g_checks;  // from the rooms loaded now
 int g_checkRoom = 0;      // next room to look at (they are looked at again and again: rooms load)
 int g_checkRoomsRead = 0; // room files read
 bool g_roomScanned[64] = {};
 bool g_checksAdded = false;
 std::string g_checkStage;
 
-u32 be32(const u8* p) { return (u32{p[0]} << 24) | (u32{p[1]} << 16) | (u32{p[2]} << 8) | p[3]; }
-float befloat(const u8* p) {
-    const u32 v = be32(p);
-    float f;
-    std::memcpy(&f, &v, sizeof f);
-    return f;
-}
-
-struct FreeAligned {
-    void operator()(void* p) const { ::operator delete(p, std::align_val_t{32}); }
-};
-
-// A chunk's data. Room files the game has loaded have their offsets made relative to the
-// offset field itself (OffsetPtr, top bit set); fresh ones count from the start of the file.
-const u8* chunk_data(const u8* file, const u8* node) {
-    const u32 raw = be32(node + 8);
-    if ((raw & 0x80000000u) == 0) return file + raw;
-    const s32 rel = (raw & 0x40000000u) ? static_cast<s32>(raw) : static_cast<s32>(raw & 0x7FFFFFFFu);
-    return node + 8 + rel;
-}
-
-// The checks in one room file (size 0: a file in memory whose size is not known).
-void parse_room(const std::string& stage, int roomNo, const u8* b, u32 size) {
-    const u32 chunks = be32(b);
-    if (chunks > 256 || (size != 0 && 4 + chunks * 12 > size)) return;
-    for (u32 c = 0; c < chunks; c++) {
-        const u8* node = b + 4 + c * 12;
-        // Actors (ACTR, TRES and their layers ACT0.., TRE0..: 0x20 bytes each) and scaled objects
-        // (SCOB, TGSC, SCO0..: 0x24 bytes).
-        u32 stride = 0;
-        if (std::memcmp(node, "ACT", 3) == 0 || std::memcmp(node, "TRE", 3) == 0 || std::memcmp(node, "TGOB", 4) == 0) stride = 0x20;
-        else if (std::memcmp(node, "SCO", 3) == 0 || std::memcmp(node, "TGSC", 4) == 0) stride = 0x24;
-        if (stride == 0) continue;
-        const u32 num = be32(node + 4);
-        const u8* data = chunk_data(b, node);
-        if (num > 1024) continue;
-        if (size != 0 && (data < b || data + num * stride > b + size)) continue;
-        for (u32 i = 0; i < num; i++) {
-            const u8* e = data + i * stride;
-            char name[9] = {};
-            std::memcpy(name, e, 8);
-            const u32 prm = be32(e + 8);
-            char key[64] = {};
-            // As the actors name their checks (item_give_tag_* in d_a_tbox, d_a_tbox2, d_a_obj_item,
-            // d_a_obj_life_container, d_a_obj_smallkey, d_a_e_hp, d_a_e_po).
-            if (std::strncmp(name, "tboxEL", 6) == 0) {
-                std::snprintf(key, sizeof(key), "chest:%s:%u", stage.c_str(), (prm >> 16) & 0xFF);
-            } else if (std::strncmp(name, "tbox", 4) == 0) {
-                std::snprintf(key, sizeof(key), "chest:%s:%u", stage.c_str(), (prm >> 6) & 0x3F);
-            } else if (std::strcmp(name, "item") == 0 || std::strcmp(name, "witem") == 0 || std::strcmp(name, "htPiece") == 0 ||
-                       std::strcmp(name, "htCase") == 0 || std::strcmp(name, "itemKey") == 0) {
-                const u32 bit = (prm >> 8) & 0xFF;
-                if (bit == 0xFF) continue;
-                std::snprintf(key, sizeof(key), "freestanding:%s:%u", stage.c_str(), bit);
-            } else if (std::strcmp(name, "E_hp") == 0 || std::strcmp(name, "E_po") == 0) {
-                const u32 sw = (prm >> 8) & 0xFF;
-                if (sw == 0xFF) continue;
-                std::snprintf(key, sizeof(key), "poe:%s:%u", stage.c_str(), sw);
-            } else {
-                continue;
-            }
-            bool known = false;
-            for (const CheckPlace& p : g_checks) known = known || p.key == key;
-            if (!known) {
-                g_checks.push_back({key, roomNo, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)});
-                g_checksAdded = true;
-            }
-        }
-    }
-}
-
-// A room's file, from wherever the game has it: the room's own archive while it is loaded
-// (room.dzr), the stage archive (room<n>.dzs, stages whose rooms are all in it), or the field map
-// archive (<stage>/room<n>.dzs). Returns whether one was found.
+// The checks of a room the game has loaded now (its room.dzr, or room<n>.dzs in the stage
+// archive), and of the stage file with room 0's turn. The whole game is read by check_places too;
+// this shows the rooms around Link before that is done.
 bool scan_room(const std::string& stage, int roomNo) {
-    // The stage's own file (actors placed for the whole stage) goes with room 0's turn, as room -1.
+    const size_t before = g_checks.size();
+    bool found = false;
     if (roomNo == 0) {
-        if (void* dzs = dComIfG_getStageRes("stage.dzs")) parse_room(stage, -1, static_cast<const u8*>(dzs), 0);
+        if (void* dzs = dComIfG_getStageRes("stage.dzs")) tracker::places::parse_room_file(stage, -1, static_cast<const u8*>(dzs), 0, g_checks);
     }
     if (void* dzr = dComIfG_getStageRes(dComIfG_getRoomArcName(roomNo), "room.dzr")) {
-        parse_room(stage, roomNo, static_cast<const u8*>(dzr), 0);
-        return true;
+        tracker::places::parse_room_file(stage, roomNo, static_cast<const u8*>(dzr), 0, g_checks);
+        found = true;
+    } else {
+        char name[16];
+        std::snprintf(name, sizeof(name), "room%d.dzs", roomNo);
+        if (void* dzs = dComIfG_getStageRes(name)) {
+            tracker::places::parse_room_file(stage, roomNo, static_cast<const u8*>(dzs), 0, g_checks);
+            found = true;
+        }
     }
-    char name[16];
-    std::snprintf(name, sizeof(name), "room%d.dzs", roomNo);
-    if (void* dzs = dComIfG_getStageRes(name)) {
-        parse_room(stage, roomNo, static_cast<const u8*>(dzs), 0);
-        return true;
-    }
-    JKRAramArchive* arc = dComIfGp_getFieldMapArchive2();
-    if (arc == nullptr) return false;
-    char path[32];
-    std::snprintf(path, sizeof(path), "%s/room%d.dzs", stage.c_str(), roomNo);
-    const u32 size = dLib_getExpandSizeFromAramArchive(arc, path);
-    if (size < 4) return false;
-    std::unique_ptr<void, FreeAligned> buf{::operator new(size, std::align_val_t{32})};
-    const u32 read = arc->readResource(buf.get(), size, path);
-    if (read < 4) return false;
-    parse_room(stage, roomNo, static_cast<const u8*>(buf.get()), read);
-    return true;
+    if (g_checks.size() != before) g_checksAdded = true;
+    return found;
 }
 
 void write_checks(JsonWriter& w) {
     w.member("checkRooms", g_checkRoomsRead);
-
+    // The whole game's places once read, with the loaded rooms' (same keys) for what is missing.
+    std::vector<tracker::places::Place> all;
+    if (const auto* known = tracker::places::stage_places(g_checkStage)) all = *known;
+    for (const auto& c : g_checks) {
+        bool have = false;
+        for (const auto& a : all) have = have || a.key == c.key;
+        if (!have) all.push_back(c);
+    }
+    w.member("checksAll", tracker::places::stage_places(g_checkStage) != nullptr);
     w.key("checks").beginArray();
-    for (const CheckPlace& c : g_checks) {
+    for (const auto& c : all) {
         w.beginObject();
         w.member("key", c.key);
         w.member("room", c.room);

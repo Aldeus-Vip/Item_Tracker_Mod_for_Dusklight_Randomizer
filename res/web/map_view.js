@@ -120,7 +120,7 @@ const linePath = (v, strip) => strip.map((i, n) => `${n ? "L" : "M"}${v[i * 2]} 
  * @param options.makeIcon     (name, className, fallbackText) => <img> of a tracker icon (follows the
  *                             icon settings; right-click opens the icon editor via data-icon)
  */
-export function createMapView(root, { getState, regionName, makeIcon, checks: checkSource = null }) {
+export function createMapView(root, { getState, regionName, makeIcon, checks: checkSource = null, onPlaces = null }) {
   let visible = false;
   let map = null; // last /map
   let player = null; // last /map-player
@@ -160,6 +160,10 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
   // requirement is shown under it.
   let checkFilter = loadCheckFilter();
   let reqName = null;
+  // Where every check is (/check-places: read from the game files by the mod, once).
+  let places = null;
+  let placesTime = 0;
+  let placeIndex = new Map(); // key -> { stage, room, x, y, z }
   let notice = null; // { text, until }
 
   function loadCheckFilter() {
@@ -207,6 +211,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
           }
         }
         await fetchField();
+        await fetchPlaces();
         if (player.stayFloor !== undefined && player.stayFloor !== lastStayFloor) {
           lastStayFloor = player.stayFloor;
           pickedFloor = null;
@@ -241,6 +246,83 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       visitedTime = now;
       visited = await (await fetch("field-map-visited", { cache: "no-store" })).json();
     }
+  }
+
+  async function fetchPlaces() {
+    if (places?.done || Date.now() - placesTime < FIELD_MS) return;
+    placesTime = Date.now();
+    places = await (await fetch("check-places", { cache: "no-store" })).json();
+    if (places.done) {
+      placeIndex = new Map();
+      for (const [stage, list] of Object.entries(places.stages ?? {})) {
+        for (const p of list) placeIndex.set(p.key, { stage, ...p });
+      }
+      // The check list can group by area now; the map's area views get their checks.
+      onPlaces?.();
+      if (scene?.kind === "area") sceneKey = "";
+    }
+    updateProgress();
+  }
+
+  // While the mod reads the game files for the checks' places: a bar over the map.
+  function progressBar() {
+    const bar = el("div", { className: "map-progress", hidden: true }, el("span", { className: "map-progress-fill" }), el("span", { className: "map-progress-text" }));
+    return bar;
+  }
+  function updateProgress() {
+    const bar = root.querySelector(".map-progress");
+    if (!bar) return;
+    const reading = places && !places.done && places.total > 0;
+    bar.hidden = !reading;
+    if (!reading) return;
+    bar.querySelector(".map-progress-fill").style.width = `${Math.round((places.read / places.total) * 100)}%`;
+    bar.querySelector(".map-progress-text").textContent = `Finding the checks in the game files… ${places.read} / ${places.total}`;
+  }
+
+  // Shows a check of the check list on the map (double-click in Checks): its map, centered on it,
+  // highlighted, with its details under the map.
+  function showCheck(name) {
+    const info = checkSource?.list().find((c) => c.name === name);
+    if (!info) return;
+    const stageName = info.key.split(":")[1];
+    reqName = name;
+    checkSource.setFocused(name);
+    const center = (x, z) => {
+      level = Math.max(level, 2);
+      saveLevel();
+      manual = true;
+      goTo({ zoom: LEVELS[level], x, y: z });
+    };
+    if (map?.exists && map.stage === stageName) {
+      if (mode !== "stage") switchStage();
+      const p = map.checks?.find((c) => c.key === info.key);
+      if (p && map.stage.startsWith("D_") && p.floor !== undefined) pickedFloor = p.floor === player?.stayFloor ? null : p.floor;
+      render();
+      if (p) center(p.x, p.z);
+      showReq();
+      return;
+    }
+    // Another place: its map from the overworld map data, when it is there.
+    const p = placeIndex.get(info.key);
+    let found = null;
+    for (const region of field?.regions ?? []) {
+      for (const stage of region.stages) {
+        if (stage.name !== stageName) continue;
+        if (!found || (p && stage.rooms.some((r) => r.no === p.room))) found = { region, stage };
+      }
+    }
+    if (found && p) {
+      areaPlace = found;
+      mode = "area";
+      view = null;
+      sceneKey = "";
+      render();
+      center(p.x, p.z);
+      showReq();
+      return;
+    }
+    showReq();
+    showNotice(`${name} is in another place (${stageName}); its map shows here when Link is there.`);
   }
 
   function setVisible(on) {
@@ -407,10 +489,14 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     const zoomBar = zoomIndicator();
     scene = { kind: "stage", svg: drawing, link, frame, base, size, floor, rooms: roomBoxes(rooms, floor), doors, boss, checks, zoomBar, offset: { x: 0, z: 0 } };
     bindFrame(frame, reticle);
+    // A check's details stay under the map across redraws, unless closed meanwhile.
+    const oldReq = root.querySelector(".map-req");
+    if (reqName && oldReq && oldReq.hidden) reqName = null;
     root.replaceChildren(el("div", { className: "map-pane" + (floorButtons ? " has-floors" : "") },
       titleBar(title),
-      checkSource && !map.area ? filterBar() : null,
-      checkSource && !map.area ? checkNote() : null,
+      progressBar(),
+      checkSource ? filterBar() : null,
+      checkSource ? checkNote() : null,
       el("div", { className: "map-layout" },
         floorButtons,
         el("div", { className: "map-stage" }, frame, zoomBar.node),
@@ -419,6 +505,8 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       reqPanel()));
     if (view) view = clampView(view);
     applyView();
+    updateProgress();
+    if (reqName) showReq();
   }
 
   // ---- Doors and the boss ----
@@ -448,20 +536,32 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       bar.innerHTML = NO_ENTRY;
       node.append(bar);
       marks.push(bar);
+      // A door shut from one side only (it closes behind Link, or opens from one side): the sign on
+      // that side's edge of the square; the front faces the door's facing.
+      const edges = ["front", "back"].map((side) => {
+        const mark = svg("g", { class: `map-door-mark map-door-edge ${side}` });
+        mark.innerHTML = NO_ENTRY;
+        node.append(mark);
+        return mark;
+      });
       node.setAttribute("transform", `translate(${door.x} ${door.z})`);
       square.setAttribute("transform", `rotate(${(door.angle / 65536) * 360})`);
       const title = svg("title");
       node.prepend(title);
-      const item = { node, square, marks, index, kind: door.kind, state: "", title, label: `${door.name} · ${door.kind} · rooms ${door.rooms[0]} / ${door.rooms[1]}` };
-      setDoorState(item, door.closed ? "C" : door.locked === true ? "L" : door.locked === false ? "U" : "O");
+      const item = { node, square, marks, edges, angle: (door.angle / 65536) * Math.PI * 2, index, kind: door.kind, state: "", title,
+        label: `${door.name} · ${door.kind} · rooms ${door.rooms[0]} (front) / ${door.rooms[1]} (back)` };
+      setDoorState(item, door.state ?? (door.closed ? "C" : door.locked === true ? "L" : door.locked === false ? "U" : "O"));
       out.push(item);
     });
     return out;
   }
 
-  // A door's state letter from the mod (L locked, U unlocked, C barred, O open, ? unknown).
+  // A door's state letter from the mod (L locked, U unlocked, C barred, F / B / D shut from the
+  // front / back / both sides, O open, ? unknown: the last known state stays).
   function setDoorState(door, letter) {
-    let state = { L: "locked", U: "unlocked", C: "barred", O: "open" }[letter] ?? (door.kind === "key" || door.kind === "boss" ? "locked" : "open");
+    if (letter === "?" && door.state) return;
+    let state = { L: "locked", U: "unlocked", C: "barred", O: "open", F: "shut-front", B: "shut-back", D: "shut-both" }[letter]
+      ?? (door.kind === "key" || door.kind === "boss" ? "locked" : "open");
     if (state === "open" && (door.kind === "key" || door.kind === "boss")) state = "unlocked";
     if (state === door.state) return;
     door.node.classList.remove(door.state || "none");
@@ -499,6 +599,12 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     for (const door of scene.doors) {
       door.square.setAttribute("transform", door.square.getAttribute("transform").replace(/ scale\([^)]*\)/, "") + ` scale(${squareScale})`);
       for (const mark of door.marks) mark.setAttribute("transform", `scale(${markScale}) translate(-12 -12)`);
+      // Edge signs: on the middle of the front / back edge, a little smaller.
+      const half = (squareScale * 100) / 2;
+      door.edges.forEach((mark, i) => {
+        const d = i === 0 ? half : -half;
+        mark.setAttribute("transform", `translate(${Math.sin(door.angle) * d} ${Math.cos(door.angle) * d}) scale(${markScale * 0.75}) translate(-12 -12)`);
+      });
     }
     // HTML marks over the map: the boss and the checks.
     const fr = scene.frame.getBoundingClientRect();
@@ -683,20 +789,23 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       const info = byKey.get(place.key);
       if (!info || (floor !== null && place.floor !== floor)) continue;
       if (place.room >= 0 && !drawn.has(place.room)) continue;
-      const node = el("button", { type: "button", className: `map-check ${info.status}`, title: `${info.name}\nClick: requirement · Right-click: show in Checks` },
+      const node = el("button", { type: "button", className: `map-check ${info.status}`,
+        title: `${info.name}\nClick: details under the map · Right-click: highlight · Double-click: show in Checks` },
         el("span", { className: "loc-dot" }));
       node.addEventListener("pointerdown", (e) => e.stopPropagation());
       node.addEventListener("pointerup", (e) => e.stopPropagation());
       node.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (checkSource.bothShown()) checkSource.jump(info.name);
-        else {
-          reqName = reqName === info.name ? null : info.name;
-          showReq();
-        }
+        reqName = info.name;
+        showReq();
       });
       node.addEventListener("contextmenu", (e) => {
         e.preventDefault();
+        e.stopPropagation();
+        checkSource.setFocused(checkSource.focused() === info.name ? null : info.name);
+        updateChecks();
+      });
+      node.addEventListener("dblclick", (e) => {
         e.stopPropagation();
         checkSource.jump(info.name);
       });
@@ -714,8 +823,9 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     const found = new Set((map.checks ?? []).map((c) => c.key));
     const missing = mine.filter((c) => !found.has(c.key));
     if (!missing.length) return null;
-    return el("p", { className: "map-check-note", title: `Not found yet:\n${missing.map((c) => `${c.name} (${c.key})`).join("\n")}`,
-      textContent: `${mine.length - missing.length} of ${mine.length} checks of this place found in its rooms (${map.checkRooms ?? 0} room files read; more as rooms load). Hover for the others.` });
+    const how = map.checksAll ? "in the game files" : `in the rooms loaded so far (${map.checkRooms ?? 0} room files; the whole game is being read)`;
+    return el("p", { className: "map-check-note", title: `Not found:\n${missing.map((c) => `${c.name} (${c.key})`).join("\n")}`,
+      textContent: `${mine.length - missing.length} of ${mine.length} checks of this place found ${how}. Hover for the others.` });
   }
 
   // Statuses change as items come in: the markers follow, and the filter hides or shows them.
@@ -730,7 +840,8 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       }
       c.node.hidden = !checkFilter.has(c.status);
     }
-    if (reqName) showReq(false);
+    const focusedName = checkSource.focused();
+    for (const c of scene.checks) c.node.classList.toggle("selected", c.name === focusedName);
   }
 
   function filterBar() {
@@ -751,23 +862,14 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     return el("div", { className: "map-req", hidden: true });
   }
 
-  let reqShown = "";
-  function showReq(force = true) {
+  // The check clicked on the map, under it: its row of the check list and its requirement panel
+  // (with all their buttons), kept up to date by the check list.
+  function showReq() {
     const box = root.querySelector(".map-req");
-    if (!box) return;
-    const body = reqName ? checkSource?.requirement(reqName) : null;
-    if (!body) {
-      box.hidden = true;
-      box.replaceChildren();
-      reqShown = "";
-      return;
-    }
-    // Redrawn only when its content changes (statuses update a few times a second).
-    const html = body.outerHTML;
-    if (!force && html === reqShown) return;
-    reqShown = html;
-    box.hidden = false;
-    box.replaceChildren(body, el("button", { type: "button", className: "tool map-req-close", textContent: "Close", onclick: () => { reqName = null; showReq(); } }));
+    if (!box || !checkSource) return;
+    if (reqName) checkSource.mount(box, reqName);
+    else checkSource.unmount();
+    updateChecks();
   }
 
   // A short message under the map (why it cannot zoom out yet).
@@ -967,8 +1069,10 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     bindFrame(frame, reticle);
     root.replaceChildren(el("div", { className: "map-pane" },
       titleBar(title),
+      progressBar(),
       el("div", { className: "map-layout" }, el("div", { className: "map-stage" }, frame, zoomBar.node)),
       caption));
+    updateProgress();
     // Lit at first: Link's province (Hyrule) or Link's place (a province), as in the game.
     const start = place && areas.find((a) => (mode === "world" ? a.region === place.region : a.stage === place.stage));
     setHover(start ?? areas[0]);
@@ -1024,14 +1128,20 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
   function renderArea() {
     const { region, stage } = areaPlace;
     const key = JSON.stringify(["area", region.no, stage.name]);
-    if (key === sceneKey) return;
+    if (key === sceneKey) {
+      updateChecks();
+      return;
+    }
     sceneKey = key;
     const real = map;
-    map = { stage: stage.name, stayRoom: -1, exists: true, area: true, doors: [], checks: [],
+    const floorOf = 0;
+    map = { stage: stage.name, stayRoom: -1, exists: true, area: true, doors: [], checksAll: !!places?.done,
+      checks: (places?.stages?.[stage.name] ?? []).map((p) => ({ key: p.key, room: p.room, x: p.x, z: p.z, floor: floorOf })),
       rooms: stage.rooms.map((r) => ({ ...r, layer: 0, visited: true })), bounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 } };
     try {
       const floors = [...new Set(map.rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
       const floor = floors.includes(0) ? 0 : floors[floors.length - 1] ?? 0;
+      for (const c of map.checks) c.floor = floor;
       const title = regionName(stage.name, stage.rooms[0]?.no ?? 0) ?? stage.name;
       build(false, map.rooms, floors, floor, title, null);
     } finally {
@@ -1163,5 +1273,11 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     return el("div", { className: "map-items" }, ...slots);
   }
 
-  return { setVisible, render };
+  return {
+    setVisible,
+    render,
+    showCheck,
+    // Where the game places a check (stage and room), once the game files are read.
+    placeOf: (key) => placeIndex.get(key) ?? null,
+  };
 }

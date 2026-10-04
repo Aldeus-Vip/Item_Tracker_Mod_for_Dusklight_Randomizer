@@ -57,6 +57,7 @@ MapProvider g_mapSource = nullptr;
 MapProvider g_mapPlayer = nullptr;
 MapProvider g_fieldMap = nullptr;
 MapProvider g_fieldMapVisited = nullptr;
+MapProvider g_places = nullptr;
 
 // Icons are at most a few hundred KB; anything larger is not an icon.
 constexpr std::uintmax_t kMaxIconBytes = 4 * 1024 * 1024;
@@ -659,6 +660,11 @@ bool handle_request(Client& client, const Request& req) {
         else send_response(client, "200 OK", "application/json; charset=utf-8", g_mapPlayer());
         return false;
     }
+    if (target == "/check-places") {
+        if (g_places == nullptr) send_error(client, "404 Not Found");
+        else send_response(client, "200 OK", "application/json; charset=utf-8", g_places());
+        return false;
+    }
     if (target == "/field-map" || target == "/field-map-visited") {
         MapProvider source = target == "/field-map" ? g_fieldMap : g_fieldMapVisited;
         if (source == nullptr) send_error(client, "404 Not Found");
@@ -867,6 +873,10 @@ void set_map_source(MapProvider map, MapProvider player) {
 void set_field_map_source(MapProvider map, MapProvider visited) {
     g_fieldMap = map;
     g_fieldMapVisited = visited;
+}
+
+void set_places_source(MapProvider places) {
+    g_places = places;
 }
 
 void set_seeds_dir(std::string dir) {
