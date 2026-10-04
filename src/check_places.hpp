@@ -39,12 +39,17 @@ void update();
 const std::vector<Place>* stage_places(const std::string& stage);
 
 // {"done", "read", "total", "stages": {"<stage>": [{"key", "room", "x", "y", "z", "floor"}]},
-//  "maps": [stage with a map]} ("stages" and "maps" once done; "read" / "total" archives while
+//  "maps": [stage with a map], "mapRooms": {stage: [room]}, "singleRooms": [stage whose map shows
+//  one room at a time]} ("stages" and "maps" once done; "read" / "total" archives while
 // reading).
 const std::string& cached_json();
 
 // A stage's map, read from its room files: {"stage", "rooms": [{"no", "floors", "vertices"}]} in
 // the format of map_data.hpp ("" when not known).
 std::string stage_map_json(const std::string& stage);
+
+// A dungeon's map background (the game's dungeon map parchment, with the dungeon's emblem) as PNG,
+// by its stage (D_MN05...). "" until read: asking for it queues the read.
+std::string dungeon_art(const std::string& stage);
 
 }  // namespace tracker::places

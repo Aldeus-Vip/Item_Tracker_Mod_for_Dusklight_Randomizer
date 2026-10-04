@@ -37,8 +37,7 @@
 - The dungeon map screen's icons on the map: monkeys, iron balls, statues, Sols, Ooccoo, Yeto and
   Yeta, small keys lying around (pictures from the game; right-click to change; "Map icons" in
   Checks Filter).
-- **Seen item distance** in the mod's settings: how close Link must be to an item lying around
-  for the tracker to note what it looks like (3000 by default; it was 1500).
+- Items lying around are noted as seen from farther away (3000; it was 1500).
 - **Field / Dungeons / Other** tabs above the map: Hyrule and its provinces; every dungeon's map
   (buttons in the dungeons' colors); and every other place with a map (houses, caves, grottos...)
   by province, with a search. Their maps come from the game files; zoom out to go back (also from
@@ -76,12 +75,21 @@
 - Checks placed with the mod (presets): Agitha's 24 rewards across her house in the golden bugs'
   order, Jovani's 20 and 60 Poe Soul rewards in his house. Your own places win over them
   (**Back to preset** undoes yours); **Copy my places** copies yours as JSON for the presets.
+- **Dungeons tab** in the same twilight design: a plate a dungeon with its emblem, the land it is
+  in, and right-aligned the small keys found (used ones too), big key or key shards, map, compass,
+  boss and extras. Click a dungeon to open its map. The Map's Dungeons list shows the same counts.
+- Dungeon emblems are the game's own dungeon map parchments, read from the game files when first
+  shown (the original diamond until then).
+- Lake Hylia and Lanayru Spring (one stage whose map shows a room at a time) are separate places
+  in Lanayru Province: Lanayru Spring can be picked and opened with its checks without going there.
 - The Dungeons and Other lists look like the game's menus: a dark twilight panel with drifting
   black squares, gold-ruled headings, and plates that light up with gold corners under the
   cursor. Dungeons are numbered in story order with the land they are in (the per-dungeon colors
   are gone).
 
 ### Fixed
+- Items seen from below (a golden bug on a tree or a ledge, as Faron Field's Female Beetle) were
+  not noted: sight is also tried toward Link and toward the camera, a little off the item.
 - The mod did not build for Windows, macOS, iOS and Android: Mirror Mode was read from a game
   setting mods cannot link to. It is now told from how the game projects to the screen.
 - Checks in rooms placed with an offset in their stage (Snowpeak Ruins' West Cannon Room chest,

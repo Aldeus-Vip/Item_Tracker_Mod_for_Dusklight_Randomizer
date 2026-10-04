@@ -1,5 +1,6 @@
 #include "check_places.hpp"
 
+#include "gx_texture.hpp"
 #include "json_writer.hpp"
 #include "tracker_state.hpp"
 
@@ -376,6 +377,72 @@ bool step_read() {
     return true;
 }
 
+// ---- Dungeon map backgrounds ----
+// The parchment the game's dungeon map is drawn on (/res/FieldMap/D_MNxx.arc, tex/bg.bti, as
+// dMenu_DmapBg_c reads it), read from the disc when the page asks for it, a little each frame.
+
+std::map<std::string, std::string> g_art;  // stage -> PNG ("" = could not be read)
+std::vector<std::string> g_artQueue;
+DVDFileInfo g_artFile;
+bool g_artOpen = false;
+std::vector<uint8_t> g_artBuffer;
+uint32_t g_artRead = 0;
+
+void finish_art(const std::string& stage) {
+    std::vector<uint8_t> plain;
+    const std::vector<uint8_t>* arc = &g_artBuffer;
+    if (yaz0_decode(g_artBuffer, plain)) arc = &plain;
+    std::string png;
+    for (const ArcFile& f : rarc_files(*arc)) {
+        if (f.name != "bg.bti") continue;
+        std::vector<uint8_t> raw(f.data, f.data + f.size);
+        std::vector<uint8_t> file;
+        if (!yaz0_decode(raw, file)) file = std::move(raw);
+        if (file.size() < 0x20) break;
+        gx::Layer layer;
+        layer.texture = gx::decode_timg(file.data(), file.size());
+        layer.alphaEnabled = file[1] != 0;
+        const gx::Image image = gx::compose({layer});
+        if (image.width) png = gx::encode_png(image);
+        break;
+    }
+    g_art[stage] = std::move(png);
+}
+
+void step_art() {
+    if (g_artQueue.empty()) return;
+    const std::string stage = g_artQueue.front();
+    if (!g_artOpen) {
+        const std::string path = "/res/FieldMap/" + stage + ".arc";
+        const s32 entry = DVDConvertPathToEntrynum(path.c_str());
+        if (entry < 0 || !DVDFastOpen(entry, &g_artFile)) {
+            g_art[stage] = "";
+            g_artQueue.erase(g_artQueue.begin());
+            return;
+        }
+        g_artOpen = true;
+        g_artBuffer.assign((g_artFile.length + 31) & ~31u, 0);
+        g_artRead = 0;
+    }
+    const uint32_t total = static_cast<uint32_t>(g_artBuffer.size());
+    const uint32_t len = std::min(kReadPerFrame, total - g_artRead);
+    s32 got = 0;
+    if (len > 0) got = DVDReadPrio(&g_artFile, g_artBuffer.data() + g_artRead, static_cast<s32>(len), static_cast<s32>(g_artRead), 2);
+    if (got > 0) g_artRead += static_cast<uint32_t>(got);
+    if (g_artRead < g_artFile.length && got > 0) return;
+    DVDClose(&g_artFile);
+    g_artOpen = false;
+    if (g_artRead >= g_artFile.length) {
+        g_artBuffer.resize(g_artFile.length);
+        finish_art(stage);
+    } else {
+        g_art[stage] = "";
+    }
+    g_artBuffer.clear();
+    g_artBuffer.shrink_to_fit();
+    g_artQueue.erase(g_artQueue.begin());
+}
+
 // The floor of a height in a stage, as dMapInfo_c::calcFloorNo works it out from the stage's floor
 // spacing (without the room limits only known for the stage being played).
 int floor_of(const std::string& stage, float y) {
@@ -424,6 +491,13 @@ void build_json(bool done) {
         w.key("maps").beginArray();
         for (const auto& [stage, rooms] : g_maps) {
             if (!rooms.empty()) w.value(stage);
+        }
+        w.endArray();
+        // Stages whose map shows one room at a time (STAG up button 2, 3, 6): each room is a place
+        // of its own (Lake Hylia and Lanayru Spring).
+        w.key("singleRooms").beginArray();
+        for (const auto& [stage, f] : g_floors) {
+            if (f.mapKind == 2 || f.mapKind == 3 || f.mapKind == 6) w.value(stage);
         }
         w.endArray();
         // Their rooms (a stage of houses holds one house a room).
@@ -645,6 +719,19 @@ void update() {
     case Phase::Done:
         break;
     }
+    // Dungeon map backgrounds, between the reads of the check places.
+    if (!g_open && (g_artOpen || tracker::is_playing())) step_art();
+}
+
+std::string dungeon_art(const std::string& stage) {
+    // Only the dungeons' own: D_MN followed by two digits.
+    if (stage.size() != 6 || stage.compare(0, 4, "D_MN") != 0 || !std::isdigit(static_cast<unsigned char>(stage[4])) ||
+        !std::isdigit(static_cast<unsigned char>(stage[5]))) {
+        return {};
+    }
+    if (const auto it = g_art.find(stage); it != g_art.end()) return it->second;
+    if (std::find(g_artQueue.begin(), g_artQueue.end(), stage) == g_artQueue.end()) g_artQueue.push_back(stage);
+    return {};
 }
 
 const std::vector<Place>* stage_places(const std::string& stage) {

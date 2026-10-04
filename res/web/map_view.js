@@ -136,7 +136,7 @@ const PERSON_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10
 const WOLF_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3l3.5 4L10 5.5 13.5 7 17 3l-.6 7.2L10 18 3.6 10.2z" fill="currentColor"/><circle cx="7.6" cy="10" r="1" fill="#000"/><circle cx="12.4" cy="10" r="1" fill="#000"/></svg>`;
 
 // The dungeons in the order of the story, with the land each is in (shown under the name).
-const DUNGEON_STAGES = [
+export const DUNGEON_STAGES = [
   ["Forest Temple", "D_MN05", "Faron Woods"],
   ["Goron Mines", "D_MN04", "Death Mountain"],
   ["Lakebed Temple", "D_MN01", "Lake Hylia"],
@@ -152,8 +152,31 @@ const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
 // A small gold emblem in the manner of the Twili markings (original art).
 const EMBLEM = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1 23 12 12 23 1 12Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 6 18 12 12 18 6 12Z" fill="currentColor" opacity=".85"/><path d="M12 9.5 14.5 12 12 14.5 9.5 12Z" fill="#000" opacity=".55"/></svg>`;
 
+// A dungeon's emblem: the game's own dungeon map parchment (read from the disc by the mod, a few
+// seconds after it is first asked for), the original diamond until then or when it cannot be read.
+const emblemArt = new Map(); // stage -> loaded URL, or "failed"
+export function dungeonEmblem(stage) {
+  const box = el("span", { className: "twilight-emblem" });
+  box.innerHTML = EMBLEM;
+  const known = emblemArt.get(stage);
+  if (known === "failed") return box;
+  const img = el("img", { className: "twilight-emblem-art", alt: "", draggable: false });
+  let tries = 0;
+  img.onload = () => {
+    emblemArt.set(stage, img.src);
+    box.replaceChildren(img);
+    box.classList.add("art");
+  };
+  img.onerror = () => {
+    if (++tries >= 15) return emblemArt.set(stage, "failed");
+    setTimeout(() => { if (box.isConnected) img.src = `game-textures/dungeon/${stage}.png?try=${tries}`; }, 2000);
+  };
+  img.src = known ?? `game-textures/dungeon/${stage}.png`;
+  return box;
+}
+
 // The twilight's drifting black squares over a list (a few, rising and fading).
-function twilightMotes() {
+export function twilightMotes() {
   const box = el("div", { className: "twilight-motes", "aria-hidden": "true" });
   for (let i = 0; i < 16; i++) {
     const m = el("span", { className: "twilight-mote" });
@@ -329,10 +352,25 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
       fieldTime = now;
       field = await (await fetch("field-map", { cache: "no-store" })).json();
     }
+    splitField();
     if (field?.ready && (!visited || now - visitedTime > VISITED_MS)) {
       visitedTime = now;
       visited = await (await fetch("field-map-visited", { cache: "no-store" })).json();
     }
+  }
+
+  // A field stage whose map shows one room at a time (Lake Hylia's, with Lanayru Spring): each of
+  // its rooms is a place of its own in the province (lit, picked and opened alone).
+  function splitField() {
+    if (!field?.ready || field.split || !places?.done) return;
+    const single = new Set(places.singleRooms ?? []);
+    for (const region of field.regions) {
+      region.stages = region.stages.flatMap((st) => (single.has(st.name) && st.rooms.length > 1
+        ? st.rooms.map((r) => ({ ...st, rooms: [r], part: r.no }))
+        : [st]));
+    }
+    field.split = true;
+    sceneKey = "";
   }
 
   async function fetchPatches() {
@@ -473,6 +511,7 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
         for (const p of list) placeIndex.set(p.key, { stage, ...p });
       }
       // The check list can group by area now; the map's area views get their checks.
+      splitField();
       onPlaces?.();
       if (scene?.kind === "area") sceneKey = "";
     }
@@ -549,7 +588,8 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
       showReq();
     };
     if (found && p) {
-      openRemote({ region: found.region, stage: found.stage, back: "region" });
+      openRemote({ region: found.region, stage: found.stage, back: "region",
+        ...(found.stage.part !== undefined ? { title: regionName(stageName, found.stage.part) ?? undefined } : {}) });
       center(p.x, p.z);
       return pick();
     }
@@ -1511,7 +1551,8 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
 
   // Stages the map screen shows: those with a visited room, and the one Link is in.
   function shownStage(stage) {
-    return stage.name === map.stage || (visited?.stages?.[stage.name]?.length ?? 0) > 0;
+    if (stage.part === undefined) return stage.name === map.stage || (visited?.stages?.[stage.name]?.length ?? 0) > 0;
+    return (stage.name === map.stage && player?.stayRoom === stage.part) || (visited?.stages?.[stage.name] ?? []).includes(stage.part);
   }
 
   function renderField(from = null) {
@@ -1677,7 +1718,8 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
 
   function openArea(area) {
     const b = scene.stageBoxes.get(area.stage);
-    const enter = () => openRemote({ region: area.region, stage: area.stage, back: "region" });
+    const enter = () => openRemote({ region: area.region, stage: area.stage, back: "region",
+      ...(area.stage.part !== undefined ? { title: regionName(area.stage.name, area.stage.part) ?? undefined } : {}) });
     if (!b) return enter();
     goTo({ x: b.x, y: b.y, zoom: span(scene.base, 1) / Math.max(b.w, b.h) }, true, enter);
   }
@@ -1734,7 +1776,7 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
         if (mine.length) rooms = mine;
       }
     }
-    const key = JSON.stringify(["area", region?.no ?? null, name, onlyRooms ?? null, areaFloor, !!places?.done]);
+    const key = JSON.stringify(["area", region?.no ?? null, name, stage?.part ?? null, onlyRooms ?? null, areaFloor, !!places?.done]);
     if (key === sceneKey) {
       updateChecks();
       return;
@@ -1791,7 +1833,8 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
 
   // The Dungeons and Other tabs: lists of places whose map can be opened.
   function renderSelect() {
-    const key = JSON.stringify(["select", mode, !!places?.done, (places?.maps ?? []).length]);
+    const key = JSON.stringify(["select", mode, !!places?.done, (places?.maps ?? []).length,
+      mode === "dungeons" ? [getState()?.dungeons, getState()?.items?.["Goron Mines Key Shard"]] : null]);
     if (key === sceneKey) return;
     sceneKey = key;
     scene = null;
@@ -1807,11 +1850,11 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
           onclick: () => openRemote({ name: stage, back: "dungeons" }),
         },
           el("span", { className: "twilight-no", textContent: ROMAN[i] }),
-          el("span", { className: "twilight-emblem" }),
+          dungeonEmblem(stage),
           el("span", { className: "twilight-text" },
             el("span", { className: "twilight-name", textContent: label }),
-            el("span", { className: "twilight-sub", textContent: land })));
-        b.querySelector(".twilight-emblem").innerHTML = EMBLEM;
+            el("span", { className: "twilight-sub", textContent: land })),
+          dungeonCounts(findDungeon(label)));
         return b;
       })));
     } else {
@@ -1970,6 +2013,22 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
     return getState()?.dungeons?.find((x) => key(x.name) === key(title)) ?? null;
   }
 
+  // Right of a dungeon in the Dungeons list: how many small keys were found (used ones too), and
+  // the big key (or key shards), map and compass, dim until found.
+  function dungeonCounts(d) {
+    if (!d) return null;
+    const shards = getState()?.items?.["Goron Mines Key Shard"] ?? 0;
+    const piece = (on, icon, label, text = null) => el("span", { className: "twilight-count" + (on ? " on" : ""), title: label },
+      iconSlot(icon, label, "twilight-count-icon", el("span", { className: "twilight-count-fallback", textContent: label[0] })),
+      text !== null ? el("span", { textContent: text }) : null);
+    const out = el("span", { className: "twilight-counts" },
+      piece(d.smallKeys > 0, "Small_Key", `Small Keys found ${d.smallKeys}/${d.maxSmallKeys} (holding ${d.smallKeysHeld})`, `${d.smallKeys}/${d.maxSmallKeys}`));
+    if (d.name === "Goron Mines") out.append(piece(shards > 0, ["GBK0", "GBK1", "GBK3"][Math.max(0, shards - 1)], `Key Shards ${shards}/3`, `${shards}/3`));
+    else if (d.hasBigKey) out.append(piece(d.bigKey, d.name === "Snowpeak Ruins" ? "Bedroom_Key" : d.name === "Hyrule Castle" ? "Boss_KeyHC" : "Boss_Key", d.name === "Snowpeak Ruins" ? "Bedroom Key" : "Big Key"));
+    out.append(piece(d.map, "Dungeon_Map", "Dungeon Map"), piece(d.compass, "Compass", "Compass"));
+    return out;
+  }
+
   // The dungeon's keys, map and compass in item frames, like the game's dungeon map screen.
   function dungeonItems(d) {
     const items = getState()?.items ?? {};
@@ -1999,5 +2058,14 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
     showCheck,
     // Where the game places a check (stage and room), once the game files are read.
     placeOf: (key) => placeFor(key),
+    // A dungeon's map (Link's own when he is in it).
+    showDungeon(stage) {
+      if (map?.exists && map.stage === stage) {
+        if (mode !== "stage") switchStage();
+        else render();
+        return;
+      }
+      openRemote({ name: stage, back: "dungeons" });
+    },
   };
 }

@@ -29,9 +29,9 @@ namespace {
 constexpr const char* kBlobName = "found";
 constexpr size_t kMaxEntries = 3000;
 constexpr size_t kMaxEntryBytes = 600;
-// A freestanding item counts as seen once Link is this close (game units, about centimeters);
-// set from the mod's settings (set_see_distance).
-float g_seeDistance = 3000.0f;
+// A freestanding item counts as seen once Link is this close (game units, about centimeters) and it
+// is in sight.
+constexpr float kSeeDistance = 3000.0f;
 
 std::set<std::string> g_entries;  // known now (saved + learned since the last save)
 std::string g_seed;               // seed hash the page is showing for this save
@@ -158,7 +158,7 @@ void check_watched() {
     std::erase_if(g_watched, [&](const Watched& w) {
         fopAc_ac_c* actor = fopAcM_SearchByID(w.actor);
         if (actor == nullptr) return true;  // collected or unloaded
-        if (fopAcM_searchActorDistance(actor, link) > g_seeDistance) return false;
+        if (fopAcM_searchActorDistance(actor, link) > kSeeDistance) return false;
         // Hidden (under a boulder, behind a wall): not seen yet. Seen means in sight from Link's
         // eyes and from the camera: pressed into a boulder, Link's eyes are inside it and the
         // line from them misses its surface, but the camera behind him is still outside.
@@ -166,10 +166,18 @@ void check_watched() {
         // a tree trunk or a wall sits in its surface, where a line to its center stops short).
         camera_process_class* camera = dComIfGp_getCamera(0);
         const cXyz base = actor->current.pos;
-        cXyz toward = cXyz(link->eyePos) - base;
-        const f32 len = toward.abs();
-        if (len > 1.0f) toward *= 40.0f / len;
-        const cXyz probes[] = {base + cXyz(0.0f, 20.0f, 0.0f), base + cXyz(0.0f, 50.0f, 0.0f), base + toward + cXyz(0.0f, 20.0f, 0.0f)};
+        // Toward Link's eyes and toward the camera, a little and a little more: a golden bug on a
+        // tree trunk or a ledge's edge is seen from below though a line to its center stops short.
+        auto toward = [&base](const cXyz& eye, f32 by) {
+            cXyz d = eye - base;
+            const f32 len = d.abs();
+            if (len > 1.0f) d *= by / len;
+            return base + d;
+        };
+        const cXyz cameraEye = camera != nullptr ? cXyz(camera->view.lookat.eye) : cXyz(link->eyePos);
+        const cXyz probes[] = {base + cXyz(0.0f, 20.0f, 0.0f), base + cXyz(0.0f, 50.0f, 0.0f),
+                               toward(link->eyePos, 40.0f) + cXyz(0.0f, 20.0f, 0.0f), toward(link->eyePos, 90.0f),
+                               toward(cameraEye, 40.0f), toward(cameraEye, 90.0f)};
         bool seen = false;
         for (const cXyz& target : probes) {
             if (blocked(link->eyePos, target, link)) continue;
@@ -298,6 +306,5 @@ void write_json(tracker::JsonWriter& w) {
     w.endObject();
 }
 
-void set_see_distance(float distance) { g_seeDistance = distance; }
 
 }  // namespace tracker::found

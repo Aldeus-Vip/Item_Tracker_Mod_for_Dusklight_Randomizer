@@ -1504,3 +1504,34 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-npc-mark { position: absolute; left: 0; top: 0; display: grid; place-items: center; padding: 3px; border-radius: 50%; border: 1.5px solid #d8cf9f; background: rgba(20, 30, 40, 0.85); color: #e8f0f4; pointer-events: auto; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
 .map-npc-mark svg { width: 100%; height: 100%; display: block; }
 .map-npc-mark.wolf { border-color: #f0c64a; background: rgba(60, 40, 0, 0.85); color: #f6d36b; }
+
+/* Dungeon emblems: the game's dungeon map parchment, centered on its emblem */
+.twilight-emblem.art { width: 46px; height: 46px; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7), 0 0 0 2px var(--rim-lo); filter: none; }
+.twilight-emblem-art { width: 100%; height: 100%; object-fit: cover; transform: scale(1.7); display: block; }
+.map-dungeon-button .twilight-emblem.art { width: 40px; height: 40px; }
+
+/* Right of a dungeon: small keys found, big key, map, compass (dim until found) */
+.twilight-counts { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: none; }
+.twilight-count { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; color: var(--muted); opacity: 0.45; }
+.twilight-count.on { opacity: 1; color: var(--text); }
+.twilight-count .map-icon { display: contents; }
+.twilight-count-icon { width: 20px; height: 20px; object-fit: contain; filter: grayscale(1); }
+.twilight-count.on .twilight-count-icon { filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }
+.twilight-count-fallback { font-size: 10px; }
+.map-dungeon-list { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+
+/* The Dungeons tab: the same panel, one plate a dungeon, its items right-aligned */
+.dungeon-panel { max-width: 960px; min-height: 0; display: flex; flex-direction: column; gap: 10px; margin: 0 auto; }
+.dungeon-rows { display: flex; flex-direction: column; gap: 10px; padding: 4px; }
+.dungeon-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; }
+.dungeon-row.cleared .twilight-name { color: var(--owned); }
+.dungeon-cells { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.dungeon-keys, .dungeon-big { display: inline-flex; align-items: center; gap: 3px; }
+.dungeon-count { font-size: 12px; font-weight: 700; color: var(--muted); }
+.dungeon-keys.complete .dungeon-count, .dungeon-count.complete { color: var(--owned); }
+.dungeon-row .mark { min-width: 0; }
+@media (max-width: 560px) {
+  .dungeon-row { flex-wrap: wrap; }
+  .dungeon-cells { width: 100%; justify-content: flex-start; }
+}
+.map-select.twilight.dungeon-panel { min-height: 0; overflow: hidden; }

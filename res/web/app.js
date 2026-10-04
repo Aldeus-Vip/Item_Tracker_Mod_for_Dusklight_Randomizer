@@ -1,6 +1,6 @@
 import { BUG_SCREEN_ORDER, GOLDEN_BUGS, bugIcon, COLUMNS, DEFAULT_LAYOUT, DUNGEON_EXTRAS, DUNGEON_ICONS, GAME_ICON_BACKGROUNDS, GAME_ICON_IDS, GAME_ICON_TINTS, TILES, normalizeLayout } from "./layout.js";
 import { createLocationsView, normalizeOverrides } from "./locations_view.js";
-import { createMapView } from "./map_view.js";
+import { createMapView, DUNGEON_STAGES, dungeonEmblem, twilightMotes } from "./map_view.js";
 
 const PROTOCOL_VERSION = 1;
 const params = new URLSearchParams(location.search);
@@ -824,66 +824,78 @@ function mark(on, label, icon) {
   return span;
 }
 
+// The Dungeons tab: each dungeon on a plate of the twilight panel (as the Map's Dungeons list), with
+// its emblem, what was found right-aligned (small keys found / in all, big key or key shards,
+// map, compass, boss, extras; right-click an icon to change it). Click a dungeon for its map.
+let dungeonPanel = null;
 function renderDungeons(dungeons) {
   const items = state?.items ?? {};
-  const table = document.createElement("table");
-  table.className = "dungeons";
-  const head = table.createTHead().insertRow();
-  for (const label of ["Dungeon", "Small Keys", "Big Key", "Map", "Compass", "Boss", "Other"]) {
-    const th = document.createElement("th");
-    th.textContent = label;
-    head.append(th);
+  if (!dungeonPanel) {
+    dungeonPanel = document.createElement("div");
+    dungeonPanel.className = "map-select twilight dungeon-panel";
+    const heading = document.createElement("div");
+    heading.className = "twilight-heading";
+    heading.append(Object.assign(document.createElement("span"), { textContent: "Dungeons" }));
+    const list = document.createElement("div");
+    list.className = "dungeon-rows";
+    dungeonPanel.append(twilightMotes(), heading, list);
   }
-  const body = table.createTBody();
-  for (const d of dungeons) {
-    const row = body.insertRow();
-    if (d.bossDefeated) row.className = "cleared";
+  const key = (n) => String(n).toLowerCase().replace(/[^a-z]/g, "");
+  const rows = dungeons.map((d) => {
+    const index = DUNGEON_STAGES.findIndex(([label]) => key(label) === key(d.name));
+    const [, stage, land] = DUNGEON_STAGES[index] ?? [];
+    const row = document.createElement("div");
+    row.className = "plate twilight-plate dungeon-row" + (d.bossDefeated ? " cleared" : "");
+    const span = (className, text) => Object.assign(document.createElement("span"), { className, textContent: text ?? "" });
+    const nameBox = span("twilight-text");
+    nameBox.append(span("twilight-name", d.name), span("twilight-sub", land ?? ""));
+    row.append(span("twilight-no", index >= 0 ? ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"][index] : ""),
+      stage ? dungeonEmblem(stage) : span("twilight-emblem"), nameBox);
 
-    row.insertCell().textContent = d.name;
-
-    const keys = row.insertCell();
-    keys.className = "keys" + (d.smallKeys >= d.maxSmallKeys ? " complete" : "");
-    keys.textContent = `${d.smallKeys} / ${d.maxSmallKeys}`;
-    keys.title = `Holding ${d.smallKeysHeld}`;
-
-    const bigKey = row.insertCell();
+    const cells = span("dungeon-cells");
+    const keys = span("dungeon-keys" + (d.smallKeys >= d.maxSmallKeys ? " complete" : ""));
+    keys.append(mark(d.smallKeys > 0, `Small Keys found ${d.smallKeys}/${d.maxSmallKeys} (holding ${d.smallKeysHeld})`, DUNGEON_ICONS.smallKey ?? "Small_Key"),
+      span("dungeon-count", `${d.smallKeys}/${d.maxSmallKeys}`));
+    cells.append(keys);
+    const bigKey = span("dungeon-big");
     if (d.name === "Goron Mines") {
       // Key shards replace the big key: show the assembled pieces.
       const shards = items["Goron Mines Key Shard"] ?? 0;
       const shardMark = mark(shards > 0, `Key Shards ${shards}/3`, DUNGEON_ICONS.keyShards[Math.max(0, shards - 1)]);
       shardMark.dataset.iconSet = "keyShards"; // every stage editable, not only the one shown
-      bigKey.append(shardMark);
-      const n = document.createElement("span");
-      n.className = "shards" + (shards >= 3 ? " complete" : "");
-      n.textContent = `${shards}/3`;
-      bigKey.append(n);
+      bigKey.append(shardMark, span("dungeon-count" + (shards >= 3 ? " complete" : ""), `${shards}/3`));
     } else if (d.hasBigKey) {
       bigKey.append(mark(d.bigKey, "Big Key", DUNGEON_ICONS.bigKeys[d.name] ?? DUNGEON_ICONS.bigKey));
-    } else {
-      bigKey.className = "na";
-      bigKey.textContent = "—";
     }
-    row.insertCell().append(mark(d.map, "Map", DUNGEON_ICONS.map));
-    row.insertCell().append(mark(d.compass, "Compass", DUNGEON_ICONS.compass));
+    cells.append(bigKey, mark(d.map, "Map", DUNGEON_ICONS.map), mark(d.compass, "Compass", DUNGEON_ICONS.compass));
     // Boss icon: the field map's boss mark unless one is set in the icon editor; a circle when
     // neither can be drawn.
     const bossIcon = DUNGEON_ICONS.bosses[d.name];
-    const bossCell = row.insertCell();
     const bossMark = mark(d.bossDefeated, "Boss defeated");
     if (bossIcon) {
       bossMark.textContent = "";
       Object.assign(bossMark.dataset, { icon: bossIcon, iconLabel: bossIcon, iconItem: "" });
       bossMark.append(iconImg(bossIcon, "boss-icon", (img) => img.replaceWith(d.bossDefeated ? "●" : "○")));
     }
-    bossCell.append(bossMark);
+    cells.append(bossMark);
+    for (const extra of DUNGEON_EXTRAS[d.name] ?? []) cells.append(mark((items[extra.id] ?? 0) > 0, extra.label, extra.icon));
+    row.append(cells);
 
-    const other = row.insertCell();
-    other.className = "other";
-    for (const extra of DUNGEON_EXTRAS[d.name] ?? []) {
-      other.append(mark((items[extra.id] ?? 0) > 0, extra.label, extra.icon));
+    if (stage) {
+      row.tabIndex = 0;
+      row.title = `Open ${d.name}'s map`;
+      const open = () => {
+        showView("locations");
+        if (locTab === "checks") showLocTab("map");
+        mapView?.showDungeon(stage);
+      };
+      row.addEventListener("click", (e) => { if (!editing) open(); });
+      row.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
     }
-  }
-  views.dungeons.replaceChildren(table);
+    return row;
+  });
+  dungeonPanel.querySelector(".dungeon-rows").replaceChildren(...rows);
+  if (dungeonPanel.parentNode !== views.dungeons) views.dungeons.replaceChildren(dungeonPanel);
 }
 
 // ---- Locations view ----
