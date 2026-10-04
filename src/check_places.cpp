@@ -20,7 +20,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 5";
+constexpr const char* kCacheVersion = "check-places 6";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -682,11 +682,13 @@ void parse_room_file(const std::string& stage, int room, const uint8_t* b, uint3
             } else {
                 continue;
             }
+            // The same check in another room is kept too (a box number can come back in a room
+            // the game does not use for it); resolve_duplicates picks one once all are read.
             Place* known = nullptr;
             for (Place& p : out) {
-                if (p.key == key) known = &p;
+                if (p.key == key && p.room == room) known = &p;
             }
-            const std::string layerKey = stage + "/" + key;
+            const std::string layerKey = stage + "/" + key + "/" + std::to_string(room);
             if (known == nullptr) {
                 out.push_back({key, room, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)});
                 if (layer) g_layered.insert(layerKey);
@@ -694,6 +696,42 @@ void parse_room_file(const std::string& stage, int room, const uint8_t* b, uint3
                 *known = {key, room, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)};
             }
         }
+    }
+}
+
+// A check found in several rooms of a stage: the room the game's map marks it in (a chest's
+// treasure icon, TRES, carries its box number), else one placed for good (not in a layer of one
+// story stage only), else the first.
+void resolve_duplicates() {
+    for (auto& [stage, list] : g_places) {
+        std::vector<Place> out;
+        for (const Place& p : list) {
+            bool seen = false;
+            for (const Place& o : out) seen = seen || o.key == p.key;
+            if (seen) continue;
+            std::vector<const Place*> all;
+            for (const Place& q : list) {
+                if (q.key == p.key) all.push_back(&q);
+            }
+            const Place* pick = all.front();
+            if (all.size() > 1) {
+                unsigned box = 0;
+                const bool chest = std::sscanf(p.key.c_str(), "chest:%*[^:]:%u", &box) == 1;
+                const Place* marked = nullptr;
+                const Place* steady = nullptr;
+                for (const Place* q : all) {
+                    if (chest && marked == nullptr) {
+                        for (const Icon& i : g_icons[stage]) {
+                            if (i.type == 0 && i.room == q->room && static_cast<unsigned>(i.sw) == box) marked = q;
+                        }
+                    }
+                    if (steady == nullptr && !g_layered.count(stage + "/" + q->key + "/" + std::to_string(q->room))) steady = q;
+                }
+                pick = marked != nullptr ? marked : steady != nullptr ? steady : all.front();
+            }
+            out.push_back(*pick);
+        }
+        list = std::move(out);
     }
 }
 
@@ -728,6 +766,7 @@ void update() {
     case Phase::Read:
         if (!tracker::is_playing() && !g_open) break;
         if (g_job >= g_jobs.size()) {
+            resolve_duplicates();
             save_cache();
             g_phase = Phase::Done;
             build_json(true);

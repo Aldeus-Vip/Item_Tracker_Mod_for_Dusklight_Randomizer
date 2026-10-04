@@ -75,7 +75,8 @@
 - Checks placed with the mod (presets): Agitha's 24 rewards across her house in the golden bugs'
   order, Jovani's 20 and 60 Poe Soul rewards in his house. Your own places win over them
   (**Back to preset** undoes yours); **Copy my places** copies yours as JSON for the presets.
-- **Dungeons tab** in the same twilight design: a plate a dungeon (one line each) with its emblem,
+- **Dungeons tab** in the same twilight design: a plate a dungeon (one line each, items in columns
+  under titles) with its emblem,
   the land it is in, and right-aligned the small keys found (used ones too), big key or key shards, map, compass,
   boss and extras. Click a dungeon to open its map. The Map's Dungeons list shows the same counts.
 - Dungeon emblems are the game's own dungeon map parchments, read from the game files when first
@@ -92,12 +93,28 @@
 - Checks: a region filter beside the province's title.
 - debug.html: the dungeon map backgrounds as read from the game, and the items lying around being
   watched for "seen" (distance, in view, clear line), to find out what goes wrong.
+- Under the map, "Which ones ▾" lists the checks on another floor, in another part or not found,
+  with why (no chest with that box number in the stage's files, a shop item, given by a person,
+  ...); click one to pick it and place it by hand.
+- Any check can be moved by hand (its place from the game files is then left; **Back to the
+  game's place** undoes it).
+- Checks: the area a check is listed under (By area, the region filter) can be set in its panel
+  (people's and events' checks otherwise go to "Elsewhere").
+- Maps opened from Other or a province show every part of the place (also those the game shows
+  once a switch is set, as a cave's far rooms), and provinces show the places not visited yet
+  (dimmed), so checks can be found and placed before going there.
 - The Dungeons and Other lists look like the game's menus: a dark twilight panel with drifting
   black squares, gold-ruled headings, and plates that light up with gold corners under the
   cursor. Dungeons are numbered in story order with the land they are in (the per-dungeon colors
   are gone).
 
 ### Fixed
+- A chest whose box number comes back in another room of its stage was put in the wrong room
+  (Lanayru Spring Underwater Left Chest in Lake Hylia, Snowpeak Ruins West Cannon Room Central
+  Chest): the room the game's map marks it in is taken (the check places are read again once).
+- Dungeon map backgrounds (over 1 MiB) could not be sent to the page: the server sends up to 8 MiB.
+- Clicking a check in Checks opens its requirement a moment later, so a double-click (the check on
+  the map) is not taken by the panel opening over it.
 - Items seen from below (a golden bug on a tree beyond a cliff's edge, as Faron Field's Female
   Beetle) were not noted: seen now means on the screen, with a clear line from the camera (not
   from Link's eyes, which cannot see over the edge).

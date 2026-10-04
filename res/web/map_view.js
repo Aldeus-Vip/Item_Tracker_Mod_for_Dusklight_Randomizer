@@ -521,6 +521,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   }
   // Where a check is: found in the game files or placed by hand.
   function placeFor(key, name = key.startsWith("manual:") ? key.slice(7) : null) {
+    if (name && userPlaces()[name]) return { ...userPlaces()[name], key };
     const game = placeIndex.get(key);
     if (game) return game;
     const p = name ? manualPlaces()[name] : null;
@@ -529,7 +530,10 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // A stage's checks: those of the game files (with the randomizer's changes) and those placed by
   // hand.
   function stageChecks(stage, list) {
-    return [...patchedChecks(stage, list ?? []), ...manualChecks(stage)];
+    // A check moved by hand leaves the place the game files give it.
+    const mine = userPlaces();
+    const moved = new Set((checkSource?.list() ?? []).filter((c) => mine[c.name]).map((c) => c.key));
+    return [...patchedChecks(stage, list ?? []).filter((c) => !moved.has(c.key)), ...manualChecks(stage)];
   }
 
   // The check being placed by hand: the next click on a map places it.
@@ -599,7 +603,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const info = checkSource?.list().find((c) => c.name === name);
     if (!info) return;
     const known = placeFor(info.key, info.name);
-    const byHand = !placeIndex.has(info.key) && !!manualPlaces()[info.name];
+    const byHand = !!userPlaces()[info.name] || (!placeIndex.has(info.key) && !!manualPlaces()[info.name]);
     const stageName = byHand ? known.stage : info.key.startsWith("manual:") ? null : info.key.split(":")[1];
     reqName = name;
     checkSource.setFocused(name);
@@ -1026,7 +1030,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // A check without a place in the game files (NPCs, golden wolves, events) is placed by hand.
     const info = reqName ? checkSource.list().find((c) => c.name === reqName) : null;
     let actions = null;
-    if (info && (info.key.startsWith("manual:") || (places?.done && !hasGamePlace(info.key)))) {
+    if (info && (info.key.startsWith("manual:") || places?.done)) {
       const name = reqName;
       const placed = !!manualPlaces()[name];
       const mine = !!userPlaces()[name];
@@ -1034,10 +1038,10 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const now = placing === name;
       actions = el("div", { className: "map-pick-actions" },
         el("button", { type: "button", className: "map-place" + (now ? " active" : ""),
-          textContent: now ? "Click the map to place it (cancel)" : placed ? "Move on map" : "Place on map",
-          title: "Checks given by people, golden wolves and events have no place in the game files: put it where it is",
+          textContent: now ? "Click the map to place it (cancel)" : placed || hasGamePlace(info.key) ? "Move on map" : "Place on map",
+          title: hasGamePlace(info.key) && !mine ? "Put it somewhere else than the game files say (it moves there)" : "Checks given by people, golden wolves and events have no place in the game files: put it where it is",
           onclick: () => { placing = now ? null : name; updatePick(true); } }),
-        mine ? el("button", { type: "button", className: "map-place", textContent: preset ? "Back to preset" : "Remove place",
+        mine ? el("button", { type: "button", className: "map-place", textContent: preset ? "Back to preset" : hasGamePlace(info.key) ? "Back to the game's place" : "Remove place",
           onclick: () => { checkSource.setPlace(name, null); placing = null; sceneKey = ""; render(); updatePick(true); } }) : null,
         Object.keys(userPlaces()).length ? el("button", { type: "button", className: "map-place", textContent: "Copy my places",
           title: "Copy every check you placed (JSON), to send for the mod's presets",
@@ -1472,14 +1476,38 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       else groups.floor.push({ ...c, why: p.floor !== undefined ? floorLabel(p.floor) : "" });
     }
     if (groups.here.length === mine.length) return null;
-    const list = (title, items) => (items.length ? `${title}:\n${items.map((c) => `  ${c.name}${c.why ? ` (${c.why})` : ""}`).join("\n")}\n` : "");
+    for (const c of groups.missing) c.why = missingWhy(c.key);
     const parts = [`${groups.here.length} of ${mine.length} checks of this place on this map`];
     if (groups.floor.length) parts.push(`${groups.floor.length} on another floor`);
     if (groups.room.length) parts.push(`${groups.room.length} in another part of this place`);
     if (groups.missing.length) parts.push(`${groups.missing.length} not found${map.checksAll ? "" : " yet (the game files are being read)"}`);
-    return el("p", { className: "map-check-note",
-      title: list("On another floor", groups.floor) + list("In another part of this place (another room's map)", groups.room) + list("Not found in the game files", groups.missing),
-      textContent: `${parts.join(" · ")}. Hover for which.` });
+    // Which ones, and why (click one to pick it: then it can be placed by hand).
+    const section = (title, items) => (items.length ? el("div", { className: "map-note-group" }, el("h5", { textContent: title }),
+      ...items.map((c) => el("button", { type: "button", className: "map-note-item", title: "Pick it (then Place on map)", onclick: () => {
+        if (reqName !== c.name) checkSource.unmount();
+        reqName = c.name;
+        checkSource.setFocused(c.name);
+        updatePick(true);
+        updateChecks();
+      } }, el("span", { className: "map-note-name", textContent: c.name }), c.why ? el("span", { className: "map-note-why", textContent: c.why }) : null))) : null);
+    return el("details", { className: "map-check-note" },
+      el("summary", { textContent: `${parts.join(" · ")}. Which ones ▾` }),
+      section("On another floor", groups.floor), section("In another part of this place (another room's map)", groups.room),
+      section("Not found in the game files", groups.missing));
+  }
+
+  // Why a check of this place is not on its map.
+  function missingWhy(key) {
+    const [kind, stage, a, b] = key.split(":");
+    const read = places?.done ? "" : " (the game files are still being read)";
+    switch (kind) {
+      case "chest": return `no chest with box number ${a} in ${stage}'s room files${read}`;
+      case "freestanding": return `no item lying around with flag ${a} in ${stage}'s room files (or one the randomizer adds without a place)${read}`;
+      case "poe": return `no poe with switch ${a} in ${stage}'s room files${read}`;
+      case "shop": return `a shop item (room ${a}, item ${b}): the game files place no item for it — place it by hand`;
+      case "golden_wolf": return "a golden wolf: none was found in the game files for it — place it by hand";
+      default: return "given by a person or an event: the game files have no place for it — place it by hand";
+    }
   }
 
   // Statuses change as items come in: the markers follow, and the filter hides or shows them.
@@ -1613,7 +1641,12 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   }
 
   // Stages the map screen shows: those with a visited room, and the one Link is in.
-  function shownStage(stage) {
+  // Places of the overworld Link has been to; the others are drawn too, dimmed (to open their maps
+  // and place checks before getting there).
+  function shownStage() {
+    return true;
+  }
+  function visitedStage(stage) {
     if (stage.part === undefined) return stage.name === map.stage || (visited?.stages?.[stage.name]?.length ?? 0) > 0;
     return (stage.name === map.stage && player?.stayRoom === stage.part) || (visited?.stages?.[stage.name] ?? []).includes(stage.part);
   }
@@ -1656,7 +1689,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         const shown = shownStage(stage);
         // Every stage counts for the extent (the whole map, as in the game, even where Link has not
         // been); only the visited ones are drawn.
-        const area = shown ? svg("g", { class: "map-area" + (place?.stage === stage ? " here" : "") }) : null;
+        const area = shown ? svg("g", { class: "map-area" + (place?.stage === stage ? " here" : "") + (visitedStage(stage) ? "" : " unvisited") }) : null;
         const sb = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity };
         let water = 0;
         const waterPaths = [];
@@ -1860,7 +1893,10 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const remoteMap = stage ? null : stageMap(name);
     map = { stage: name, stayRoom: -1, exists: true, area: true, doors: [], checksAll: !!places?.done, icons: remoteMap?.icons ?? [],
       checks: (places?.stages?.[name] ?? []).map((p) => ({ key: p.key, room: p.room, x: p.x, z: p.z, floor: p.floor ?? 0 })),
-      rooms: rooms.map((r) => ({ ...r, layer: 0, visited: true })), bounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 } };
+      // Every part of the map, also those the game shows only once a switch is set (a cave's far
+      // rooms): this view is for finding and placing checks.
+      rooms: rooms.map((r) => ({ ...r, layer: 0, visited: true,
+        floors: r.floors.map((f) => ({ ...f, groups: f.groups.map((g) => ({ ...g, shown: true })) })) })), bounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 } };
     try {
       const floors = [...new Set(map.rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
       const floor = areaFloor ?? (floors.includes(0) ? 0 : floors[floors.length - 1] ?? 0);
@@ -1999,6 +2035,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
               province: fix.province || provinceOf(region) || provinceOf(it.title) || "Other" };
           });
         })
+        // Places of no province (not in the logic) are left out.
+        .filter((it) => it.province !== "Other")
         .sort((a, b) => a.province.localeCompare(b.province) || a.title.localeCompare(b.title));
       const groups = new Map();
       for (const item of list) {

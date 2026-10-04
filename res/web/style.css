@@ -1520,34 +1520,42 @@ select option:checked { background: #5c5230; color: #fff; }
 .twilight-count-fallback { font-size: 10px; }
 .map-dungeon-list { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
 
-/* The Dungeons tab: the same panel, one plate a dungeon, its items right-aligned */
-.dungeon-panel { max-width: 960px; min-height: 0; display: flex; flex-direction: column; gap: 10px; margin: 0 auto; }
+/* The Dungeons tab: the same panel, one plate a dungeon, its items in columns (titles above) */
+.dungeon-panel { max-width: 1000px; min-height: 0; display: flex; flex-direction: column; gap: 10px; margin: 0 auto; }
 .dungeon-rows { display: flex; flex-direction: column; gap: 10px; padding: 4px; }
-.dungeon-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; }
+.dungeon-row {
+  display: grid;
+  grid-template-columns: 2.2em 46px minmax(0, 1fr) 70px 56px 44px 52px 44px minmax(44px, auto);
+  align-items: center; column-gap: 10px; padding: 7px 12px; cursor: pointer;
+}
+.dungeon-head { cursor: default; padding: 0 16px; margin: 0 4px -4px; box-shadow: none; border: 0; background: none; }
+.dungeon-head .dcell { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-dim); }
+.dungeon-head .twilight-emblem { height: 0; }
+.dcell { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-width: 0; }
+.dcell-other { justify-content: flex-start; flex-wrap: wrap; }
 .dungeon-row.cleared .twilight-name { color: var(--owned); }
-.dungeon-cells { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.dungeon-keys, .dungeon-big { display: inline-flex; align-items: center; gap: 3px; }
 .dungeon-count { font-size: 12px; font-weight: 700; color: var(--muted); }
 .dungeon-keys.complete .dungeon-count, .dungeon-count.complete { color: var(--owned); }
 .dungeon-row .mark { min-width: 0; }
-.dungeon-row .twilight-text { flex: 1 1 auto; min-width: 0; }
+.dungeon-row .twilight-text { min-width: 0; }
 .dungeon-row .twilight-name, .dungeon-row .twilight-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dungeon-cells { flex-wrap: nowrap; flex: none; }
-/* Narrow: everything on one line still, smaller */
+/* Narrow: still one line, smaller columns */
 @media (max-width: 640px) {
   .dungeon-rows { gap: 7px; }
-  .dungeon-row { gap: 6px; padding: 5px 8px; }
+  .dungeon-row { grid-template-columns: 22px minmax(0, 1fr) 46px 30px 24px 24px 26px minmax(22px, auto); column-gap: 4px; padding: 5px 8px; }
+  .dungeon-head { padding: 0 12px; }
   .dungeon-row .twilight-no { display: none; }
   .dungeon-row .twilight-emblem { width: 18px; height: 18px; }
-  .dungeon-row .twilight-emblem.art { width: 28px; height: 28px; }
+  .dungeon-row .twilight-emblem.art { width: 22px; height: 22px; }
+  .dungeon-head .twilight-emblem { height: 0; }
+  .dungeon-head .dcell { font-size: 0; letter-spacing: 0; }
+  .dungeon-head .dcell::after { content: attr(data-short); font-size: 8px; }
   .dungeon-row .twilight-name { font-size: 13px; }
   .dungeon-row .twilight-sub { font-size: 10px; }
-  .dungeon-cells { gap: 3px; }
   .dungeon-row .mark-icon { height: 19px; }
   .dungeon-row .mark .boss-icon { height: 21px; width: 21px; }
   .dungeon-count { font-size: 11px; }
 }
-.map-select.twilight.dungeon-panel { min-height: 0; overflow: hidden; }
 
 /* Other places: change a place's name or province */
 .map-other-button { display: flex; align-items: center; gap: 8px; }
@@ -1561,3 +1569,29 @@ select option:checked { background: #5c5230; color: #fff; }
 /* Check list: one region of the province */
 .loc-region-filter { margin-left: 12px; max-width: 45%; min-width: 0; padding: 3px 6px; border: 1px solid var(--rim-lo); border-radius: 3px; background: linear-gradient(180deg, var(--plate-top), var(--plate-bottom)); color: var(--text); font: inherit; font-size: 12px; }
 .loc-region-filter + .loc-by-area { margin-left: auto; }
+.loc-area-pick { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-size: 12px; color: var(--muted); }
+.loc-area-pick select { padding: 3px 6px; border: 1px solid var(--rim-lo); border-radius: 3px; background: linear-gradient(180deg, var(--plate-top), var(--plate-bottom)); color: var(--text); font: inherit; font-size: 12px; max-width: 70%; }
+/* Places of the overworld not visited yet: drawn, darker */
+.map-area.unvisited { filter: brightness(0.24) saturate(0.25); }
+.map-area.unvisited.lit { filter: brightness(0.8) saturate(0.6) drop-shadow(0 0 4px rgba(150, 255, 220, 0.5)); }
+/* Under the map: which checks are elsewhere or not found, and why */
+details.map-check-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+details.map-check-note > summary { cursor: pointer; list-style: none; }
+details.map-check-note > summary::-webkit-details-marker { display: none; }
+.map-note-group { margin: 6px 0 0; }
+.map-note-group h5 { margin: 0 0 3px; font-size: 11px; color: var(--gold); letter-spacing: 0.05em; }
+.map-note-item { display: flex; flex-wrap: wrap; gap: 2px 10px; width: 100%; padding: 3px 6px; margin: 0 0 2px; text-align: left; border: 1px solid var(--line); border-radius: 3px; background: rgba(0, 0, 0, 0.3); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.map-note-item:hover { border-color: var(--gold-dim); }
+.map-note-why { color: var(--muted); font-size: 11px; }
+/* "By area": a small title over a plate-like box with a gold tick */
+.loc-by-area { flex-direction: column; gap: 2px; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; }
+.loc-by-area { flex-direction: column-reverse; }
+.loc-by-area input {
+  appearance: none; -webkit-appearance: none; margin: 0; width: 18px; height: 18px; display: grid; place-items: center; cursor: pointer;
+  border: 1px solid var(--rim-lo); border-radius: 3px; background: linear-gradient(180deg, var(--plate-top), var(--plate-bottom));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.loc-by-area input::after { content: ""; width: 5px; height: 9px; border: solid var(--gold); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); opacity: 0; filter: drop-shadow(0 0 3px var(--sel-glow)); }
+.loc-by-area input:checked { border-color: var(--rim-hi); background: radial-gradient(circle, var(--sel-glow), transparent 70%), linear-gradient(180deg, var(--sel-top), var(--sel-bottom)); }
+.loc-by-area input:checked::after { opacity: 1; }
+.loc-by-area:hover input { border-color: var(--rim-hi); }

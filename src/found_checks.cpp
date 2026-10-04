@@ -186,8 +186,12 @@ void check_watched() {
         // Within about 50 degrees of where the camera looks.
         const bool inView = camera == nullptr || lookLen < 1.0f || toLen < 1.0f ||
                             (look.x * to.x + look.y * to.y + look.z * to.z) / (lookLen * toLen) > 0.64f;
+        // Also where the item is drawn and marked (its eye and attention points, which can sit well
+        // above its place, as a golden bug on a tree), and higher up.
         const cXyz probes[] = {base + cXyz(0.0f, 20.0f, 0.0f), base + cXyz(0.0f, 50.0f, 0.0f),
-                               toward(cameraEye, 40.0f), toward(cameraEye, 90.0f) + cXyz(0.0f, 20.0f, 0.0f)};
+                               toward(cameraEye, 40.0f), toward(cameraEye, 90.0f) + cXyz(0.0f, 20.0f, 0.0f),
+                               cXyz(actor->eyePos), cXyz(actor->attention_info.position),
+                               base + cXyz(0.0f, 120.0f, 0.0f), base + cXyz(0.0f, 200.0f, 0.0f)};
         std::string clear;
         bool seen = false;
         for (const cXyz& target : probes) {

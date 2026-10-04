@@ -127,7 +127,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {} }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -159,6 +159,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let detailHost = null; // where the Map tab shows a check's row and requirement (under the map)
   let sortReachable = false; // check list: reachable checks first
   let regionFilter = { group: null, region: "" }; // check list: only this region of the province
+  let rowClickTimer = null; // a row's click, held back for a double-click
   let openMenu = null; // toolbar menu kept open across redraws ("regions", "req", "seed")
   let regionsScroll = 0; // scroll position of the Reachable regions menu
 
@@ -655,19 +656,28 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       className: `loc-row plate ${r}` + (loc.name === focused ? " selected" : ""),
       title: { obtained: "Obtained", checked: "Marked as checked", reachable: "Reachable now", blocked: "Not reachable yet", excluded: "Excluded location", unknown: "Not obtained" }[r]
         + (showOnMap ? " · Double-click: show on the map" : ""),
-      onclick: () => {
-        setFocus(loc.name);
-        // Under the map while that is on screen (Checks + Map); otherwise the panel of the list.
-        const host = editing?.host?.isConnected && editing.host.offsetParent !== null ? editing.host : null;
-        if (host) mountDetail(host, loc.name, { row: editing.withRow });
-        else openDetail(loc.name);
+      onclick: (e) => {
+        // Shown a moment later, so a double-click (the check on the map) is not taken by the
+        // requirement panel opening over the row.
+        if (e.detail > 1) return;
+        clearTimeout(rowClickTimer);
+        rowClickTimer = setTimeout(() => {
+          setFocus(loc.name);
+          // Under the map while that is on screen (Checks + Map); otherwise the panel of the list.
+          const host = editing?.host?.isConnected && editing.host.offsetParent !== null ? editing.host : null;
+          if (host) mountDetail(host, loc.name, { row: editing.withRow });
+          else openDetail(loc.name);
+        }, showOnMap ? 280 : 0);
       },
       oncontextmenu: (e) => {
         e.preventDefault();
         setFocus(focused === loc.name ? null : loc.name);
         render();
       },
-      ondblclick: showOnMap ? () => showOnMap(loc.name) : null,
+      ondblclick: showOnMap ? () => {
+        clearTimeout(rowClickTimer);
+        showOnMap(loc.name);
+      } : null,
     }, checkDot(loc.name, r), el("span", { className: "loc-name", textContent: loc.name }),
     (() => {
       const item = foundItem(loc);
@@ -678,6 +688,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
 
   // The area a check is in: the logic region of the room the game places it in (or its shop's).
   function areaOf(loc) {
+    const fixed = getCheckAreas()[loc.name];
+    if (fixed) return fixed;
     const key = checkName(loc);
     const place = key ? placeOf(key) : null;
     if (place) return roomRegion(place.stage, place.room) ?? roomRegion(place.stage, 0) ?? place.stage;
@@ -810,6 +822,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     let shown = locations.filter((l) => l.group === selectedGroup);
     // The logic regions of this province's checks, to show only one of them.
     const regionOfLoc = (loc) => {
+      const fixed = getCheckAreas()[loc.name];
+      if (fixed) return fixed;
       const area = world?.locationAccess.get(loc.name)?.[0]?.area;
       const region = area ? world.areas.get(area)?.region : null;
       return region && region !== "None" ? region : "Other";
@@ -958,6 +972,34 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       el("h3", { textContent: name }),
       el("span", { className: `loc-status ${status}`, textContent: { obtained: "Obtained", checked: "Marked checked", reachable: "Reachable", blocked: "Not reachable", excluded: "Excluded", unknown: "Logic off" }[status] }),
       el("button", { className: "tool", type: "button", textContent: "Close", onclick: () => { closePopup(); editing = null; render(); } })));
+
+    // The area the check is listed under (By area, the region filter): automatic, or set by hand
+    // (people's and events' checks the game files do not place go to "Elsewhere").
+    const loc = locations.find((l) => l.name === name);
+    if (loc) {
+      const auto = (() => {
+        const saved = getCheckAreas()[name];
+        if (!saved) return areaOf(loc);
+        delete getCheckAreas()[name];
+        const a = areaOf(loc);
+        getCheckAreas()[name] = saved;
+        return a;
+      })();
+      const choices = new Set();
+      for (const l of locations) if (l.group === loc.group) choices.add(areaOf(l));
+      // ... and the logic regions of the province's checks.
+      for (const l of locations) {
+        if (l.group !== loc.group) continue;
+        const region = world.areas.get(world.locationAccess.get(l.name)?.[0]?.area)?.region;
+        if (region && region !== "None") choices.add(region);
+      }
+      choices.delete("Elsewhere");
+      const current = getCheckAreas()[name] ?? "";
+      panel.append(el("label", { className: "loc-area-pick" }, "Area ",
+        el("select", { onchange: (e) => { saveCheckArea(name, e.target.value || null); render(); } },
+          el("option", { value: "", textContent: `Automatic (${auto})`, selected: !current }),
+          ...[...choices].sort().map((a) => el("option", { value: a, textContent: a, selected: a === current })))));
+    }
 
     const req = el("div", { className: "loc-req" });
     if (editing.edit && !popup) {

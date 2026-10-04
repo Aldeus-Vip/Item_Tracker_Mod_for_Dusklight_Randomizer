@@ -481,6 +481,8 @@ const DEFAULT_SETTINGS = {
   mapPlaces: {},
   // The Map's Other places renamed or moved to another province: { [entry id]: { title, province } }.
   placeFixes: {},
+  // Areas set by hand for checks (By area, the region filter): { [check name]: area }.
+  checkAreas: {},
 };
 let settings = structuredClone(DEFAULT_SETTINGS);
 const themeBar = document.getElementById("theme-bar");
@@ -517,6 +519,9 @@ function normalizeSettings(raw) {
     const room = Number.isInteger(p.room) && p.room >= -1 && p.room < 64 ? p.room : -1;
     out.mapPlaces[name] = { stage: p.stage, room, x: num(p.x), z: num(p.z), floor: Number.isInteger(p.floor) ? p.floor : 0 };
     if (typeof p.variant === "string" && p.variant.length <= 100) out.mapPlaces[name].variant = p.variant;
+  }
+  for (const [name, area] of Object.entries(raw?.checkAreas ?? {})) {
+    if (name.length <= 200 && typeof area === "string" && area.length <= 80) out.checkAreas[name] = area;
   }
   for (const [id, f] of Object.entries(raw?.placeFixes ?? {})) {
     if (id.length > 140 || !f || typeof f !== "object") continue;
@@ -846,9 +851,18 @@ function renderDungeons(dungeons) {
     const heading = document.createElement("div");
     heading.className = "twilight-heading";
     heading.append(Object.assign(document.createElement("span"), { textContent: "Dungeons" }));
+    // Column titles over the items, which line up from dungeon to dungeon.
+    const head = document.createElement("div");
+    head.className = "dungeon-row dungeon-head";
+    for (const [cls, text, short] of [["twilight-no", ""], ["twilight-emblem", ""], ["twilight-text", ""], ["dcell", "Keys", "Key"],
+      ["dcell", "Big Key", "BK"], ["dcell", "Map", "Map"], ["dcell", "Compass", "Cmp"], ["dcell", "Boss", "Boss"], ["dcell dcell-other", "Other", "+"]]) {
+      const label = Object.assign(document.createElement("span"), { className: cls, textContent: text });
+      if (short) label.dataset.short = short;
+      head.append(label);
+    }
     const list = document.createElement("div");
     list.className = "dungeon-rows";
-    dungeonPanel.append(twilightMotes(), heading, list);
+    dungeonPanel.append(twilightMotes(), heading, head, list);
   }
   const key = (n) => String(n).toLowerCase().replace(/[^a-z]/g, "");
   const rows = dungeons.map((d) => {
@@ -862,12 +876,15 @@ function renderDungeons(dungeons) {
     row.append(span("twilight-no", index >= 0 ? ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"][index] : ""),
       stage ? dungeonEmblem(stage) : span("twilight-emblem"), nameBox);
 
-    const cells = span("dungeon-cells");
-    const keys = span("dungeon-keys" + (d.smallKeys >= d.maxSmallKeys ? " complete" : ""));
+    const cell = (...children) => {
+      const c = span("dcell");
+      c.append(...children);
+      return c;
+    };
+    const keys = span("dcell dungeon-keys" + (d.smallKeys >= d.maxSmallKeys ? " complete" : ""));
     keys.append(mark(d.smallKeys > 0, `Small Keys found ${d.smallKeys}/${d.maxSmallKeys} (holding ${d.smallKeysHeld})`, DUNGEON_ICONS.smallKey ?? "Small_Key"),
       span("dungeon-count", `${d.smallKeys}/${d.maxSmallKeys}`));
-    cells.append(keys);
-    const bigKey = span("dungeon-big");
+    const bigKey = span("dcell dungeon-big");
     if (d.name === "Goron Mines") {
       // Key shards replace the big key: show the assembled pieces.
       const shards = items["Goron Mines Key Shard"] ?? 0;
@@ -877,7 +894,8 @@ function renderDungeons(dungeons) {
     } else if (d.hasBigKey) {
       bigKey.append(mark(d.bigKey, "Big Key", DUNGEON_ICONS.bigKeys[d.name] ?? DUNGEON_ICONS.bigKey));
     }
-    cells.append(bigKey, mark(d.map, "Map", DUNGEON_ICONS.map), mark(d.compass, "Compass", DUNGEON_ICONS.compass));
+    const mapCell = cell(mark(d.map, "Map", DUNGEON_ICONS.map));
+    const compassCell = cell(mark(d.compass, "Compass", DUNGEON_ICONS.compass));
     // Boss icon: the field map's boss mark unless one is set in the icon editor; a circle when
     // neither can be drawn.
     const bossIcon = DUNGEON_ICONS.bosses[d.name];
@@ -887,9 +905,9 @@ function renderDungeons(dungeons) {
       Object.assign(bossMark.dataset, { icon: bossIcon, iconLabel: bossIcon, iconItem: "" });
       bossMark.append(iconImg(bossIcon, "boss-icon", (img) => img.replaceWith(d.bossDefeated ? "●" : "○")));
     }
-    cells.append(bossMark);
-    for (const extra of DUNGEON_EXTRAS[d.name] ?? []) cells.append(mark((items[extra.id] ?? 0) > 0, extra.label, extra.icon));
-    row.append(cells);
+    const other = span("dcell dcell-other");
+    for (const extra of DUNGEON_EXTRAS[d.name] ?? []) other.append(mark((items[extra.id] ?? 0) > 0, extra.label, extra.icon));
+    row.append(keys, bigKey, mapCell, compassCell, cell(bossMark), other);
 
     if (stage) {
       row.tabIndex = 0;
@@ -980,6 +998,13 @@ const locationsView = createLocationsView(locChecks, {
   setStatus,
   // The map knows where the game places each check (for grouping by area) and shows them.
   placeOf: (key) => mapView?.placeOf(key) ?? null,
+  // Areas set by hand for checks of the list (By area, region filter).
+  getCheckAreas: () => settings.checkAreas,
+  saveCheckArea(name, area) {
+    if (area) settings.checkAreas[name] = area;
+    else delete settings.checkAreas[name];
+    saveSettings();
+  },
   showOnMap(name) {
     if (locSplit.dataset.tab === "checks") showLocTab("map");
     mapView?.showCheck(name);

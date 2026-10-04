@@ -740,7 +740,11 @@ bool start(int port) {
     stop();
     mods::net::BindOutcome bound;
     const std::string bind = "tcp://127.0.0.1:" + std::to_string(port);
-    g_listener = mods::net::listen(bind, &bound);
+    // Responses go out whole: room for the largest (a dungeon map background or an uploaded page
+    // background is over the default 1 MiB).
+    NetListenDesc listenDesc = NET_LISTEN_DESC_INIT;
+    listenDesc.max_send_queue_bytes = 8 * 1024 * 1024;
+    g_listener = mods::net::listen(bind, &bound, listenDesc);
     if (!g_listener) {
         mods::log::error("tracker: failed to listen on {} (net error {})", bind,
             static_cast<int>(bound.error));
