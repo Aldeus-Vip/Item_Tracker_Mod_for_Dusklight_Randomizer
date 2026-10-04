@@ -67,8 +67,14 @@
   events) get **Place on map** under their row when picked; the next click on a map puts them
   there (kept in the page's settings; **Move on map** / **Remove place**).
 - Doors opened by a switch are told apart from barred ones.
+- The Dungeons and Other lists look like the game's menus: a dark twilight panel with drifting
+  black squares, gold-ruled headings, and plates that light up with gold corners under the
+  cursor. Dungeons are numbered in story order with the land they are in (the per-dungeon colors
+  are gone).
 
 ### Fixed
+- The mod did not build for Windows, macOS, iOS and Android: Mirror Mode was read from a game
+  setting mods cannot link to. It is now told from how the game projects to the screen.
 - Checks in rooms placed with an offset in their stage (Snowpeak Ruins' West Cannon Room chest,
   Lanayru Spring, ...) were in the wrong place or missing: rooms are moved by their offset and
   turn as the game's map does (the check cache is read again once).

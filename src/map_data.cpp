@@ -8,11 +8,12 @@
 #include "d/d_stage.h"
 #include "d/d_tresure.h"
 #include "d/d_lib.h"
+#include "m_Do/m_Do_lib.h"
+#include "f_op/f_op_view.h"
 #include "JSystem/JKernel/JKRAramArchive.h"
 #include "d/actor/d_a_door_shutter.h"
 #include "f_op/f_op_actor_mng.h"
 #include "check_places.hpp"
-#include "dusk/settings.h"
 #include "tracker_state.hpp"
 
 #include <cmath>
@@ -54,6 +55,45 @@ void write_room(JsonWriter& w, int layer, int roomNo, dDrawPath_c::room_class* r
     w.endObject();
 }
 
+// Whether Mirror Mode is on. The game's setting is not reachable from a mod, but projecting to the
+// screen flips with it (mDoLib_project): two points left and right of where the camera looks
+// change sides. Kept from the last time it could be told.
+bool mirror_mode() {
+    static bool mirrored = false;
+    view_class* view = dComIfGd_getView();
+    Mtx44* m = dComIfGd_getProjViewMtx();
+    if (view == nullptr || m == nullptr) return mirrored;
+    const cXyz& eye = view->lookat.eye;
+    const cXyz& center = view->lookat.center;
+    // Right of the line of sight (on the ground plane).
+    const f32 fx = center.x - eye.x;
+    const f32 fz = center.z - eye.z;
+    const f32 len = std::sqrt(fx * fx + fz * fz);
+    if (len < 1.0f) return mirrored;
+    const f32 rx = -fz / len * 100.0f;
+    const f32 rz = fx / len * 100.0f;
+    Vec a{center.x - rx, center.y, center.z - rz};
+    Vec b{center.x + rx, center.y, center.z + rz};
+    // Unmirrored screen x of a point, as mDoLib_project works it out (up to scale and offset).
+    auto screen_x = [m](const Vec& v, f32& out) {
+        const f32 x = (*m)[0][0] * v.x + (*m)[0][1] * v.y + (*m)[0][2] * v.z + (*m)[0][3];
+        const f32 w = (*m)[3][0] * v.x + (*m)[3][1] * v.y + (*m)[3][2] * v.z + (*m)[3][3];
+        if (w <= 0.0f) return false;
+        out = x / w;
+        return true;
+    };
+    f32 sa = 0;
+    f32 sb = 0;
+    if (!screen_x(a, sa) || !screen_x(b, sb) || std::fabs(sb - sa) < 1e-4f) return mirrored;
+    Vec pa{};
+    Vec pb{};
+    mDoLib_project(&a, &pa);
+    mDoLib_project(&b, &pb);
+    if (std::fabs(pb.x - pa.x) < 0.5f) return mirrored;
+    mirrored = (pb.x - pa.x > 0) != (sb - sa > 0);
+    return mirrored;
+}
+
 // Link's position on the map, his angle and the floor the game puts him on.
 void write_player(JsonWriter& w) {
     const Vec pos = dMapInfo_n::getMapPlayerPos();
@@ -66,7 +106,7 @@ void write_player(JsonWriter& w) {
     w.endObject();
     w.member("wolf", dComIfGs_getTransformStatus() != TF_STATUS_HUMAN);
     // Mirror Mode shows the world (and the game's map) flipped left to right.
-    w.member("mirror", dusk::getSettings().game.enableMirrorMode.getValue());
+    w.member("mirror", mirror_mode());
     if (dMapInfo_c::mNowStayFloorNoDecisionFlg) {
         w.member("stayFloor", static_cast<int>(dMapInfo_c::mNowStayFloorNo));
     }

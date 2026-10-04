@@ -1386,26 +1386,105 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-select { overflow: auto; cursor: auto; display: flex; flex-direction: column; gap: 10px; }
 .map-select, .map-select * { cursor: auto; }
 .map-select button { cursor: pointer; }
-.map-dungeon-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: auto 0; }
-.map-dungeon-button {
-  padding: 12px 10px;
-  border: 1px solid rgba(0, 0, 0, 0.7);
-  border-radius: 6px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--dungeon) 85%, #fff), var(--dungeon) 55%, color-mix(in srgb, var(--dungeon) 70%, #000));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 6px rgba(0, 0, 0, 0.5);
-  font: inherit;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+/* Dungeons and Other lists: a dark twilight panel (orange glow below, the realm's teal above,
+   drifting black squares) with menu plates as in the game's screens. Original art. */
+.map-select.twilight {
+  position: relative;
+  padding: 18px 18px 22px;
+  border: 1px solid var(--rim-lo);
+  border-radius: 4px;
+  background:
+    radial-gradient(90% 55% at 50% 108%, rgba(232, 128, 40, 0.28), transparent 70%),
+    radial-gradient(80% 45% at 50% -8%, rgba(60, 170, 170, 0.18), transparent 70%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 14px),
+    linear-gradient(180deg, #0a0c0b, #050505 60%, #0b0703);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.7), inset 0 0 0 3px var(--rim-lo), inset 0 0 60px rgba(0, 0, 0, 0.85);
+  overflow-x: hidden;
 }
-.map-dungeon-button:hover:not(:disabled) { filter: brightness(1.12); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 10px var(--dungeon); }
-.map-dungeon-button:disabled { opacity: 0.4; cursor: default; }
-.map-other-search { width: 100%; padding: 6px 10px; border: 1px solid var(--gold-dim); border-radius: 4px; background: rgba(0, 0, 0, 0.45); color: var(--text); font: inherit; }
-.map-other-list { display: flex; flex-direction: column; gap: 10px; }
-.map-other-group h4 { margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; color: var(--gold); }
+.map-select.twilight > :not(.twilight-motes) { position: relative; z-index: 1; }
+.twilight-motes { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.twilight-mote {
+  position: absolute;
+  bottom: -14px;
+  background: #000;
+  box-shadow: 0 0 0 1px rgba(255, 150, 60, 0.35), 0 0 6px rgba(255, 140, 50, 0.35);
+  opacity: 0;
+  animation: twilight-rise linear infinite;
+}
+@keyframes twilight-rise {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  15% { opacity: 0.8; }
+  70% { opacity: 0.55; }
+  100% { transform: translate(24px, -110vh) rotate(220deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .twilight-mote { display: none; } }
+
+/* "— ◆ Choose a dungeon ◆ —": gold rules either side, as the game's menu headings */
+.twilight-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(255, 196, 90, 0.35);
+}
+.twilight-heading::before, .twilight-heading::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim));
+}
+.twilight-heading::after { background: linear-gradient(90deg, var(--gold-dim), transparent); }
+.twilight-heading > span::before, .twilight-heading > span::after { content: "◆"; margin: 0 8px; font-size: 8px; vertical-align: 2px; color: var(--gold-dim); }
+
+.map-dungeon-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px 14px; padding: 6px 4px; }
+.twilight-plate { display: flex; align-items: center; gap: 10px; transition: transform 0.12s ease; }
+.map-dungeon-button { padding: 9px 12px; }
+.twilight-no { width: 2.2em; flex: none; text-align: center; color: var(--gold-dim); font-weight: 700; font-size: 12px; letter-spacing: 0.06em; font-family: Georgia, "Times New Roman", serif; }
+.twilight-emblem { width: 22px; height: 22px; flex: none; color: var(--gold-dim); filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.8)); }
+.twilight-emblem svg { width: 100%; height: 100%; display: block; }
+.twilight-text { display: flex; flex-direction: column; min-width: 0; }
+.twilight-name { font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.twilight-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+/* Hover / keyboard focus: the selected plate of the game's menus (gold glow and corner brackets) */
+.twilight-plate:is(:hover, :focus-visible):not(:disabled) {
+  border-color: var(--rim-hi);
+  background:
+    radial-gradient(120% 140% at 15% 50%, var(--sel-glow), transparent 60%),
+    linear-gradient(180deg, var(--sel-top), var(--sel-bottom));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 0 2px var(--rim-hi), 0 0 14px var(--sel-glow);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  outline: none;
+}
+.twilight-plate:is(:hover, :focus-visible):not(:disabled)::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--gold);
+  border-radius: 3px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 3px var(--sel-glow));
+  -webkit-mask: linear-gradient(#000 0 0) top left / 12px 12px no-repeat, linear-gradient(#000 0 0) top right / 12px 12px no-repeat, linear-gradient(#000 0 0) bottom left / 12px 12px no-repeat, linear-gradient(#000 0 0) bottom right / 12px 12px no-repeat;
+  mask: linear-gradient(#000 0 0) top left / 12px 12px no-repeat, linear-gradient(#000 0 0) top right / 12px 12px no-repeat, linear-gradient(#000 0 0) bottom left / 12px 12px no-repeat, linear-gradient(#000 0 0) bottom right / 12px 12px no-repeat;
+}
+.twilight-plate:is(:hover, :focus-visible):not(:disabled) :is(.twilight-emblem, .twilight-no) { color: var(--gold); }
+.twilight-plate:is(:hover, :focus-visible):not(:disabled) .twilight-sub { color: var(--text); }
+.twilight-plate:disabled { opacity: 0.38; cursor: default; filter: grayscale(0.6); }
+
+.map-other-search { width: 100%; padding: 7px 12px; color: var(--text); cursor: text !important; }
+.map-other-search::placeholder { color: var(--muted); }
+.map-other-search:focus { outline: none; border-color: var(--rim-hi); }
+.map-other-list { display: flex; flex-direction: column; gap: 14px; }
+.map-other-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 9px 12px; padding: 0 4px; }
+.map-other-group > h4 { grid-column: 1 / -1; }
 .map-other-group[hidden], .map-other-button[hidden] { display: none; }
-.map-other-button { display: block; width: 100%; margin: 2px 0; padding: 4px 8px; text-align: left; border: 1px solid var(--line); border-radius: 3px; background: rgba(0, 0, 0, 0.35); color: var(--text); font: inherit; font-size: 13px; }
-.map-other-button:hover { border-color: var(--gold-dim); color: var(--gold); }
+.map-other-button { padding: 6px 12px; font-size: 13px; font-weight: 600; letter-spacing: 0.03em; }
+.map-other-button::before { content: "◆"; font-size: 8px; color: var(--gold-dim); }
+.map-other-button:is(:hover, :focus-visible)::before { color: var(--gold); }
 /* The dungeon map screen's icons over the map */
 .map-icon-mark { position: absolute; left: 0; top: 0; display: grid; place-items: center; pointer-events: auto; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
 .map-icon-mark .map-icon { display: contents; }
@@ -1419,3 +1498,5 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-place { font-size: 12px; padding: 2px 8px; border: 1px solid var(--gold-dim); border-radius: 4px; background: rgba(0, 0, 0, 0.35); color: inherit; cursor: pointer; }
 .map-place.active { border-color: var(--gold); background: rgba(214, 169, 44, 0.3); }
 .map-frame.placing { cursor: copy; }
+.map-select.twilight { aspect-ratio: auto; min-height: min(70vh, 640px); max-height: none; touch-action: auto; user-select: auto; }
+.map-select.twilight.centered { justify-content: safe center; }

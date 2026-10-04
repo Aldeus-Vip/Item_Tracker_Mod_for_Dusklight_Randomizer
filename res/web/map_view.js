@@ -121,17 +121,34 @@ const MAP_ICONS = {
 };
 
 // The Dungeons tab: each dungeon's stage and a color of its own.
+// The dungeons in the order of the story, with the land each is in (shown under the name).
 const DUNGEON_STAGES = [
-  ["Forest Temple", "D_MN05", "#2f8a3a"],
-  ["Goron Mines", "D_MN04", "#b8322a"],
-  ["Lakebed Temple", "D_MN01", "#2a64c8"],
-  ["Arbiters Grounds", "D_MN10", "#c9a66b"],
-  ["Snowpeak Ruins", "D_MN11", "#e8eef4"],
-  ["Temple of Time", "D_MN06", "#8fd14f"],
-  ["City in the Sky", "D_MN07", "#6cc7ef"],
-  ["Palace of Twilight", "D_MN08", "#1b1b22"],
-  ["Hyrule Castle", "D_MN09", "#d6a92c"],
+  ["Forest Temple", "D_MN05", "Faron Woods"],
+  ["Goron Mines", "D_MN04", "Death Mountain"],
+  ["Lakebed Temple", "D_MN01", "Lake Hylia"],
+  ["Arbiters Grounds", "D_MN10", "Gerudo Desert"],
+  ["Snowpeak Ruins", "D_MN11", "Snowpeak"],
+  ["Temple of Time", "D_MN06", "Sacred Grove"],
+  ["City in the Sky", "D_MN07", "Above Lake Hylia"],
+  ["Palace of Twilight", "D_MN08", "Twilight Realm"],
+  ["Hyrule Castle", "D_MN09", "Castle Town"],
 ];
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
+
+// A small gold emblem in the manner of the Twili markings (original art).
+const EMBLEM = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1 23 12 12 23 1 12Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 6 18 12 12 18 6 12Z" fill="currentColor" opacity=".85"/><path d="M12 9.5 14.5 12 12 14.5 9.5 12Z" fill="#000" opacity=".55"/></svg>`;
+
+// The twilight's drifting black squares over a list (a few, rising and fading).
+function twilightMotes() {
+  const box = el("div", { className: "twilight-motes", "aria-hidden": "true" });
+  for (let i = 0; i < 16; i++) {
+    const m = el("span", { className: "twilight-mote" });
+    const size = 4 + ((i * 7) % 9);
+    m.style.cssText = `left:${(i * 37) % 100}%; width:${size}px; height:${size}px; animation-delay:${-((i * 1.7) % 12)}s; animation-duration:${10 + ((i * 3) % 8)}s`;
+    box.append(m);
+  }
+  return box;
+}
 
 const floorLabel = (n) => (n >= 0 ? `${n + 1}F` : `B${-n}`);
 
@@ -1657,16 +1674,23 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     sceneKey = key;
     scene = null;
     const known = new Set(places?.maps ?? []);
-    const body = el("div", { className: "map-frame map-select " + (mode === "dungeons" ? "parchment" : "field") });
+    const body = el("div", { className: "map-frame map-select twilight" + (mode === "dungeons" ? " centered" : "") });
+    body.append(twilightMotes());
+    const heading = (text) => el("div", { className: "twilight-heading" }, el("span", { textContent: text }));
     if (mode === "dungeons") {
-      body.append(el("div", { className: "map-dungeon-list" }, ...DUNGEON_STAGES.map(([label, stage, color]) => {
-        const light = ["#e8eef4", "#c9a66b", "#d6a92c", "#8fd14f", "#6cc7ef"].includes(color);
-        return el("button", {
-          type: "button", className: "map-dungeon-button", textContent: label, disabled: !known.has(stage),
+      body.append(heading("Choose a dungeon"), el("div", { className: "map-dungeon-list" }, ...DUNGEON_STAGES.map(([label, stage, land], i) => {
+        const b = el("button", {
+          type: "button", className: "plate twilight-plate map-dungeon-button", disabled: !known.has(stage),
           title: known.has(stage) ? `Open ${label}'s map` : "Its map is known once the game files are read",
-          style: `--dungeon:${color}; color:${light ? "#1a1408" : "#fff8e6"}`,
           onclick: () => openRemote({ name: stage, back: "dungeons" }),
-        });
+        },
+          el("span", { className: "twilight-no", textContent: ROMAN[i] }),
+          el("span", { className: "twilight-emblem" }),
+          el("span", { className: "twilight-text" },
+            el("span", { className: "twilight-name", textContent: label }),
+            el("span", { className: "twilight-sub", textContent: land })));
+        b.querySelector(".twilight-emblem").innerHTML = EMBLEM;
+        return b;
       })));
     } else {
       // Every other stage with a map: houses, caves, grottos, ... by province, with a search.
@@ -1697,9 +1721,9 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       const results = el("div", { className: "map-other-list" });
       for (const [province, items] of groups) {
         results.append(el("div", { className: "map-other-group" },
-          el("h4", { textContent: province }),
+          el("h4", { className: "twilight-heading" }, el("span", { textContent: province })),
           ...items.map((it) => {
-            const b = el("button", { type: "button", className: "map-other-button", title: it.rooms ? `${it.stage} · room ${it.rooms.join(", ")}` : it.stage, textContent: it.title,
+            const b = el("button", { type: "button", className: "plate twilight-plate map-other-button", title: it.rooms ? `${it.stage} · room ${it.rooms.join(", ")}` : it.stage, textContent: it.title,
               onclick: () => openRemote({ name: it.stage, rooms: it.rooms, title: it.title, back: "other" }) });
             b.dataset.search = `${it.title} ${it.stage}`.toLowerCase();
             return b;
@@ -1716,7 +1740,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
           g.hidden = !any;
         }
       };
-      const search = el("input", { type: "search", className: "map-other-search", placeholder: "Search places…", value: selectFilter,
+      const search = el("input", { type: "search", className: "plate map-other-search", placeholder: "Search places…", value: selectFilter,
         oninput: (e) => { selectFilter = e.target.value; filter(); } });
       body.append(search, list.length ? results : el("p", { className: "empty", textContent: "The places are known once the game files are read." }));
       filter();
