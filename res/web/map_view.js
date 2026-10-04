@@ -312,7 +312,8 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
             if (!a?.name || (a.action !== "add" && a.action !== "patch")) continue;
             const prm = Number(a.parameters);
             const from = a.action === "patch" ? actorCheckKey(stage, a.name, prm) : null;
-            const key = actorCheckKey(stage, a.name, a.action === "patch" ? Number(a.patch?.parameters ?? prm) : prm);
+            // A patch can turn an actor into another (golden bugs become heart-piece-like items).
+            const key = a.action === "patch" ? actorCheckKey(stage, a.patch?.name ?? a.name, Number(a.patch?.parameters ?? prm)) : actorCheckKey(stage, a.name, prm);
             if (!key && !from) continue;
             const pos = a.patch?.position ?? a.position ?? {};
             if (!out.has(stage)) out.set(stage, []);
@@ -343,6 +344,59 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       }
     }
     return out;
+  }
+
+  // Checks placed on the map by hand (NPCs, golden wolves, events: no place in the game files),
+  // kept in the page's settings: { [check name]: { stage, room, x, z, floor } }.
+  function manualPlaces() {
+    return checkSource?.manualPlaces?.() ?? {};
+  }
+  function manualChecks(stage) {
+    return Object.entries(manualPlaces()).filter(([, p]) => p.stage === stage)
+      .map(([name, p]) => ({ key: `manual:${name}`, name, room: p.room, x: p.x, z: p.z, floor: p.floor }));
+  }
+  // Whether the game files place a check (shops, golden wolves, people and events: not).
+  function hasGamePlace(key) {
+    if (placeIndex.has(key)) return true;
+    for (const list of patches.values()) if (list.some((ch) => ch.key === key)) return true;
+    return false;
+  }
+  // Where a check is: found in the game files or placed by hand.
+  function placeFor(key, name = key.startsWith("manual:") ? key.slice(7) : null) {
+    const game = placeIndex.get(key);
+    if (game) return game;
+    const p = name ? manualPlaces()[name] : null;
+    return p ? { ...p, key } : null;
+  }
+  // A stage's checks: those of the game files (with the randomizer's changes) and those placed by
+  // hand.
+  function stageChecks(stage, list) {
+    return [...patchedChecks(stage, list ?? []), ...manualChecks(stage)];
+  }
+
+  // The check being placed by hand: the next click on a map places it.
+  let placing = null;
+  function placeAt(at) {
+    if (!placing || !scene || (scene.kind !== "stage" && scene.kind !== "area")) return false;
+    const stage = scene.kind === "area" ? areaPlace?.name : map?.stage;
+    if (!stage) return false;
+    // Its room: the smallest drawn room around the point (none in a dungeon: floors tell them apart).
+    let room = -1;
+    if (!stage.startsWith("D_")) {
+      let best = Infinity;
+      for (const [no, b] of scene.rooms) {
+        if (Math.abs(at.x - b.x) <= b.w / 2 && Math.abs(at.y - b.y) <= b.h / 2 && b.w * b.h < best) {
+          best = b.w * b.h;
+          room = no;
+        }
+      }
+    }
+    checkSource.setPlace(placing, { stage, room, x: Math.round(at.x), z: Math.round(at.y), floor: scene.floor ?? 0 });
+    placing = null;
+    sceneKey = "";
+    render();
+    updatePick(true);
+    return true;
   }
 
   async function fetchPlaces() {
@@ -382,7 +436,9 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
   function showCheck(name) {
     const info = checkSource?.list().find((c) => c.name === name);
     if (!info) return;
-    const stageName = info.key.split(":")[1];
+    const known = placeFor(info.key, info.name);
+    const byHand = !placeIndex.has(info.key) && !!manualPlaces()[info.name];
+    const stageName = byHand ? known.stage : info.key.startsWith("manual:") ? null : info.key.split(":")[1];
     reqName = name;
     checkSource.setFocused(name);
     const center = (x, z) => {
@@ -391,9 +447,17 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       manual = true;
       goTo({ zoom: LEVELS[level], x, y: z });
     };
-    if (map?.exists && map.stage === stageName) {
+    if (!stageName) {
+      updatePick(true);
+      showReq();
+      return;
+    }
+    const here = map?.exists && map.stage === stageName ? stageChecks(map.stage, map.checks).find((c) => (c.name ? c.name === info.name : c.key === info.key)) : null;
+    // A house of the stage Link is in, but not his: shown on its own.
+    const otherRoom = here && isInterior(stageName) && here.room >= 0 && here.room !== player?.stayRoom;
+    if (map?.exists && map.stage === stageName && !otherRoom) {
       if (mode !== "stage") switchStage();
-      const p = map.checks?.find((c) => c.key === info.key);
+      const p = here;
       if (p && map.stage.startsWith("D_") && p.floor !== undefined) pickedFloor = p.floor === player?.stayFloor ? null : p.floor;
       render();
       if (p) center(p.x, p.z);
@@ -402,7 +466,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       return;
     }
     // Another place: its map from the overworld map data, when it is there.
-    const p = placeIndex.get(info.key);
+    const p = known;
     let found = null;
     for (const region of field?.regions ?? []) {
       for (const stage of region.stages) {
@@ -420,7 +484,9 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       return pick();
     }
     if (p && (places?.maps ?? []).includes(stageName)) {
-      openRemote({ name: stageName, back: DUNGEON_STAGES.some(([, st]) => st === stageName) ? "dungeons" : "other" });
+      const one = isInterior(stageName) && p.room >= 0;
+      openRemote({ name: stageName, back: DUNGEON_STAGES.some(([, st]) => st === stageName) ? "dungeons" : "other",
+        ...(one ? { rooms: [p.room], title: regionName(stageName, p.room) ?? placeTitle(stageName) } : {}) });
       if (stageName.startsWith("D_") && p.floor !== undefined) {
         areaFloor = p.floor;
         sceneKey = "";
@@ -474,7 +540,14 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     // The overworld: only the rooms of the place Link is in, as the map screen splits them (Hyrule
     // Field by province; Lake Hylia and Lanayru Spring, one stage with two places).
     if (!dungeon && map.singleRoom) extent = rooms;
-    if (!dungeon && !map.singleRoom) {
+    // Houses, caves, grottos: one stage holds many of them in the same coordinates, so only the
+    // room Link is in.
+    const interior = !dungeon && isInterior(map.stage);
+    if (interior) {
+      const mine = map.rooms.filter((r) => r.no === player.stayRoom);
+      if (mine.length) rooms = extent = mine;
+    }
+    if (!dungeon && !interior && !map.singleRoom) {
       const place = fieldPlace();
       const nos = place && new Set(place.stage.rooms.map((r) => r.no));
       const mine = nos ? map.rooms.filter((r) => nos.has(r.no)) : [];
@@ -500,12 +573,27 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       } else if (scene && scene.kind !== "stage") {
         view = null;
       }
-      build(dungeon, rooms, floors, floor, title, d, extent);
+      build(dungeon, rooms, floors, floor, title, d, extent, mapCaption(map.stage, interior ? [player.stayRoom] : rooms.map((r) => r.no)));
     }
     placeLink();
     updateDoors();
     updateChecks();
     follow();
+  }
+
+  // Whether a stage is a house, a cave, a grotto...: neither a dungeon nor on the overworld.
+  function isInterior(stage) {
+    if (stage.startsWith("D_")) return false;
+    if (field?.ready) return !field.regions.some((r) => r.stages.some((st) => st.name === stage));
+    return !stage.startsWith("F_");
+  }
+
+  // The map loaded, for people (under the map): its stage and rooms.
+  function mapCaption(stage, rooms) {
+    const nos = [...new Set(rooms)].filter((n) => n >= 0).sort((a, b) => a - b);
+    if (!nos.length) return `Map: ${stage}`;
+    if (nos.length > 4) return `Map: ${stage} · ${nos.length} rooms`;
+    return `Map: ${stage} · room${nos.length > 1 ? "s" : ""} ${nos.join(", ")}`;
   }
 
   // Each room's extent on the floor shown (or on any floor when it has nothing there).
@@ -536,7 +624,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     return boxes;
   }
 
-  function build(dungeon, rooms, floors, floor, title, d, extent = rooms) {
+  function build(dungeon, rooms, floors, floor, title, d, extent = rooms, caption = null) {
     // Frame the whole stage (every room and floor, also those not visited yet), so the map keeps
     // its scale as rooms are found and floors change.
     const remote = !!map.area;
@@ -622,7 +710,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     const overlay = el("div", { className: "map-overlay" });
     const boss = d ? bossMark(d, rooms, floor) : null;
     if (boss) overlay.append(boss.node);
-    const checks = buildChecks(dungeon && floors.length > 1 ? floor : null);
+    const checks = buildChecks(dungeon && floors.length > 1 ? floor : null, new Set(rooms.map((r) => r.no)));
     const icons = buildIcons(rooms, dungeon && floors.length > 1 ? floor : null);
     overlay.append(...icons.map((c) => c.node), ...checks.map((c) => c.node));
     const frame = el("div", { className: "map-frame " + (dungeon ? "parchment" : "field"), title: "Click: zoom in · Right-click: zoom out · Drag: move" }, drawing, overlay, reticle);
@@ -635,6 +723,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
         floorButtons,
         el("div", { className: "map-stage" }, frame, zoomBar.node, detailPop()),
         d ? dungeonItems(d) : null),
+      caption ? el("div", { className: "map-caption", textContent: caption }) : null,
       checkSource ? checkNote() : null,
       noticeBox()));
     if (view) view = clampView(view);
@@ -757,11 +846,28 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       };
       row.ondblclick = () => checkSource.jump(reqName);
     }
+    // A check without a place in the game files (NPCs, golden wolves, events) is placed by hand.
+    const info = reqName ? checkSource.list().find((c) => c.name === reqName) : null;
+    let actions = null;
+    if (info && (info.key.startsWith("manual:") || (places?.done && !hasGamePlace(info.key)))) {
+      const name = reqName;
+      const placed = !!manualPlaces()[name];
+      const now = placing === name;
+      actions = el("div", { className: "map-pick-actions" },
+        el("button", { type: "button", className: "map-place" + (now ? " active" : ""),
+          textContent: now ? "Click the map to place it (cancel)" : placed ? "Move on map" : "Place on map",
+          title: "Checks given by people, golden wolves and events have no place in the game files: put it where it is",
+          onclick: () => { placing = now ? null : name; updatePick(true); } }),
+        placed ? el("button", { type: "button", className: "map-place", textContent: "Remove place",
+          onclick: () => { checkSource.setPlace(name, null); placing = null; sceneKey = ""; render(); updatePick(true); } }) : null);
+    }
+    if (placing && placing !== reqName) placing = null;
+    root.querySelector(".map-frame")?.classList.toggle("placing", !!placing);
     // Redrawn only when it changed (statuses update a few times a second).
-    const html = row.outerHTML;
+    const html = row.outerHTML + (actions?.outerHTML ?? "");
     if (!force && html === pickShown) return;
     pickShown = html;
-    slot.replaceChildren(row);
+    slot.replaceChildren(row, ...(actions ? [actions] : []));
   }
 
   function unpick() {
@@ -891,7 +997,8 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       overlay.style.clipPath = `inset(${offY}px ${right}px ${bottom}px ${off}px)`;
     }
     const place = (node, at, px) => {
-      const x = (at.x - vb.x) / k + (rect.width - vb.width / k) / 2;
+      let x = (at.x - vb.x) / k + (rect.width - vb.width / k) / 2;
+      if (mirrored()) x = rect.width - x;
       const y = (at.y - vb.y) / k + (rect.height - vb.height / k) / 2;
       Object.assign(node.style, { width: `${px}px`, height: `${px}px`, transform: `translate(${off + x - px / 2}px, ${offY + y - px / 2}px)` });
     };
@@ -918,6 +1025,8 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
 
   // ---- The view: zoom, drag, and following Link ----
 
+  const mirrored = () => !!player?.mirror;
+  const mirrorSign = () => (mirrored() ? -1 : 1);
   const baseCenter = () => ({ x: scene.base.x + scene.base.w / 2, y: scene.base.y + scene.base.h / 2 });
 
   // Keep the view on the map.
@@ -935,6 +1044,8 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
 
   function applyView() {
     if (!scene) return;
+    // Mirror Mode: the map is flipped left to right, as the game shows it.
+    scene.svg.style.transform = mirrored() ? "scaleX(-1)" : "";
     if (!view) view = clampView({ ...baseCenter(), zoom: LEVELS[level] });
     const { base } = scene;
     const w = base.w / view.zoom;
@@ -1076,15 +1187,17 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
 
   // Markers for the checks the mod found in this stage's rooms, with the status of their marker
   // in Checks; only those on the floor shown (floor null: every one).
-  function buildChecks(floor) {
-    if (!checkSource || (!map.checks?.length && !patches.has(map.stage))) return [];
-    const byKey = new Map(checkSource.list().map((c) => [c.key, c]));
+  function buildChecks(floor, drawnRooms = null) {
+    if (!checkSource) return [];
+    const all = checkSource.list();
+    const byKey = new Map(all.map((c) => [c.key, c]));
+    const byName = new Map(all.map((c) => [c.name, c]));
     // Only rooms of this map: a stage's other rooms can be another map in the same coordinates
     // (Lanayru Spring in Lake Hylia's stage).
-    const drawn = new Set(map.rooms.map((r) => r.no));
+    const drawn = drawnRooms ?? new Set(map.rooms.map((r) => r.no));
     const out = [];
-    for (const place of patchedChecks(map.stage, map.checks)) {
-      const info = byKey.get(place.key);
+    for (const place of stageChecks(map.stage, map.checks)) {
+      const info = place.name ? byName.get(place.name) : byKey.get(place.key);
       if (!info || (floor !== null && place.floor !== undefined && place.floor !== floor)) continue;
       if (place.room >= 0 && !drawn.has(place.room)) continue;
       const node = el("button", { type: "button", className: `map-check ${info.status}`,
@@ -1334,7 +1447,9 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
               area.append(path);
               if ((p.type & 0x3f) === 5) {
                 water += stripArea(v, p.strip);
-                waterPaths.push(path);
+                let cx = 0, cz = 0;
+                for (const i of p.strip) { cx += v[i * 2]; cz += v[i * 2 + 1]; }
+                waterPaths.push({ path, x: cx / p.strip.length, z: cz / p.strip.length });
               }
             }
             if (!area) continue;
@@ -1355,17 +1470,18 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       }
       if (rb.minX !== Infinity) regionBoxes.set(region, { x: (rb.minX + rb.maxX) / 2, y: (rb.minZ + rb.maxZ) / 2, w: rb.maxX - rb.minX, h: rb.maxZ - rb.minZ });
     }
-    // Places that overlap (the Great Bridge of Hylia over Lake Hylia): the water goes with the place
-    // that has the most of it, so the lake is its water and the bridge the rest, for lighting and
-    // picking alike.
-    for (const a of areas) {
-      for (const b of areas) {
-        if (a === b || a.water >= b.water || !a.waterPaths.length) continue;
-        const w = Math.min(a.box.maxX, b.box.maxX) - Math.max(a.box.minX, b.box.minX);
-        const h = Math.min(a.box.maxZ, b.box.maxZ) - Math.max(a.box.minZ, b.box.minZ);
-        if (w <= 0 || h <= 0) continue;
-        for (const path of a.waterPaths) b.node.append(path);
-        a.waterPaths = [];
+    // A small place under a larger one (Lake Hylia under Hyrule Field's Great Bridge of Hylia): the
+    // larger one's water over the small place belongs to the small place, so the lake is its water
+    // and the bridge the rest, for lighting and picking alike.
+    const boxArea = (b) => (b.maxX - b.minX) * (b.maxZ - b.minZ);
+    for (const big of areas) {
+      for (const small of areas) {
+        if (big === small || boxArea(small.box) >= boxArea(big.box) * 0.5) continue;
+        const inside = (w) => w.x >= small.box.minX && w.x <= small.box.maxX && w.z >= small.box.minZ && w.z <= small.box.maxZ;
+        const moving = big.waterPaths.filter(inside);
+        if (!moving.length) continue;
+        for (const w of moving) small.node.prepend(w.path);
+        big.waterPaths = big.waterPaths.filter((w) => !inside(w));
       }
     }
     if (all.minX === Infinity || !areas.length) {
@@ -1477,7 +1593,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
   }
 
   function renderArea() {
-    const { region, stage, name } = areaPlace;
+    const { region, stage, name, rooms: onlyRooms } = areaPlace;
     let rooms = stage?.rooms ?? null;
     if (!rooms) {
       const m = stageMap(name);
@@ -1490,8 +1606,13 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
         return;
       }
       rooms = m.rooms;
+      // One house / cave of a stage holding several.
+      if (onlyRooms) {
+        const mine = rooms.filter((r) => onlyRooms.includes(r.no));
+        if (mine.length) rooms = mine;
+      }
     }
-    const key = JSON.stringify(["area", region?.no ?? null, name, areaFloor, !!places?.done]);
+    const key = JSON.stringify(["area", region?.no ?? null, name, onlyRooms ?? null, areaFloor, !!places?.done]);
     if (key === sceneKey) {
       updateChecks();
       return;
@@ -1508,7 +1629,8 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       const floor = areaFloor ?? (floors.includes(0) ? 0 : floors[floors.length - 1] ?? 0);
       if (!dungeon) for (const c of map.checks) c.floor = floor;
       const d = dungeon ? findDungeon(placeTitle(name)) : null;
-      build(dungeon, map.rooms, floors, floor, placeTitle(name), d);
+      build(dungeon, map.rooms, floors, floor, areaPlace.title ?? placeTitle(name), d, map.rooms,
+        mapCaption(name, map.rooms.map((r) => r.no)));
     } finally {
       map = real;
     }
@@ -1550,10 +1672,21 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       // Every other stage with a map: houses, caves, grottos, ... by province, with a search.
       const onField = new Set((field?.regions ?? []).flatMap((r) => r.stages.map((st) => st.name)));
       const dungeons = new Set(DUNGEON_STAGES.map(([, st]) => st));
+      // A stage of houses holds one house a room: one entry a place (rooms with the same name
+      // together).
       const list = [...known].filter((st) => !onField.has(st) && !dungeons.has(st))
-        .map((st) => {
-          const title = placeTitle(st);
-          return { stage: st, title, province: provinceOf(title) ?? (st.startsWith("D_") ? "Dungeons" : "Other") };
+        .flatMap((st) => {
+          const roomNos = places?.mapRooms?.[st] ?? [];
+          const byTitle = new Map();
+          for (const no of roomNos) {
+            const title = regionName(st, no) ?? placeTitle(st);
+            if (!byTitle.has(title)) byTitle.set(title, []);
+            byTitle.get(title).push(no);
+          }
+          if (!byTitle.size) byTitle.set(placeTitle(st), null);
+          const whole = byTitle.size === 1;
+          return [...byTitle].map(([title, rooms]) => ({ stage: st, title, rooms: whole ? null : rooms,
+            province: provinceOf(title) ?? (st.startsWith("D_") ? "Dungeons" : "Other") }));
         })
         .sort((a, b) => a.province.localeCompare(b.province) || a.title.localeCompare(b.title));
       const groups = new Map();
@@ -1566,7 +1699,8 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
         results.append(el("div", { className: "map-other-group" },
           el("h4", { textContent: province }),
           ...items.map((it) => {
-            const b = el("button", { type: "button", className: "map-other-button", title: it.stage, textContent: it.title, onclick: () => openRemote({ name: it.stage, back: "other" }) });
+            const b = el("button", { type: "button", className: "map-other-button", title: it.rooms ? `${it.stage} · room ${it.rooms.join(", ")}` : it.stage, textContent: it.title,
+              onclick: () => openRemote({ name: it.stage, rooms: it.rooms, title: it.title, back: "other" }) });
             b.dataset.search = `${it.title} ${it.stage}`.toLowerCase();
             return b;
           })));
@@ -1598,7 +1732,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     const r = scene.svg.getBoundingClientRect();
     const vb = scene.svg.viewBox.baseVal;
     const k = Math.max(vb.width / r.width, vb.height / r.height); // "meet" scale
-    return { x: vb.x + vb.width / 2 + (e.clientX - (r.left + r.width / 2)) * k, y: vb.y + vb.height / 2 + (e.clientY - (r.top + r.height / 2)) * k, k };
+    return { x: vb.x + vb.width / 2 + (e.clientX - (r.left + r.width / 2)) * k * mirrorSign(), y: vb.y + vb.height / 2 + (e.clientY - (r.top + r.height / 2)) * k, k };
   }
 
   function bindFrame(frame, reticle) {
@@ -1627,7 +1761,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       if (view.zoom <= 1.001) return;
       const { k } = toMap(e);
       manual = true;
-      view = clampView({ zoom: press.view.zoom, x: press.view.x - dx * k, y: press.view.y - dy * k });
+      view = clampView({ zoom: press.view.zoom, x: press.view.x - dx * k * mirrorSign(), y: press.view.y - dy * k });
       applyView();
       frame.classList.add("dragging");
     });
@@ -1637,7 +1771,7 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       press = null;
       pressing = false;
       frame.classList.remove("dragging");
-      if (!wasDrag && e.type === "pointerup") zoomIn(toMap(e));
+      if (!wasDrag && e.type === "pointerup" && !placeAt(toMap(e))) zoomIn(toMap(e));
     };
     frame.addEventListener("pointerup", release);
     frame.addEventListener("pointercancel", release);
@@ -1716,6 +1850,6 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
     render,
     showCheck,
     // Where the game places a check (stage and room), once the game files are read.
-    placeOf: (key) => placeIndex.get(key) ?? null,
+    placeOf: (key) => placeFor(key),
   };
 }

@@ -162,11 +162,22 @@ void check_watched() {
         // Hidden (under a boulder, behind a wall): not seen yet. Seen means in sight from Link's
         // eyes and from the camera: pressed into a boulder, Link's eyes are inside it and the
         // line from them misses its surface, but the camera behind him is still outside.
-        cXyz target = actor->current.pos;
-        target.y += 20.0f;
-        if (blocked(link->eyePos, target, link)) return false;
+        // A few points on the item: a little above it, higher up, and drawn toward Link (an item on
+        // a tree trunk or a wall sits in its surface, where a line to its center stops short).
         camera_process_class* camera = dComIfGp_getCamera(0);
-        if (camera != nullptr && blocked(camera->view.lookat.eye, target, link)) return false;
+        const cXyz base = actor->current.pos;
+        cXyz toward = cXyz(link->eyePos) - base;
+        const f32 len = toward.abs();
+        if (len > 1.0f) toward *= 40.0f / len;
+        const cXyz probes[] = {base + cXyz(0.0f, 20.0f, 0.0f), base + cXyz(0.0f, 50.0f, 0.0f), base + toward + cXyz(0.0f, 20.0f, 0.0f)};
+        bool seen = false;
+        for (const cXyz& target : probes) {
+            if (blocked(link->eyePos, target, link)) continue;
+            if (camera != nullptr && blocked(camera->view.lookat.eye, target, link)) continue;
+            seen = true;
+            break;
+        }
+        if (!seen) return false;
         add("check:" + w.check + display_suffix(w));
         return true;
     });

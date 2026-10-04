@@ -59,8 +59,23 @@
   the sign on that side's edge; hover a door for what the mod
   knows about it. Pits and rooms not yet opened are
   black, as in the game.
+- **Mirror Mode**: the map is flipped left to right like the game's when Mirror Mode is on.
+- Houses, caves and grottos: a stage holding several shows only the room Link is in, and the
+  Other list has one entry a place (rooms with the same name together). Under every map: the map
+  loaded (stage and rooms).
+- **Place checks by hand**: checks the game files do not place (people, shops, golden wolves,
+  events) get **Place on map** under their row when picked; the next click on a map puts them
+  there (kept in the page's settings; **Move on map** / **Remove place**).
+- Doors opened by a switch are told apart from barred ones.
 
 ### Fixed
+- Checks in rooms placed with an offset in their stage (Snowpeak Ruins' West Cannon Room chest,
+  Lanayru Spring, ...) were in the wrong place or missing: rooms are moved by their offset and
+  turn as the game's map does (the check cache is read again once).
+- Golden bugs and other items the randomizer changes into another kind of item were not noted
+  when only seen; seeing an item now also counts when its top or the side toward Link is in view.
+- Lake Hylia in its province could only be picked on a small part (or took Zora's River's
+  water): see the overlap rule above.
 - Crashes on reset, on loading a save and on some stage changes: the map data and the seen-item
   check read game memory that is not valid while a stage loads or the game resets. They now read
   it only while the game is plainly playing, and the map is served from a copy made then.
@@ -75,8 +90,9 @@
   does not change as rooms are found. Rooms are drawn as the game's map draws them: on stages whose
   map shows one room at a time (Lake Hylia, Lanayru Spring...) only Link's room, elsewhere the
   visited ones (Hyrule Field by province).
-- In a province, where places overlap the water goes with the place that has the most of it, for
-  lighting and picking (Lake Hylia's water under the Great Bridge of Hylia).
+- In a province, where a small place lies under a larger one, the larger one's water over the
+  small place goes with the small place, for lighting and picking (Lake Hylia's water under the
+  Great Bridge of Hylia is Lake Hylia; the bridge and its banks stay the bridge).
 - Locations sub-tabs look like tabs (streaked plates), not like the other buttons.
 - Dungeons tab: the Goron Mines key shard icon can be changed for every stage (1/3, 2/3, 3/3) in
   the icon editor, not only the one shown.

@@ -19,7 +19,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 3";
+constexpr const char* kCacheVersion = "check-places 4";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -143,6 +143,14 @@ struct Icon {
     float z;
 };
 std::map<std::string, std::vector<Icon>> g_icons;
+// Each room's place on the map (FILI: dStage_FileList2_dt_c offset and turn): actors are placed in
+// world coordinates, the map is drawn in map coordinates (dMapInfo_n::correctionOriginPos).
+struct RoomShift {
+    float x = 0;
+    float z = 0;
+    int turn = 0;
+};
+std::map<std::string, std::map<int, RoomShift>> g_shifts;
 std::map<std::string, FloorSpacing> g_floors;
 std::string g_json = R"({"done":false,"read":0,"total":0})";
 
@@ -282,6 +290,11 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
             const auto s16 = [](const uint8_t* p) { return static_cast<float>(static_cast<int16_t>(be16(p))); };
             g_floors[stage] = {s16(data + 0x1A), std::fabs(s16(data + 0x1C)), std::fabs(s16(data + 0x1E)), be16(data + 0x0A) & 7};
         }
+        // (The stage archive's room files carry the map's FILI, dStage_FileList2_dt_c; a room's own
+        // file has another FILI.)
+        if (stageArchiveRoom && roomNo >= 0 && std::memcmp(node, "FILI", 4) == 0 && be32(node + 4) > 0 && data + 0x20 <= b + size) {
+            g_shifts[stage][roomNo] = {befloat(data + 0x14), befloat(data + 0x18), static_cast<int16_t>(be16(data + 0x1C))};
+        }
         if (stageArchiveRoom && roomNo >= 0 && std::memcmp(node, "TRES", 4) == 0) {
             const uint32_t num = be32(node + 4);
             for (uint32_t i = 0; i < num && data + (i + 1) * 0x14 <= b + size && i < 512; i++) {
@@ -392,12 +405,15 @@ void build_json(bool done) {
         for (const auto& [stage, places] : g_places) {
             w.key(stage).beginArray();
             for (const Place& p : places) {
+                float x = p.x;
+                float z = p.z;
+                to_map(stage, p.room, x, z);
                 w.beginObject();
                 w.member("key", p.key);
                 w.member("room", p.room);
-                w.key("x").number(p.x);
+                w.key("x").number(x);
                 w.key("y").number(p.y);
-                w.key("z").number(p.z);
+                w.key("z").number(z);
                 w.member("floor", floor_of(stage, p.y));
                 w.endObject();
             }
@@ -410,6 +426,15 @@ void build_json(bool done) {
             if (!rooms.empty()) w.value(stage);
         }
         w.endArray();
+        // Their rooms (a stage of houses holds one house a room).
+        w.key("mapRooms").beginObject();
+        for (const auto& [stage, rooms] : g_maps) {
+            if (rooms.empty()) continue;
+            w.key(stage).beginArray();
+            for (const auto& [room, json] : rooms) w.value(room);
+            w.endArray();
+        }
+        w.endObject();
     }
     w.endObject();
     g_json = w.str();
@@ -425,6 +450,7 @@ bool load_cache() {
     g_maps.clear();
     g_floors.clear();
     g_icons.clear();
+    g_shifts.clear();
     while (std::getline(in, line)) {
         std::istringstream fields(line);
         std::string kind;
@@ -436,6 +462,10 @@ bool load_cache() {
         } else if (kind == "F") {
             FloorSpacing f;
             if (fields >> f.gap >> f.rangeUp >> f.rangeDown >> f.mapKind) g_floors[stage] = f;
+        } else if (kind == "S") {
+            int room = 0;
+            RoomShift sh;
+            if (fields >> room >> sh.x >> sh.z >> sh.turn) g_shifts[stage][room] = sh;
         } else if (kind == "I") {
             Icon i;
             if (fields >> i.type >> i.room >> i.sw >> i.x >> i.y >> i.z) g_icons[stage].push_back(i);
@@ -456,6 +486,9 @@ void save_cache() {
         for (const Place& p : places) out << "P\t" << stage << '\t' << p.key << '\t' << p.room << ' ' << p.x << ' ' << p.y << ' ' << p.z << "\n";
     }
     for (const auto& [stage, f] : g_floors) out << "F\t" << stage << '\t' << f.gap << ' ' << f.rangeUp << ' ' << f.rangeDown << ' ' << f.mapKind << "\n";
+    for (const auto& [stage, rooms] : g_shifts) {
+        for (const auto& [room, sh] : rooms) out << "S\t" << stage << '\t' << room << ' ' << sh.x << ' ' << sh.z << ' ' << sh.turn << "\n";
+    }
     for (const auto& [stage, icons] : g_icons) {
         for (const Icon& i : icons) out << "I\t" << stage << '\t' << i.type << ' ' << i.room << ' ' << i.sw << ' ' << i.x << ' ' << i.y << ' ' << i.z << "\n";
     }
@@ -465,6 +498,24 @@ void save_cache() {
 }
 
 }  // namespace
+
+void to_map(const std::string& stage, int room, float& x, float& z) {
+    const auto st = g_shifts.find(stage);
+    if (st == g_shifts.end()) return;
+    const auto it = st->second.find(room);
+    if (it == st->second.end()) return;
+    const RoomShift& s = it->second;
+    // mDoMtx YrotS then the offset, as dMapInfo_n::rotAngle / offsetPlus.
+    const float a = s.turn * (3.14159265f / 32768.0f);
+    const float c = std::cos(a);
+    const float n = std::sin(a);
+    const float rx = x * c + z * n;
+    const float rz = -x * n + z * c;
+    x = rx + s.x;
+    z = rz + s.z;
+}
+
+bool shift_known(const std::string& stage) { return g_shifts.count(stage) != 0; }
 
 void parse_room_file(const std::string& stage, int room, const uint8_t* b, uint32_t size, std::vector<Place>& out) {
     if (size != 0 && size < 4) return;
@@ -549,6 +600,7 @@ void update() {
         g_maps.clear();
         g_floors.clear();
         g_icons.clear();
+        g_shifts.clear();
         g_phase = Phase::Read;
         build_json(false);
         break;

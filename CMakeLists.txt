@@ -34,3 +34,5 @@ add_mod(dusklight_item_tracker
         MOD_JSON "${CMAKE_CURRENT_BINARY_DIR}/mod.json"
         RES_DIR res            # web/ holds the tracker page served over HTTP
 )
+# The game's own settings (Mirror Mode) live in its source tree, after the SDK's headers.
+target_include_directories(dusklight_item_tracker AFTER PRIVATE "${DUSKLIGHT_DIR}/src")

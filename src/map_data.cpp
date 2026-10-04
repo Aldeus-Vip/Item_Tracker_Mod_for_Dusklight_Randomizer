@@ -12,6 +12,7 @@
 #include "d/actor/d_a_door_shutter.h"
 #include "f_op/f_op_actor_mng.h"
 #include "check_places.hpp"
+#include "dusk/settings.h"
 #include "tracker_state.hpp"
 
 #include <cmath>
@@ -64,6 +65,8 @@ void write_player(JsonWriter& w) {
     w.member("angle", static_cast<int>(static_cast<u16>(dMapInfo_n::getMapPlayerAngleY())));
     w.endObject();
     w.member("wolf", dComIfGs_getTransformStatus() != TF_STATUS_HUMAN);
+    // Mirror Mode shows the world (and the game's map) flipped left to right.
+    w.member("mirror", dusk::getSettings().game.enableMirrorMode.getValue());
     if (dMapInfo_c::mNowStayFloorNoDecisionFlg) {
         w.member("stayFloor", static_cast<int>(dMapInfo_c::mNowStayFloorNo));
     }
@@ -274,12 +277,27 @@ void write_checks(JsonWriter& w) {
     }
     w.member("checksAll", tracker::places::stage_places(g_checkStage) != nullptr);
     w.key("checks").beginArray();
+    const bool shifts = tracker::places::shift_known(g_checkStage);
     for (const auto& c : all) {
+        // From world to map coordinates by the room's offset and turn.
+        float x = c.x;
+        float z = c.z;
+        if (shifts) {
+            tracker::places::to_map(g_checkStage, c.room, x, z);
+        } else if (c.room >= 0 && c.room < 64) {
+            BE(Vec) pos;
+            pos.x = x;
+            pos.y = c.y;
+            pos.z = z;
+            dMapInfo_n::correctionOriginPos(static_cast<s8>(c.room), &pos);
+            x = pos.x;
+            z = pos.z;
+        }
         w.beginObject();
         w.member("key", c.key);
         w.member("room", c.room);
-        w.key("x").number(c.x);
-        w.key("z").number(c.z);
+        w.key("x").number(x);
+        w.key("z").number(z);
         w.member("floor", static_cast<int>(dMapInfo_c::calcFloorNo(c.y, true, c.room)));
         w.endObject();
     }

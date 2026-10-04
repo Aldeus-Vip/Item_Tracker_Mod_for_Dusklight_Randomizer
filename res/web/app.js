@@ -476,6 +476,9 @@ const DEFAULT_SETTINGS = {
   // Icons changed in the icon editor: { [icon name]: { source: "file" | "game", rev } }. rev
   // changes on every upload so browsers fetch the new image.
   iconOverrides: {},
+  // Checks placed on the map by hand (people, golden wolves, events): { [check name]: { stage,
+  // room, x, z, floor } }.
+  mapPlaces: {},
 };
 let settings = structuredClone(DEFAULT_SETTINGS);
 const themeBar = document.getElementById("theme-bar");
@@ -505,6 +508,12 @@ function normalizeSettings(raw) {
       if (textureRef(o.texture)) entry.texture = o.texture;
       out.iconOverrides[name] = entry;
     }
+  }
+  for (const [name, p] of Object.entries(raw?.mapPlaces ?? {})) {
+    if (name.length > 200 || !p || typeof p !== "object" || typeof p.stage !== "string" || !/^\w{1,8}$/.test(p.stage)) continue;
+    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+    const room = Number.isInteger(p.room) && p.room >= -1 && p.room < 64 ? p.room : -1;
+    out.mapPlaces[name] = { stage: p.stage, room, x: num(p.x), z: num(p.z), floor: Number.isInteger(p.floor) ? p.floor : 0 };
   }
   return out;
 }
@@ -967,6 +976,13 @@ mapView = createMapView(locMap, {
     focused: () => locationsView.focusedName(),
     setFocused: (name) => locationsView.setFocused(name),
     bothShown: () => locSplit.dataset.tab === "both",
+    manualPlaces: () => settings.mapPlaces,
+    setPlace(name, place) {
+      if (place) settings.mapPlaces[name] = place;
+      else delete settings.mapPlaces[name];
+      saveSettings();
+      locationsView.refresh();
+    },
     jump(name) {
       if (locSplit.dataset.tab !== "both") showLocTab("checks");
       locationsView.jumpTo(name);

@@ -23,6 +23,12 @@ struct Place {
 // a loaded file's size is not known), added to out unless already there.
 void parse_room_file(const std::string& stage, int room, const uint8_t* data, uint32_t size, std::vector<Place>& out);
 
+// A position placed in a room (world coordinates) moved to the map's coordinates by the room's
+// offset and turn (FILI), as dMapInfo_n::correctionOriginPos does; unchanged when not known.
+void to_map(const std::string& stage, int room, float& x, float& z);
+// Whether the rooms' offsets of a stage are known.
+bool shift_known(const std::string& stage);
+
 // The file the result is kept in (the mod's data folder).
 void set_cache_file(std::string path);
 

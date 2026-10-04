@@ -1589,12 +1589,14 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     // Logic region of a stage room (the Map tab's title), once the logic data is loaded.
     regionName: (stage, room) => roomRegion(stage, room),
     // The checks the Map tab can place, by the key the mod finds them under (chest:, freestanding:,
-    // poe:): [{ name, key, status }] with the status of the marker left of the check.
+    // poe:; manual:<name> for those placed by hand): [{ name, key, status }] with the status of the marker left of the check.
     mapChecks() {
       const out = [];
       for (const loc of locations) {
-        const key = checkName(loc);
-        if (key) out.push({ name: loc.name, key, status: results.get(loc.name) ?? "unknown" });
+        // Checks without a place in the game files (people, golden wolves, events) can be placed
+        // on the map by hand.
+        const key = checkName(loc) ?? `manual:${loc.name}`;
+        out.push({ name: loc.name, key, status: results.get(loc.name) ?? "unknown" });
       }
       return out;
     },
