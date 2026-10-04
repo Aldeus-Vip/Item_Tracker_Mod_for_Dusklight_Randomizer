@@ -457,10 +457,13 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       }
     }
     const doors = dungeon ? buildDoors(rooms, floor) : [];
+    // Squares first, then every door's signs above all squares (and below Link).
     const doorLayer = svg("g", { class: "map-doors" });
     doorLayer.append(...doors.map((x) => x.node));
+    const doorMarks = svg("g", { class: "map-doors map-door-marks" });
+    doorMarks.append(...doors.map((x) => x.markNode));
     const link = svg("polygon", { class: "map-link" });
-    drawing.append(defs, shapes, stay, outlines, doorLayer, link);
+    drawing.append(defs, shapes, stay, outlines, doorLayer, doorMarks, link);
 
     // Floors, top first, as in the game: Link's face (or the wolf's) beside his floor, outside the
     // button so every floor label lines up.
@@ -524,31 +527,34 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       const square = svg("rect", { class: "map-door-square", x: -50, y: -50, width: 100, height: 100 });
       const marks = [];
       node.append(square);
+      // The signs: a group of their own at the same place, drawn above every door's square.
+      const markNode = svg("g", { class: `map-door ${door.kind}` + (here ? " here" : "") });
       if (door.kind === "key" || door.kind === "boss") {
         const lock = door.kind === "boss" ? LOCK_BIG : LOCK_SMALL;
         const mark = svg("g", { class: "map-door-mark map-door-lock" });
         mark.innerHTML = `<g class="detail-high">${lock.high}</g><g class="detail-low">${lock.low}</g>`;
-        node.append(mark);
+        markNode.append(mark);
         marks.push(mark);
       }
       // Any door can be barred (a room that shuts behind Link): the sign is there, shown when so.
       const bar = svg("g", { class: "map-door-mark map-door-bar" });
       bar.innerHTML = NO_ENTRY;
-      node.append(bar);
+      markNode.append(bar);
       marks.push(bar);
       // A door shut from one side only (it closes behind Link, or opens from one side): the sign on
       // that side's edge of the square; the front faces the door's facing.
       const edges = ["front", "back"].map((side) => {
         const mark = svg("g", { class: `map-door-mark map-door-edge ${side}` });
         mark.innerHTML = NO_ENTRY;
-        node.append(mark);
+        markNode.append(mark);
         return mark;
       });
       node.setAttribute("transform", `translate(${door.x} ${door.z})`);
+      markNode.setAttribute("transform", `translate(${door.x} ${door.z})`);
       square.setAttribute("transform", `rotate(${(door.angle / 65536) * 360})`);
       const title = svg("title");
       node.prepend(title);
-      const item = { node, square, marks, edges, angle: (door.angle / 65536) * Math.PI * 2, index, kind: door.kind, state: "", title,
+      const item = { node, markNode, square, marks, edges, angle: (door.angle / 65536) * Math.PI * 2, index, kind: door.kind, state: "", title,
         label: `${door.name} · ${door.kind} · rooms ${door.rooms[0]} (front) / ${door.rooms[1]} (back)` };
       setDoorState(item, door.state ?? (door.closed ? "C" : door.locked === true ? "L" : door.locked === false ? "U" : "O"));
       out.push(item);
@@ -564,8 +570,10 @@ export function createMapView(root, { getState, regionName, makeIcon, checks: ch
       ?? (door.kind === "key" || door.kind === "boss" ? "locked" : "open");
     if (state === "open" && (door.kind === "key" || door.kind === "boss")) state = "unlocked";
     if (state === door.state) return;
-    door.node.classList.remove(door.state || "none");
-    door.node.classList.add(state);
+    for (const n of [door.node, door.markNode]) {
+      n.classList.remove(door.state || "none");
+      n.classList.add(state);
+    }
     door.state = state;
     door.title.textContent = `${door.label} · ${state}${letter === "?" ? " (state unknown)" : ""}`;
   }
