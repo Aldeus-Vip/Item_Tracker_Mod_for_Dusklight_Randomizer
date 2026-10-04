@@ -652,7 +652,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         setFocus(loc.name);
         // Under the map while that is on screen (Checks + Map); otherwise the panel of the list.
         const host = editing?.host?.isConnected && editing.host.offsetParent !== null ? editing.host : null;
-        if (host) mountDetail(host, loc.name);
+        if (host) mountDetail(host, loc.name, { row: editing.withRow });
         else openDetail(loc.name);
       },
       oncontextmenu: (e) => {
@@ -681,11 +681,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   }
 
   // Shows a check's row and requirement in host (under the map), kept up to date.
-  function mountDetail(host, name) {
+  function mountDetail(host, name, { row = true } = {}) {
     closePopup();
     detailHost = host;
     const existing = getOverrides()[name];
-    editing = { name, routes: existing ? structuredClone(existing) : null, edit: false, host };
+    editing = { name, routes: existing ? structuredClone(existing) : null, edit: false, host, withRow: row };
     setFocus(name);
     render();
   }
@@ -851,7 +851,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         const loc = locations.find((l) => l.name === editing.name);
         const panel = renderDetail();
         panel.classList.add("embedded");
-        detailHost.replaceChildren(...(loc ? [checkRow(loc, overrides)] : []), panel);
+        detailHost.replaceChildren(...(loc && editing.withRow ? [checkRow(loc, overrides)] : []), panel);
         detailHost.hidden = false;
       } else {
         detailHost.replaceChildren();
@@ -1617,6 +1617,15 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       return panel;
     },
     focusedName: () => focused,
+    // A check's row as in the list (its own buttons work; the caller may replace the row's clicks).
+    rowFor(name) {
+      const loc = locations.find((l) => l.name === name);
+      return loc ? checkRow(loc, getOverrides()) : null;
+    },
+    // The province (the Reachable Regions group) of a logic region.
+    provinceOf(region) {
+      return mapGroups.find((g) => g.regions.includes(region))?.title ?? null;
+    },
     // Highlight a check (null: none), as a right click in the list does.
     setFocused(name) {
       setFocus(name);

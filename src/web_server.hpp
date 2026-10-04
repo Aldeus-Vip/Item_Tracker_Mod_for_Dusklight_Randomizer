@@ -87,6 +87,10 @@ void set_field_map_source(MapProvider map, MapProvider visited);
 // Where the checks are in every stage (see check_places.hpp). Enables /check-places.
 void set_places_source(MapProvider places);
 
+// A stage's map by name ("" when not known). Enables /stage-map/<stage>.
+using StageMapProvider = std::string (*)(const std::string& stage);
+void set_stage_map_source(StageMapProvider maps);
+
 // The randomizer's seeds folder (seeds/<hash>/). Enables /rando-seeds/.
 void set_seeds_dir(std::string dir);
 

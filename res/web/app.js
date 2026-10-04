@@ -961,7 +961,8 @@ mapView = createMapView(locMap, {
   // Checks on the map: a right click (or any click with Checks + Map) shows the check in Checks.
   checks: {
     list: () => locationsView.mapChecks(),
-    mount: (host, name) => locationsView.mountDetail(host, name),
+    mount: (host, name, opts) => locationsView.mountDetail(host, name, opts),
+    row: (name) => locationsView.rowFor(name),
     unmount: () => locationsView.unmountDetail(),
     focused: () => locationsView.focusedName(),
     setFocused: (name) => locationsView.setFocused(name),
@@ -972,6 +973,7 @@ mapView = createMapView(locMap, {
     },
   },
   onPlaces: () => locationsView.refresh(),
+  provinceOf: (region) => locationsView.provinceOf(region),
 });
 locMap.addEventListener("contextmenu", onIconContextMenu);
 showLocTab(locTab);

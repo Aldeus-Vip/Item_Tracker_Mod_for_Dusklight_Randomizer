@@ -32,8 +32,13 @@ void update();
 // The places of one stage (nullptr when not known yet).
 const std::vector<Place>* stage_places(const std::string& stage);
 
-// {"done", "read", "total", "stages": {"<stage>": [{"key", "room", "x", "y", "z"}]}} ("stages" once
-// done; "read" / "total" archives while reading).
+// {"done", "read", "total", "stages": {"<stage>": [{"key", "room", "x", "y", "z", "floor"}]},
+//  "maps": [stage with a map]} ("stages" and "maps" once done; "read" / "total" archives while
+// reading).
 const std::string& cached_json();
+
+// A stage's map, read from its room files: {"stage", "rooms": [{"no", "floors", "vertices"}]} in
+// the format of map_data.hpp ("" when not known).
+std::string stage_map_json(const std::string& stage);
 
 }  // namespace tracker::places

@@ -7,7 +7,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <map>
@@ -16,7 +18,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 1";
+constexpr const char* kCacheVersion = "check-places 2";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 uint32_t be32(const uint8_t* p) {
@@ -118,6 +120,14 @@ std::string g_cacheFile;
 std::vector<Job> g_jobs;
 size_t g_job = 0;
 std::map<std::string, std::vector<Place>> g_places;
+// Each stage's map (rooms' shapes as JSON objects, by room) and its floor spacing (STAG).
+std::map<std::string, std::map<int, std::string>> g_maps;
+struct FloorSpacing {
+    float gap = 0;
+    float rangeUp = 0;
+    float rangeDown = 0;
+};
+std::map<std::string, FloorSpacing> g_floors;
 std::string g_json = R"({"done":false,"read":0,"total":0})";
 
 // The archive being read.
@@ -159,6 +169,117 @@ void list_jobs() {
     }
 }
 
+// A room's map shapes (MPAT: room_class, floors, groups, polys, lines; offsets from the room's
+// start, see dMpath_c::setPointer) as JSON in the format of map_data.hpp, or "" if not valid.
+std::string room_map_json(int roomNo, const uint8_t* file, uint32_t size, const uint8_t* room) {
+    const uint8_t* end = file + size;
+    auto inside = [&](const uint8_t* p, uint32_t n) { return p >= file && p + n <= end; };
+    if (!inside(room, 12)) return "";
+    const int floorNum = room[0];
+    const uint8_t* floors = room + be32(room + 4);
+    const uint8_t* floats = room + be32(room + 8);
+    if (floorNum < 1 || floorNum > 16 || !inside(floors, floorNum * 8)) return "";
+    JsonWriter w;
+    w.beginObject();
+    w.member("no", roomNo);
+    int maxIndex = -1;
+    auto strip = [&](const uint8_t* data, int count) -> bool {
+        if (!inside(data, count * 2)) return false;
+        w.key("strip").beginArray();
+        for (int i = 0; i < count; i++) {
+            const int index = be16(data + i * 2);
+            maxIndex = std::max(maxIndex, index);
+            w.value(index);
+        }
+        w.endArray();
+        return true;
+    };
+    w.key("floors").beginArray();
+    for (int f = 0; f < floorNum; f++) {
+        const uint8_t* fl = floors + f * 8;
+        const int groupNum = fl[1];
+        const uint8_t* groups = room + be32(fl + 4);
+        if (!inside(groups, groupNum * 0x14)) return "";
+        w.beginObject();
+        w.member("no", static_cast<int>(static_cast<int8_t>(fl[0])));
+        w.key("groups").beginArray();
+        for (int g = 0; g < groupNum; g++) {
+            const uint8_t* gr = groups + g * 0x14;
+            const int sw = gr[0];
+            const int swType = gr[1];
+            const int lineNum = gr[2];
+            const int polyNum = gr[4];
+            const uint8_t* lines = room + be32(gr + 8);
+            const uint8_t* polys = room + be32(gr + 0x10);
+            if ((lineNum && !inside(lines, lineNum * 8)) || (polyNum && !inside(polys, polyNum * 8))) return "";
+            w.beginObject();
+            w.member("sw", sw);
+            w.member("swType", swType);
+            // Another stage's switches are not known here: groups shown by default.
+            w.member("shown", sw == 0xFF || swType == 0);
+            w.key("polys").beginArray();
+            for (int i = 0; i < polyNum; i++) {
+                const uint8_t* p = polys + i * 8;
+                w.beginObject();
+                w.member("type", static_cast<int>(p[0]));
+                if (!strip(room + be32(p + 4), p[1])) return "";
+                w.endObject();
+            }
+            w.endArray();
+            w.key("lines").beginArray();
+            for (int i = 0; i < lineNum; i++) {
+                const uint8_t* l = lines + i * 8;
+                w.beginObject();
+                w.member("type", static_cast<int>(l[0]));
+                w.member("width", static_cast<int>(l[1]));
+                if (!strip(room + be32(l + 4), l[2])) return "";
+                w.endObject();
+            }
+            w.endArray();
+            w.endObject();
+        }
+        w.endArray();
+        w.endObject();
+    }
+    w.endArray();
+    if (!inside(floats, (maxIndex + 1) * 8)) return "";
+    w.key("vertices").beginArray();
+    for (int i = 0; i <= maxIndex; i++) {
+        w.number(befloat(floats + i * 8));
+        w.number(befloat(floats + i * 8 + 4));
+    }
+    w.endArray();
+    w.endObject();
+    return w.str();
+}
+
+// The map of a room file (its MPAT chunk), and the floor spacing of a stage file (STAG).
+void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint32_t size) {
+    const uint32_t chunks = be32(b);
+    if (chunks > 256 || 4 + chunks * 12 > size) return;
+    for (uint32_t c = 0; c < chunks; c++) {
+        const uint8_t* node = b + 4 + c * 12;
+        const uint8_t* data = chunk_data(b, node);
+        if (data < b || data + 8 > b + size) continue;
+        if (std::memcmp(node, "STAG", 4) == 0 && data + 0x20 <= b + size) {
+            const auto s16 = [](const uint8_t* p) { return static_cast<float>(static_cast<int16_t>(be16(p))); };
+            g_floors[stage] = {s16(data + 0x1A), std::fabs(s16(data + 0x1C)), std::fabs(s16(data + 0x1E))};
+        }
+        if (roomNo < 0 || (std::memcmp(node, "MPAT", 4) != 0 && std::memcmp(node, "MPA0", 4) != 0)) continue;
+        if (g_maps[stage].count(roomNo)) continue;
+        // The room data: where the entry offset points (from the file, or from the field), or
+        // right after the chunk's header.
+        const uint32_t off = be32(data + 4);
+        for (const uint8_t* room : {b + off, data + 4 + off, data + 8}) {
+            std::string json = room_map_json(roomNo, b, size, room);
+            if (!json.empty()) {
+                g_maps[stage][roomNo] = std::move(json);
+                break;
+            }
+        }
+    }
+}
+
 void parse_archive(const Job& job) {
     std::vector<uint8_t> plain;
     const std::vector<uint8_t>* arc = &g_buffer;
@@ -180,6 +301,7 @@ void parse_archive(const Job& job) {
         std::vector<uint8_t> file;
         if (!yaz0_decode(raw, file)) file = std::move(raw);
         parse_room_file(job.stage, room, file.data(), static_cast<uint32_t>(file.size()), out);
+        parse_room_map(job.stage, room, file.data(), static_cast<uint32_t>(file.size()));
     }
 }
 
@@ -214,6 +336,24 @@ bool step_read() {
     return true;
 }
 
+// The floor of a height in a stage, as dMapInfo_c::calcFloorNo works it out from the stage's floor
+// spacing (without the room limits only known for the stage being played).
+int floor_of(const std::string& stage, float y) {
+    const auto it = g_floors.find(stage);
+    if (it == g_floors.end() || it->second.gap <= 0) return 0;
+    const FloorSpacing& f = it->second;
+    int floorNo = static_cast<int>(std::floor(y / f.gap));
+    const float base = floorNo * f.gap;
+    const float up = base + f.rangeUp;
+    const float down = base + f.gap - f.rangeDown;
+    if (y < up) {
+        if (y >= down && y >= 0.5f * (down + up)) floorNo++;
+    } else {
+        floorNo++;
+    }
+    return floorNo;
+}
+
 void build_json(bool done) {
     JsonWriter w;
     w.beginObject();
@@ -231,28 +371,47 @@ void build_json(bool done) {
                 w.key("x").number(p.x);
                 w.key("y").number(p.y);
                 w.key("z").number(p.z);
+                w.member("floor", floor_of(stage, p.y));
                 w.endObject();
             }
             w.endArray();
         }
         w.endObject();
+        // The stages whose map can be shown (/stage-map/<stage>).
+        w.key("maps").beginArray();
+        for (const auto& [stage, rooms] : g_maps) {
+            if (!rooms.empty()) w.value(stage);
+        }
+        w.endArray();
     }
     w.endObject();
     g_json = w.str();
 }
 
+// The cache: "P\tstage\tkey\troom x y z", "F\tstage\tgap up down", "M\tstage\troom\t<json>".
 bool load_cache() {
     if (g_cacheFile.empty()) return false;
     std::ifstream in(g_cacheFile);
     std::string line;
     if (!std::getline(in, line) || line != kCacheVersion) return false;
     g_places.clear();
+    g_maps.clear();
+    g_floors.clear();
     while (std::getline(in, line)) {
         std::istringstream fields(line);
+        std::string kind;
         std::string stage;
-        Place p;
-        if (std::getline(fields, stage, '\t') && std::getline(fields, p.key, '\t') && (fields >> p.room >> p.x >> p.y >> p.z)) {
-            g_places[stage].push_back(std::move(p));
+        if (!std::getline(fields, kind, '\t') || !std::getline(fields, stage, '\t')) continue;
+        if (kind == "P") {
+            Place p;
+            if (std::getline(fields, p.key, '\t') && (fields >> p.room >> p.x >> p.y >> p.z)) g_places[stage].push_back(std::move(p));
+        } else if (kind == "F") {
+            FloorSpacing f;
+            if (fields >> f.gap >> f.rangeUp >> f.rangeDown) g_floors[stage] = f;
+        } else if (kind == "M") {
+            std::string room;
+            std::string json;
+            if (std::getline(fields, room, '\t') && std::getline(fields, json)) g_maps[stage][std::atoi(room.c_str())] = json;
         }
     }
     return true;
@@ -263,7 +422,11 @@ void save_cache() {
     std::ofstream out(g_cacheFile, std::ios::trunc);
     out << kCacheVersion << "\n";
     for (const auto& [stage, places] : g_places) {
-        for (const Place& p : places) out << stage << '\t' << p.key << '\t' << p.room << ' ' << p.x << ' ' << p.y << ' ' << p.z << "\n";
+        for (const Place& p : places) out << "P\t" << stage << '\t' << p.key << '\t' << p.room << ' ' << p.x << ' ' << p.y << ' ' << p.z << "\n";
+    }
+    for (const auto& [stage, f] : g_floors) out << "F\t" << stage << '\t' << f.gap << ' ' << f.rangeUp << ' ' << f.rangeDown << "\n";
+    for (const auto& [stage, rooms] : g_maps) {
+        for (const auto& [room, json] : rooms) out << "M\t" << stage << '\t' << room << '\t' << json << "\n";
     }
 }
 
@@ -337,6 +500,8 @@ void update() {
         list_jobs();
         g_job = 0;
         g_places.clear();
+        g_maps.clear();
+        g_floors.clear();
         g_phase = Phase::Read;
         build_json(false);
         break;
@@ -365,5 +530,19 @@ const std::vector<Place>* stage_places(const std::string& stage) {
 }
 
 const std::string& cached_json() { return g_json; }
+
+std::string stage_map_json(const std::string& stage) {
+    if (g_phase != Phase::Done) return "";
+    const auto it = g_maps.find(stage);
+    if (it == g_maps.end() || it->second.empty()) return "";
+    std::string out = R"({"stage":")" + stage + R"(","rooms":[)";
+    bool first = true;
+    for (const auto& [room, json] : it->second) {
+        if (!first) out += ',';
+        out += json;
+        first = false;
+    }
+    return out + "]}";
+}
 
 }  // namespace tracker::places

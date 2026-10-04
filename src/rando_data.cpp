@@ -22,6 +22,7 @@ constexpr const char* kFiles[] = {
     "items.yaml",
     "settings_list.yaml",
     "entrance_shuffle_data.yaml",  // stage/room of each area, to mark the region Link is in
+    "object_patches.yaml",         // actors the randomizer adds or changes (where its checks are)
     "world/Root.yaml",
     "world/overworld/Ordona Province.yaml",
     "world/overworld/Faron Province.yaml",

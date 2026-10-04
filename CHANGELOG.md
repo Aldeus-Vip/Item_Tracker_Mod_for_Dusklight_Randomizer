@@ -22,15 +22,19 @@
   click to zoom back in.
 - **Checks on the map**: chests, items lying around (heart pieces, small keys too) and poes are
   placed where they are, with the marker of the check list (reachable, not reachable, checked,
-  ...). The mod finds them in the game files once (a bar shows the progress; the result is kept
-  in its data folder), so every room of every place has its checks, also places opened from the
-  province map. Boxes above the map choose which statuses are shown.
-  - Click a check: it is highlighted, and its row of the check list and its requirement panel (with
-    their buttons) show under the map. Right-click: highlight only. Double-click: the check in
-    the check list.
-  - In Checks, double-click a check to see it on the map (its map, centered, highlighted, with its
-    details).
+  ...), also where the randomizer adds or moves items. The mod finds them in the game files once
+  (a bar shows the progress; the result is kept in its data folder). **Checks Filter ▾** above
+  the map chooses which statuses are shown.
+  - Click a check to pick it: its row of the check list shows above the map (with its buttons).
+    Click the row for its requirement over the map; right-click the row (or the check) to unpick.
+    Right-click another check to highlight it. Double-click: the check in the check list.
+  - In Checks, double-click a check to see it on the map (its map, centered, picked).
   - **By area** (beside the check list's title) groups the checks by the area they are in.
+  - Under the map: how many of the place's checks are on this map, on another floor, in another
+    part of the place or not found (hover for which).
+- **Field / Dungeons / Other** tabs above the map: Hyrule and its provinces; every dungeon's map
+  (buttons in the dungeons' colors); and every other place with a map (houses, caves, grottos...)
+  by province, with a search. Their maps come from the game files; zoom out to go back.
 - Province and Hyrule views look like the game's map screen: dark, with the place (or province)
   under the cursor lit and named under the map. They are framed on the whole province (or
   Hyrule), also where Link has not been. Clicking another place of a province opens its map (zoom
@@ -57,7 +61,13 @@
 
 ### Changed
 - Map: when the pane is narrow, floors and the dungeon's items sit below the map, which uses the
-  full width; when wide, the floors are left of the map and the items in a row under it.
+  full width; when wide, the floors are left of the map and the items in a column right of it.
+  Many floors get smaller buttons, and with Checks + Map the map pane scrolls on its own.
+- Dungeon (and other) maps are framed on all their rooms, also those not visited yet, so the scale
+  does not change as rooms are found. On the overworld, only the place Link is in is drawn (Hyrule
+  Field by province; Lake Hylia and Lanayru Spring apart).
+- In a province, water picks the place below where places overlap (Lake Hylia under the Great
+  Bridge of Hylia).
 - Locations sub-tabs look like tabs (streaked plates), not like the other buttons.
 - Dungeons tab: the Goron Mines key shard icon can be changed for every stage (1/3, 2/3, 3/3) in
   the icon editor, not only the one shown.

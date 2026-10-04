@@ -255,6 +255,7 @@ MOD_EXPORT ModResult mod_initialize(ModError* error) {
     // Built each frame only when safe (see map_data.hpp); the server sends the last copy.
     tracker::web::set_map_source([] { return tracker::map::cached_map(); }, [] { return tracker::map::cached_player(); });
     tracker::web::set_places_source([] { return tracker::places::cached_json(); });
+    tracker::web::set_stage_map_source([](const std::string& stage) { return tracker::places::stage_map_json(stage); });
     tracker::web::set_field_map_source([] { return tracker::fieldmap::cached_map(); },
                                        [] { return tracker::fieldmap::cached_visited(); });
     tracker::rando::download(logic_data_ref(), /*force=*/false);

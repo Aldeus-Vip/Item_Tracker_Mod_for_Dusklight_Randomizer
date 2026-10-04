@@ -209,6 +209,14 @@ createServer(async (req, res) => {
     return res.end(JSON.stringify(out));
   }
   // PLACES_JSON: /check-places (src/check_places.hpp) as the mod serves it once read.
+  // STAGE_MAPS: {"<stage>": [rooms]} for /stage-map/<stage> (src/check_places.hpp).
+  if (path.startsWith("/stage-map/")) {
+    const maps = process.env.STAGE_MAPS ? JSON.parse(await readFile(process.env.STAGE_MAPS, "utf8")) : {};
+    const stage = decodeURIComponent(path.slice(11));
+    if (!maps[stage]) return res.writeHead(404).end();
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end(JSON.stringify({ stage, rooms: maps[stage] }));
+  }
   if (path === "/check-places") {
     const out = process.env.PLACES_JSON ? await readFile(process.env.PLACES_JSON, "utf8") : JSON.stringify({ done: false, read: 0, total: 0 });
     res.writeHead(200, { "Content-Type": TYPES[".json"] });

@@ -58,6 +58,7 @@ MapProvider g_mapPlayer = nullptr;
 MapProvider g_fieldMap = nullptr;
 MapProvider g_fieldMapVisited = nullptr;
 MapProvider g_places = nullptr;
+StageMapProvider g_stageMaps = nullptr;
 
 // Icons are at most a few hundred KB; anything larger is not an icon.
 constexpr std::uintmax_t kMaxIconBytes = 4 * 1024 * 1024;
@@ -660,6 +661,15 @@ bool handle_request(Client& client, const Request& req) {
         else send_response(client, "200 OK", "application/json; charset=utf-8", g_mapPlayer());
         return false;
     }
+    if (target.starts_with("/stage-map/")) {
+        const std::string stage{target.substr(11)};
+        const bool plain = !stage.empty() && stage.size() <= 8 &&
+                           std::all_of(stage.begin(), stage.end(), [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; });
+        const std::string json = plain && g_stageMaps != nullptr ? g_stageMaps(stage) : std::string{};
+        if (json.empty()) send_error(client, "404 Not Found");
+        else send_response(client, "200 OK", "application/json; charset=utf-8", json);
+        return false;
+    }
     if (target == "/check-places") {
         if (g_places == nullptr) send_error(client, "404 Not Found");
         else send_response(client, "200 OK", "application/json; charset=utf-8", g_places());
@@ -873,6 +883,10 @@ void set_map_source(MapProvider map, MapProvider player) {
 void set_field_map_source(MapProvider map, MapProvider visited) {
     g_fieldMap = map;
     g_fieldMapVisited = visited;
+}
+
+void set_stage_map_source(StageMapProvider maps) {
+    g_stageMaps = maps;
 }
 
 void set_places_source(MapProvider places) {

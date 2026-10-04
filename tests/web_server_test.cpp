@@ -235,6 +235,10 @@ int main() {
     check(request(http("GET", "/map")).ends_with(R"({"exists":false})"), "GET /map");
     check(request(http("GET", "/field-map")).ends_with(R"({"ready":false})"), "GET /field-map");
     check(request(http("GET", "/field-map-visited")).ends_with(R"({"stages":{}})"), "GET /field-map-visited");
+    tracker::web::set_stage_map_source([](const std::string& stage) { return stage == "D_MN05" ? std::string{"{}"} : std::string{}; });
+    check(request(http("GET", "/stage-map/D_MN05")).ends_with("{}"), "GET /stage-map/<stage>");
+    check(status_is(request(http("GET", "/stage-map/F_SP999")), "404"), "unknown stage map is 404");
+    check(status_is(request(http("GET", "/stage-map/..%2Fx")), "404"), "odd stage name is 404");
 
     check(status_is(request(http("GET", "/game-textures/itemicon/")), "404"), "no textures without a provider");
     tracker::web::set_game_textures(

@@ -1307,3 +1307,101 @@ select option:checked { background: #5c5230; color: #fff; }
 .map-progress { position: relative; height: 18px; border: 1px solid var(--gold-dim); border-radius: 9px; overflow: hidden; background: rgba(0, 0, 0, 0.4); }
 .map-progress-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, #2a9cc0, #7fe0ff); transition: width 0.4s; }
 .map-progress-text { position: relative; display: block; text-align: center; font-size: 11px; line-height: 18px; color: #fff; text-shadow: 0 1px 2px #000; }
+
+/* ---- Above the map: tabs (Field / Dungeons / Other) left, the check filter right ---- */
+.map-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.map-tabs { display: flex; gap: 4px; }
+.map-tab {
+  position: relative;
+  padding: 5px 14px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.6);
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(150, 150, 140, 0.28), rgba(60, 60, 50, 0.4));
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.map-tab:hover { color: var(--text); }
+.map-tab.selected { color: var(--gold); box-shadow: inset 0 -2px 0 var(--gold-dim); }
+.map-filter-menu { position: relative; }
+.map-filter-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+  padding: 10px 12px;
+  background: var(--bar);
+  border: 1px solid var(--gold-dim);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+}
+.map-filter-pop[hidden] { display: none; }
+
+/* The picked check: its row of the check list, or an empty row until one is picked */
+.map-pick { min-height: 38px; }
+.map-pick > .loc-row { width: 100%; }
+.map-pick-empty { justify-content: center; color: var(--muted); font-style: italic; opacity: 0.7; cursor: default; }
+
+/* Its requirement over the map, the map showing through */
+.map-stage { position: relative; }
+.map-detail-pop {
+  position: absolute;
+  inset: 8px 46px auto 8px;
+  max-height: calc(100% - 16px);
+  overflow: auto;
+  z-index: 4;
+  border-radius: 8px;
+  background: rgba(16, 15, 9, 0.55);
+  backdrop-filter: blur(1.5px);
+}
+.map-detail-pop[hidden] { display: none; }
+.map-detail-pop .loc-detail.embedded { background: transparent; }
+
+/* Wide: the dungeon's items in a column right of the map */
+@container (min-width: 560px) {
+  .map-pane.has-items .map-layout { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "floors map items"; }
+  .map-pane.has-items .map-items { grid-template-columns: var(--tile); align-self: center; }
+}
+/* Many floors: smaller buttons so they all fit */
+.map-floors.compact { gap: 4px; }
+.map-floors.compact .map-floor { font-size: 14px; padding: 3px 12px 3px 18px; min-width: 72px; }
+.map-floors.compact .map-floor-marker, .map-floors.compact .map-floor-face { width: 24px; height: 24px; }
+.map-floors.compact .map-floor-row { grid-template-columns: 24px auto; }
+/* Checks + Map: the map pane scrolls on its own when taller than the window */
+.loc-split[data-tab="both"] .loc-map-pane { max-height: calc(100vh - var(--bar-h, 0px) - var(--loc-sub-h, 0px) - 20px); overflow-y: auto; }
+
+/* The Dungeons and Other lists, in the map's frame */
+.map-select { overflow: auto; cursor: auto; display: flex; flex-direction: column; gap: 10px; }
+.map-select, .map-select * { cursor: auto; }
+.map-select button { cursor: pointer; }
+.map-dungeon-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: auto 0; }
+.map-dungeon-button {
+  padding: 12px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.7);
+  border-radius: 6px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dungeon) 85%, #fff), var(--dungeon) 55%, color-mix(in srgb, var(--dungeon) 70%, #000));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 6px rgba(0, 0, 0, 0.5);
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+.map-dungeon-button:hover:not(:disabled) { filter: brightness(1.12); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 10px var(--dungeon); }
+.map-dungeon-button:disabled { opacity: 0.4; cursor: default; }
+.map-other-search { width: 100%; padding: 6px 10px; border: 1px solid var(--gold-dim); border-radius: 4px; background: rgba(0, 0, 0, 0.45); color: var(--text); font: inherit; }
+.map-other-list { display: flex; flex-direction: column; gap: 10px; }
+.map-other-group h4 { margin: 0 0 4px; font-size: 12px; letter-spacing: 0.08em; color: var(--gold); }
+.map-other-group[hidden], .map-other-button[hidden] { display: none; }
+.map-other-button { display: block; width: 100%; margin: 2px 0; padding: 4px 8px; text-align: left; border: 1px solid var(--line); border-radius: 3px; background: rgba(0, 0, 0, 0.35); color: var(--text); font: inherit; font-size: 13px; }
+.map-other-button:hover { border-color: var(--gold-dim); color: var(--gold); }
