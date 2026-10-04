@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tracker Debug</title>
+<style>
+  :root { color-scheme: dark; --bg: #0d0e09; --text: #ece6c6; --muted: #8f8a6c; --gold: #d8cf9f; --line: #3a3826; --ok: #7ed98c; --bad: #e06c6c; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; color: var(--gold); margin: 0 0 12px; }
+  h2 { font-size: 15px; color: var(--gold); margin: 24px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  p { color: var(--muted); margin: 4px 0 10px; }
+  table { border-collapse: collapse; width: 100%; max-width: 900px; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  th { color: var(--gold); font-weight: 600; font-size: 12px; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  .arts { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  figure { margin: 0; border: 1px solid var(--line); padding: 8px; border-radius: 4px; }
+  figcaption { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .art { position: relative; cursor: crosshair; }
+  .art img { width: 100%; display: block; image-rendering: auto; }
+  .art .dot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; border: 2px solid #ff4; pointer-events: none; }
+  .pos { font: 12px ui-monospace, monospace; color: var(--gold); margin-top: 4px; min-height: 1.4em; }
+</style>
+</head>
+<body>
+<h1>Tracker debug</h1>
+
+<h2>Items lying around being watched (this stage)</h2>
+<p>Updates every second. <b>clear</b>: one digit per point on the item (above it, higher, toward the camera, farther toward the camera); 1 = the camera sees it. Seen needs a 1, <b>inView</b> and a distance up to 3000.</p>
+<table><thead><tr><th>Check</th><th>Distance</th><th>inView</th><th>clear</th><th>Seen</th></tr></thead><tbody id="seen"></tbody></table>
+
+<h2>Dungeon map backgrounds (bg.bti)</h2>
+<p>Read from the game files on request. Click on a picture: the point's place in % (x, y) shows under it — send it for the emblem's position.</p>
+<pre id="status" class="pos"></pre>
+<div class="arts" id="arts"></div>
+
+<script>
+  const STAGES = [["Forest Temple", "D_MN05"], ["Goron Mines", "D_MN04"], ["Lakebed Temple", "D_MN01"], ["Arbiters Grounds", "D_MN10"],
+    ["Snowpeak Ruins", "D_MN11"], ["Temple of Time", "D_MN06"], ["City in the Sky", "D_MN07"], ["Palace of Twilight", "D_MN08"], ["Hyrule Castle", "D_MN09"]];
+
+  async function seen() {
+    try {
+      const list = await (await fetch("game-textures/seen/", { cache: "no-store" })).json();
+      document.getElementById("seen").replaceChildren(...(list.length ? list : [{ check: "(none)" }]).map((w) => {
+        const tr = document.createElement("tr");
+        for (const [v, cls] of [[w.check], [w.distance ?? ""], [w.inView ?? "", w.inView ? "ok" : "bad"], [w.clear ?? ""], [w.seen ?? "", w.seen ? "ok" : "bad"]]) {
+          const td = document.createElement("td");
+          td.textContent = String(v);
+          if (cls && w.distance !== undefined) td.className = cls;
+          tr.append(td);
+        }
+        return tr;
+      }));
+    } catch {}
+  }
+  setInterval(seen, 1000);
+  seen();
+
+  async function status() {
+    try {
+      const s = await (await fetch("game-textures/dungeon/", { cache: "no-store" })).json();
+      document.getElementById("status").textContent = Object.entries(s).map(([k, v]) => `${k}: ${v}`).join("\n");
+    } catch {}
+  }
+
+  const arts = document.getElementById("arts");
+  for (const [name, stage] of STAGES) {
+    const fig = document.createElement("figure");
+    const cap = document.createElement("figcaption");
+    cap.textContent = `${name} (${stage})`;
+    const box = document.createElement("div");
+    box.className = "art";
+    const img = document.createElement("img");
+    img.alt = name;
+    const pos = document.createElement("div");
+    pos.className = "pos";
+    pos.textContent = "loading…";
+    let tries = 0;
+    img.onload = () => { pos.textContent = `${img.naturalWidth} × ${img.naturalHeight} px`; };
+    img.onerror = () => {
+      if (++tries > 20) { pos.textContent = "could not be read (see the state above)"; return; }
+      setTimeout(() => { img.src = `game-textures/dungeon/${stage}.png?try=${tries}`; }, 1500);
+    };
+    img.src = `game-textures/dungeon/${stage}.png`;
+    const dot = document.createElement("div");
+    dot.className = "dot";
+    dot.hidden = true;
+    box.addEventListener("click", (e) => {
+      const r = img.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width) * 100;
+      const y = ((e.clientY - r.top) / r.height) * 100;
+      dot.hidden = false;
+      dot.style.left = `${x}%`;
+      dot.style.top = `${y}%`;
+      pos.textContent = `${stage}: x ${x.toFixed(1)}%, y ${y.toFixed(1)}%  (${img.naturalWidth} × ${img.naturalHeight} px)`;
+    });
+    box.append(img, dot);
+    fig.append(cap, box, pos);
+    arts.append(fig);
+  }
+  setInterval(status, 2000);
+  status();
+</script>
+</body>
+</html>

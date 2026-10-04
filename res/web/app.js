@@ -479,6 +479,8 @@ const DEFAULT_SETTINGS = {
   // Checks placed on the map by hand (people, golden wolves, events): { [check name]: { stage,
   // room, x, z, floor } }.
   mapPlaces: {},
+  // The Map's Other places renamed or moved to another province: { [entry id]: { title, province } }.
+  placeFixes: {},
 };
 let settings = structuredClone(DEFAULT_SETTINGS);
 const themeBar = document.getElementById("theme-bar");
@@ -514,6 +516,14 @@ function normalizeSettings(raw) {
     const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
     const room = Number.isInteger(p.room) && p.room >= -1 && p.room < 64 ? p.room : -1;
     out.mapPlaces[name] = { stage: p.stage, room, x: num(p.x), z: num(p.z), floor: Number.isInteger(p.floor) ? p.floor : 0 };
+    if (typeof p.variant === "string" && p.variant.length <= 100) out.mapPlaces[name].variant = p.variant;
+  }
+  for (const [id, f] of Object.entries(raw?.placeFixes ?? {})) {
+    if (id.length > 140 || !f || typeof f !== "object") continue;
+    const fix = {};
+    if (typeof f.title === "string" && f.title.length <= 80) fix.title = f.title;
+    if (typeof f.province === "string" && f.province.length <= 60) fix.province = f.province;
+    if (fix.title || fix.province) out.placeFixes[id] = fix;
   }
   return out;
 }
@@ -979,6 +989,10 @@ mapView = createMapView(locMap, {
   getState: () => state,
   regionName: (stage, room) => locationsView.regionName(stage, room),
   roomName: (stage, room) => locationsView.roomName(stage, room),
+  roomVariants: (stage, room) => locationsView.roomVariants(stage, room),
+  areaChecks: (area) => locationsView.areaChecks(area),
+  checkRegion: (name) => locationsView.checkRegion(name),
+  areaRegion: (area) => locationsView.areaRegion(area),
   makeIcon: (name, className, fallback) => iconImg(name, className, (img) => img.replaceWith(fallback ?? "")),
   // Checks on the map: a right click (or any click with Checks + Map) shows the check in Checks.
   checks: {
@@ -990,6 +1004,13 @@ mapView = createMapView(locMap, {
     setFocused: (name) => locationsView.setFocused(name),
     bothShown: () => locSplit.dataset.tab === "both",
     manualPlaces: () => settings.mapPlaces,
+    // Names and provinces of the Map's Other places changed by hand.
+    placeFixes: () => settings.placeFixes,
+    setPlaceFix(id, fix) {
+      if (fix) settings.placeFixes[id] = fix;
+      else delete settings.placeFixes[id];
+      saveSettings();
+    },
     setPlace(name, place) {
       if (place) settings.mapPlaces[name] = place;
       else delete settings.mapPlaces[name];

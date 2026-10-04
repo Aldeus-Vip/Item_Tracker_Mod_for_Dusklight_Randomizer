@@ -1530,8 +1530,34 @@ select option:checked { background: #5c5230; color: #fff; }
 .dungeon-count { font-size: 12px; font-weight: 700; color: var(--muted); }
 .dungeon-keys.complete .dungeon-count, .dungeon-count.complete { color: var(--owned); }
 .dungeon-row .mark { min-width: 0; }
-@media (max-width: 560px) {
-  .dungeon-row { flex-wrap: wrap; }
-  .dungeon-cells { width: 100%; justify-content: flex-start; }
+.dungeon-row .twilight-text { flex: 1 1 auto; min-width: 0; }
+.dungeon-row .twilight-name, .dungeon-row .twilight-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dungeon-cells { flex-wrap: nowrap; flex: none; }
+/* Narrow: everything on one line still, smaller */
+@media (max-width: 640px) {
+  .dungeon-rows { gap: 7px; }
+  .dungeon-row { gap: 6px; padding: 5px 8px; }
+  .dungeon-row .twilight-no { display: none; }
+  .dungeon-row .twilight-emblem { width: 18px; height: 18px; }
+  .dungeon-row .twilight-emblem.art { width: 28px; height: 28px; }
+  .dungeon-row .twilight-name { font-size: 13px; }
+  .dungeon-row .twilight-sub { font-size: 10px; }
+  .dungeon-cells { gap: 3px; }
+  .dungeon-row .mark-icon { height: 19px; }
+  .dungeon-row .mark .boss-icon { height: 21px; width: 21px; }
+  .dungeon-count { font-size: 11px; }
 }
 .map-select.twilight.dungeon-panel { min-height: 0; overflow: hidden; }
+
+/* Other places: change a place's name or province */
+.map-other-button { display: flex; align-items: center; gap: 8px; }
+.map-other-edit { margin-left: auto; padding: 0 4px; color: var(--muted); opacity: 0; font-size: 12px; cursor: pointer; }
+.map-other-button:is(:hover, :focus-within) .map-other-edit { opacity: 0.9; }
+.map-other-edit:hover { color: var(--gold); }
+@media (hover: none) { .map-other-edit { opacity: 0.6; } }
+.map-fix-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px; grid-column: span 2; }
+.map-fix-title, .map-fix-province { padding: 4px 8px; color: var(--text); font-size: 12px; cursor: auto !important; }
+.map-fix-title { flex: 1 1 140px; min-width: 0; }
+/* Check list: one region of the province */
+.loc-region-filter { margin-left: 12px; max-width: 45%; min-width: 0; padding: 3px 6px; border: 1px solid var(--rim-lo); border-radius: 3px; background: linear-gradient(180deg, var(--plate-top), var(--plate-bottom)); color: var(--text); font: inherit; font-size: 12px; }
+.loc-region-filter + .loc-by-area { margin-left: auto; }

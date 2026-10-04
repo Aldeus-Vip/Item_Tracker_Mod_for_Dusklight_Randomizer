@@ -57,13 +57,17 @@ export function buildRoomRegions(entranceData, world) {
 const POSSESSIVE = { Agithas: "Agitha's", Jovanis: "Jovani's", Telmas: "Telma's", Seras: "Sera's", Bos: "Bo's", Coros: "Coro's",
   Renados: "Renado's", Links: "Link's", Doctors: "Doctor's", Barnes: "Barnes'", Impaz: "Impaz's", Zoras: "Zora's" };
 export function buildRoomNames(entranceData, world) {
-  const names = new Map(); // "stage/room" -> Set of names
+  const places = new Map(); // "stage/room" -> Map of name -> { name, area, type }
   for (const entry of entranceData ?? []) {
     if (!["Interior", "Cave", "Grotto"].includes(entry?.Type)) continue;
     const side = entry.Forward;
-    const target = String(side?.Connection ?? "").split(" -> ")[1];
+    const [from, target] = String(side?.Connection ?? "").split(" -> ");
     const stage = STAGE_NAMES[side?.Stage];
     if (!target || !stage || typeof side.Room !== "number") continue;
+    const regionOf = (area) => {
+      const r = world?.areas.get(area)?.region;
+      return r && r !== "None" ? r : null;
+    };
     let name = target.replace(/ (?:(?:North|South|East|West|Front|Back|Left|Right)(?: (?:East|West))? Door Interior|Lower|Upper|Interior|Elevator)$/, "");
     const region = world?.areas.get(target)?.region;
     if (entry.Type === "Interior") for (const prefix of [region, "Castle Town", "Kakariko", "Ordon", "Faron Woods", "Death Mountain", "Hidden Village"]) {
@@ -74,17 +78,26 @@ export function buildRoomNames(entranceData, world) {
     }
     name = name.split(" ").map((w) => POSSESSIVE[w] ?? w).join(" ");
     const key = `${stage}/${side.Room}`;
-    if (!names.has(key)) names.set(key, new Set());
-    names.get(key).add(name);
+    if (!places.has(key)) places.set(key, new Map());
+    if (!places.get(key).has(name)) places.get(key).set(name, { name, area: target, type: entry.Type, region: regionOf(target) ?? regionOf(from) });
   }
-  return (stage, room) => {
-    const set = names.get(`${stage}/${room}`);
-    if (!set) return null;
-    const all = [...set];
-    // Grottos built alike share one room: "Grottos: Ordon Ranch / Faron Field Corner / ...".
-    if (all.length > 1 && all.every((n) => n.endsWith(" Grotto"))) return `Grottos: ${all.map((n) => n.slice(0, -7)).join(" / ")}`;
-    return all.join(" / ");
+  // One room used by several grottos (built alike): each grotto is a place of its own.
+  const variants = (stage, room) => {
+    const all = [...(places.get(`${stage}/${room}`)?.values() ?? [])];
+    return all.length > 1 && all.every((p) => p.type === "Grotto") ? all : [];
   };
+  const name = (stage, room) => {
+    const all = [...(places.get(`${stage}/${room}`)?.keys() ?? [])];
+    if (!all.length) return null;
+    if (all.length > 1 && variants(stage, room).length) return `Grottos: ${all.map((n) => n.replace(/ Grotto$/, "")).join(" / ")}`;
+    if (all.length === 1) return all[0];
+    // Two doors of one place ("Eldin Field Lava Cave Upper" / "... Lower"): what their names share.
+    const words = all.map((n) => n.split(" "));
+    let n = 0;
+    while (words.every((w) => w.length > n && w[n] === words[0][n])) n++;
+    return n >= 2 ? words[0].slice(0, n).join(" ") : all.join(" / ");
+  };
+  return { name, variants };
 }
 
 // Region groups shown on the left, as in the randomizer's in-game tracker tab.

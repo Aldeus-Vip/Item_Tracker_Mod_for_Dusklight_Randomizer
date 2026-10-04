@@ -131,6 +131,14 @@ const NPC_NAMES = {
   grA: "Goron", grC: "Goron", grD: "Goron", grD1: "Goron", grM: "Goron", grMC: "Goron", grO: "Goron", grR: "Goron", grS: "Goron", grZ: "Goron",
   zrA: "Zora", zrC: "Zora", zrD: "Zora", zrR: "Zora", zrS: "Zora", zrSP: "Zora", zrSPA: "Zora", zrWF: "Zora", zrZ: "Zora",
 };
+// People named in check names, by the actors that stand for them (for placing their checks).
+const PERSON_ACTORS = {
+  Agitha: ["ins"], Jovani: ["Pouya"], Sera: ["Seira", "Seira2"], Barnes: ["Bans"], Talo: ["Taro"], Malo: ["Maro", "sMaro"],
+  Beth: ["Besu"], Colin: ["Kolin", "Kolinb"], Rusl: ["Moi", "MoiR"], Uli: ["Uri"], Bo: ["Bou", "BouS"], Ilia: ["Yelia"],
+  Telma: ["The", "TheB"], Renado: ["Len"], Luda: ["Lud"], Hanch: ["Hanjo"], Jaggle: ["Jagar"], Impaz: ["impal"], Hena: ["Henna", "Henna0"],
+  Yeto: ["ykM"], Yeta: ["ykW"], Auru: ["Rafrel"], Ashei: ["Ash", "AshB"], Shad: ["Shad"], Doctor: ["Doc"], Borville: ["Doc"], Postman: ["Post"],
+};
+
 // Original glyphs for people and golden wolves on the map.
 const PERSON_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3.4" fill="currentColor"/><path d="M3.5 18c0-4.2 2.9-7 6.5-7s6.5 2.8 6.5 7z" fill="currentColor"/></svg>`;
 const WOLF_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3l3.5 4L10 5.5 13.5 7 17 3l-.6 7.2L10 18 3.6 10.2z" fill="currentColor"/><circle cx="7.6" cy="10" r="1" fill="#000"/><circle cx="12.4" cy="10" r="1" fill="#000"/></svg>`;
@@ -219,7 +227,7 @@ const linePath = (v, strip) => strip.map((i, n) => `${n ? "L" : "M"}${v[i * 2]} 
  * @param options.makeIcon     (name, className, fallbackText) => <img> of a tracker icon (follows the
  *                             icon settings; right-click opens the icon editor via data-icon)
  */
-export function createMapView(root, { getState, regionName, roomName = null, makeIcon, checks: checkSource = null, onPlaces = null, provinceOf = () => null }) {
+export function createMapView(root, { getState, regionName, roomName = null, roomVariants = null, areaChecks = null, checkRegion = null, areaRegion = null, makeIcon, checks: checkSource = null, onPlaces = null, provinceOf = () => null }) {
   let visible = false;
   let map = null; // last /map
   let player = null; // last /map-player
@@ -403,6 +411,17 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
     }
   }
 
+  // A place in a room's own coordinates moved to the map's: the room's turn and offset in its stage
+  // (FILI, as the mod applies to the places it finds; Lanayru Spring, Upper Zoras River...).
+  function roomToMap(stage, room, x, z) {
+    const sh = places?.shifts?.[stage]?.[room];
+    if (!sh) return [x, z];
+    const a = (sh[2] * Math.PI) / 32768;
+    const c = Math.cos(a);
+    const n = Math.sin(a);
+    return [x * c + z * n + sh[0], -x * n + z * c + sh[1]];
+  }
+
   // A stage's check places with the randomizer's changes: renamed ones take their new name, added
   // ones are added (their floor is the one of the place they replace, or unknown).
   function patchedChecks(stage, list) {
@@ -415,7 +434,8 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
         if (ch.key) old.key = ch.key;
         else out.splice(out.indexOf(old), 1);
       } else if (ch.key && !out.some((c) => c.key === ch.key)) {
-        out.push({ key: ch.key, room: ch.room, x: ch.x, z: ch.z, floor: undefined });
+        const [x, z] = roomToMap(stage, ch.room, ch.x, ch.z);
+        out.push({ key: ch.key, room: ch.room, x, z, floor: undefined });
       }
     }
     return out;
@@ -448,9 +468,46 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
     return { ...p, x: b.x + (p.u - 0.5) * b.w, z: b.y + (p.v - 0.5) * b.h };
   }
   function manualPlaces() {
-    const out = {};
+    const out = { ...autoPlaces() };
     for (const [name, p] of Object.entries(presets)) out[name] = resolvePreset(p);
     return Object.assign(out, userPlaces());
+  }
+
+  // Checks given by people and golden wolves: where the game files place that person (or wolf),
+  // the one in the check's logic region when there are several. Presets and places put by hand win.
+  let autoCache = { key: "", places: {} };
+  function autoPlaces() {
+    if (!places?.done || !checkSource) return {};
+    const list = checkSource.list();
+    const key = `${list.length}/${Object.keys(places.stages ?? {}).length}`;
+    if (autoCache.key === key) return autoCache.places;
+    const actors = new Map(); // actor -> [{ stage, room, x, z, floor }]
+    for (const [stage, ps] of Object.entries(places.stages ?? {})) {
+      for (const p of ps) {
+        if (!p.key.startsWith("npc:")) continue;
+        const actor = p.key.split(":")[1];
+        if (!actors.has(actor)) actors.set(actor, []);
+        actors.get(actor).push({ stage, room: p.room, x: p.x, z: p.z, floor: p.floor ?? 0 });
+      }
+    }
+    const out = {};
+    const used = new Map(); // "stage/x/z" -> checks placed there so far
+    for (const c of list) {
+      if (!c.key.startsWith("manual:") && hasGamePlace(c.key)) continue;
+      const words = c.name.split(" ");
+      const who = c.name.endsWith("Golden Wolf") ? ["GWolf"] : words.map((w) => PERSON_ACTORS[w]).find(Boolean);
+      const candidates = (who ?? []).flatMap((a) => actors.get(a) ?? []);
+      if (!candidates.length) continue;
+      const region = checkRegion?.(c.name);
+      const at = candidates.find((p) => region && regionName(p.stage, p.room) === region) ?? candidates[0];
+      // Several checks from one person side by side.
+      const spot = `${at.stage}/${Math.round(at.x)}/${Math.round(at.z)}`;
+      const n = used.get(spot) ?? 0;
+      used.set(spot, n + 1);
+      out[c.name] = { ...at, x: at.x + (n % 4) * 120 - (n > 0 ? 60 : 0), z: at.z + Math.floor(n / 4) * 120, auto: true };
+    }
+    autoCache = { key, places: out };
+    return out;
   }
   function manualChecks(stage) {
     return Object.entries(manualPlaces()).filter(([, p]) => p.stage === stage && Number.isFinite(p.x))
@@ -477,6 +534,8 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
 
   // The check being placed by hand: the next click on a map places it.
   let placing = null;
+  // The checks of the grotto shown, when grottos built alike share one map (null: all).
+  let checkScope = null;
   function placeAt(at) {
     if (!placing || !scene || (scene.kind !== "stage" && scene.kind !== "area")) return false;
     const stage = scene.kind === "area" ? areaPlace?.name : map?.stage;
@@ -492,7 +551,8 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
         }
       }
     }
-    checkSource.setPlace(placing, { stage, room, x: Math.round(at.x), z: Math.round(at.y), floor: scene.floor ?? 0 });
+    const variant = scene.kind === "area" ? areaPlace?.variant : undefined;
+    checkSource.setPlace(placing, { stage, room, x: Math.round(at.x), z: Math.round(at.y), floor: scene.floor ?? 0, ...(variant ? { variant } : {}) });
     placing = null;
     sceneKey = "";
     render();
@@ -595,8 +655,10 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
     }
     if (p && (places?.maps ?? []).includes(stageName)) {
       const one = isInterior(stageName) && p.room >= 0;
+      // A grotto sharing its map with others: the one this check is in.
+      const variant = one ? (roomVariants?.(stageName, p.room) ?? []).find((v) => areaChecks?.(v.area).has(name)) : null;
       openRemote({ name: stageName, back: DUNGEON_STAGES.some(([, st]) => st === stageName) ? "dungeons" : "other",
-        ...(one ? { rooms: [p.room], title: roomTitle(stageName, p.room) } : {}) });
+        ...(one ? { rooms: [p.room], title: variant?.name ?? roomTitle(stageName, p.room), variant: variant?.area } : {}) });
       if (stageName.startsWith("D_") && p.floor !== undefined) {
         areaFloor = p.floor;
         sceneKey = "";
@@ -1352,6 +1414,7 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
     const out = [];
     for (const place of stageChecks(map.stage, map.checks)) {
       const info = place.name ? byName.get(place.name) : byKey.get(place.key);
+      if (info && checkScope && !checkScope.has(info.name)) continue;
       if (!info || (floor !== null && place.floor !== undefined && place.floor !== floor)) continue;
       if (place.room >= 0 && !drawn.has(place.room)) continue;
       const node = el("button", { type: "button", className: `map-check ${info.status}`,
@@ -1759,6 +1822,14 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
   function renderArea() {
     const { region, stage, name, rooms: onlyRooms } = areaPlace;
     let rooms = stage?.rooms ?? null;
+    // A place of the overworld: drawn from the stage's own map (the same coordinates as its checks)
+    // once known, else from the field map data.
+    if (stage) {
+      const own = stageMap(name);
+      const nos = new Set(stage.rooms.map((r) => r.no));
+      const mine = own?.rooms?.filter((r) => nos.has(r.no)) ?? [];
+      if (mine.length) rooms = mine;
+    }
     if (!rooms) {
       const m = stageMap(name);
       if (!m) {
@@ -1776,13 +1847,15 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
         if (mine.length) rooms = mine;
       }
     }
-    const key = JSON.stringify(["area", region?.no ?? null, name, stage?.part ?? null, onlyRooms ?? null, areaFloor, !!places?.done]);
+    const key = JSON.stringify(["area", region?.no ?? null, name, stage?.part ?? null, onlyRooms ?? null, areaPlace.variant ?? null, areaFloor, !!places?.done,
+      typeof stageMaps.get(name) === "object"]);
     if (key === sceneKey) {
       updateChecks();
       return;
     }
     sceneKey = key;
     const real = map;
+    checkScope = areaPlace.variant && areaChecks ? areaChecks(areaPlace.variant) : null;
     const dungeon = name.startsWith("D_") && !stage;
     const remoteMap = stage ? null : stageMap(name);
     map = { stage: name, stayRoom: -1, exists: true, area: true, doors: [], checksAll: !!places?.done, icons: remoteMap?.icons ?? [],
@@ -1797,6 +1870,7 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
         mapCaption(name, map.rooms.map((r) => r.no)));
     } finally {
       map = real;
+      checkScope = null;
     }
     scene.kind = "area";
     scene.linkShown = false;
@@ -1821,6 +1895,32 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
     let n = 0;
     while (names.every((w) => w.length > n + 1 && w[n] === names[0][n])) n++;
     return n >= 2 ? names[0].slice(0, n).join(" ") : null;
+  }
+
+  // Names and provinces of Other entries changed by people ({ [entry id]: { title, province } }),
+  // over the mod's own fixes.
+  const PLACE_FIXES = { "R_SP209": { province: "Eldin Province" }, "R_SP209/7": { province: "Eldin Province" } };
+  function placeFixes() {
+    return { ...PLACE_FIXES, ...(checkSource?.placeFixes?.() ?? {}) };
+  }
+  function editPlaceFix(button, it, provinces) {
+    const fix = placeFixes()[it.id] ?? {};
+    const title = el("input", { type: "text", className: "plate map-fix-title", value: fix.title ?? it.title, placeholder: it.defaultTitle });
+    const province = el("select", { className: "plate map-fix-province" },
+      ...[...new Set([...provinces, "Ordona Province", "Faron Province", "Eldin Province", "Lanayru Province", "Gerudo Desert", "Snowpeak", "Other"])]
+        .sort().map((p) => el("option", { value: p, textContent: p, selected: p === it.province })));
+    const done = (value) => {
+      checkSource?.setPlaceFix?.(it.id, value);
+      sceneKey = "";
+      render();
+    };
+    const form = el("div", { className: "map-fix-form" }, title, province,
+      el("button", { type: "button", className: "map-place", textContent: "Save", onclick: () => done({ title: title.value.trim() || undefined, province: province.value }) }),
+      el("button", { type: "button", className: "map-place", textContent: "Reset", onclick: () => done(null) }),
+      el("button", { type: "button", className: "map-place", textContent: "Cancel", onclick: () => form.replaceWith(button) }));
+    form.addEventListener("click", (e) => e.stopPropagation());
+    button.replaceWith(form);
+    title.focus();
   }
 
   // A stage's name for people: the dungeon, or the logic region of its first room.
@@ -1862,21 +1962,41 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
       const onField = new Set((field?.regions ?? []).flatMap((r) => r.stages.map((st) => st.name)));
       const dungeons = new Set(DUNGEON_STAGES.map(([, st]) => st));
       // A stage of houses holds one house a room: one entry a place (rooms with the same name
-      // together).
-      const list = [...known].filter((st) => !onField.has(st) && !dungeons.has(st))
+      // together). A cave with one name is one entry, all its rooms. Grottos built alike share a
+      // room: one entry each. Dungeon stages (boss rooms) are not listed: they show when Link is
+      // there.
+      const list = [...known].filter((st) => !onField.has(st) && !dungeons.has(st) && !st.startsWith("D_MN"))
         .flatMap((st) => {
           const roomNos = places?.mapRooms?.[st] ?? [];
-          const byTitle = new Map();
+          const out = [];
+          const plain = [];
           for (const no of roomNos) {
-            const title = roomTitle(st, no);
-            if (!byTitle.has(title)) byTitle.set(title, []);
-            byTitle.get(title).push(no);
+            const variants = roomVariants?.(st, no) ?? [];
+            if (variants.length) {
+              for (const v of variants) out.push({ stage: st, rooms: [no], title: v.name, variant: v.area, region: v.region, id: `${st}/${no}/${v.area}` });
+            } else {
+              plain.push(no);
+            }
           }
-          if (!byTitle.size) byTitle.set(placeTitle(st), null);
-          const whole = byTitle.size === 1;
-          return [...byTitle].map(([title, rooms]) => {
-            const region = regionName(st, rooms?.[0] ?? 0) ?? placeTitle(st);
-            return { stage: st, title, rooms: whole ? null : rooms, province: provinceOf(region) ?? provinceOf(title) ?? (st.startsWith("D_") ? "Dungeons" : "Other") };
+          const named = new Set(plain.map((no) => roomName?.(st, no)).filter(Boolean));
+          // A cave (D_ stages) with one name is one place; houses' unnamed rooms stay apart.
+          if (plain.length && (named.size === 0 || (named.size === 1 && st.startsWith("D_")))) {
+            out.push({ stage: st, rooms: out.length ? plain : null, title: [...named][0] ?? roomTitle(st, plain[0]), id: st });
+          } else {
+            const byTitle = new Map();
+            for (const no of plain) {
+              const title = roomTitle(st, no);
+              if (!byTitle.has(title)) byTitle.set(title, []);
+              byTitle.get(title).push(no);
+            }
+            for (const [title, rooms] of byTitle) out.push({ stage: st, rooms, title, id: `${st}/${rooms.join("+")}` });
+          }
+          if (!out.length) out.push({ stage: st, rooms: null, title: placeTitle(st), id: st });
+          return out.map((it) => {
+            const region = it.region || (it.variant && areaRegion?.(it.variant)) || regionName(st, it.rooms?.[0] ?? 0) || placeTitle(st);
+            const fix = placeFixes()[it.id] ?? {};
+            return { ...it, title: fix.title || it.title, defaultTitle: it.title,
+              province: fix.province || provinceOf(region) || provinceOf(it.title) || "Other" };
           });
         })
         .sort((a, b) => a.province.localeCompare(b.province) || a.title.localeCompare(b.title));
@@ -1891,8 +2011,15 @@ export function createMapView(root, { getState, regionName, roomName = null, mak
           el("h4", { className: "twilight-heading" }, el("span", { textContent: province })),
           ...items.map((it) => {
             const b = el("button", { type: "button", className: "plate twilight-plate map-other-button", title: it.rooms ? `${it.stage} · room ${it.rooms.join(", ")}` : it.stage, textContent: it.title,
-              onclick: () => openRemote({ name: it.stage, rooms: it.rooms, title: it.title, back: "other" }) });
+              onclick: () => openRemote({ name: it.stage, rooms: it.rooms, title: it.title, variant: it.variant, back: "other" }) });
             b.dataset.search = `${it.title} ${it.stage}`.toLowerCase();
+            // Rename it or move it to another province (kept in the page's settings).
+            const edit = el("span", { className: "map-other-edit", title: "Change its name or province", textContent: "✎", role: "button", tabIndex: 0 });
+            edit.addEventListener("click", (e) => {
+              e.stopPropagation();
+              editPlaceFix(b, it, [...groups.keys()]);
+            });
+            b.append(edit);
             return b;
           })));
       }

@@ -33,6 +33,7 @@ constexpr size_t kMaxEntryBytes = 600;
 // is in sight.
 constexpr float kSeeDistance = 3000.0f;
 
+std::string g_watchDebug = "[]";  // the items being watched and why they are not seen yet
 std::set<std::string> g_entries;  // known now (saved + learned since the last save)
 std::string g_seed;               // seed hash the page is showing for this save
 
@@ -155,41 +156,66 @@ void check_watched() {
     if (!tracker::is_playing()) return;
     fopAc_ac_c* link = dComIfGp_getPlayer(0);
     if (link == nullptr || g_watched.empty()) return;
+    camera_process_class* camera = dComIfGp_getCamera(0);
+    const cXyz cameraEye = camera != nullptr ? cXyz(camera->view.lookat.eye) : cXyz(link->eyePos);
+    const cXyz cameraAt = camera != nullptr ? cXyz(camera->view.lookat.center) : cXyz(link->eyePos);
+    tracker::JsonWriter debug;
+    debug.beginArray();
     std::erase_if(g_watched, [&](const Watched& w) {
         fopAc_ac_c* actor = fopAcM_SearchByID(w.actor);
         if (actor == nullptr) return true;  // collected or unloaded
-        if (fopAcM_searchActorDistance(actor, link) > kSeeDistance) return false;
-        // Hidden (under a boulder, behind a wall): not seen yet. Seen means in sight from Link's
-        // eyes and from the camera: pressed into a boulder, Link's eyes are inside it and the
-        // line from them misses its surface, but the camera behind him is still outside.
-        // A few points on the item: a little above it, higher up, and drawn toward Link (an item on
-        // a tree trunk or a wall sits in its surface, where a line to its center stops short).
-        camera_process_class* camera = dComIfGp_getCamera(0);
+        const f32 distance = fopAcM_searchActorDistance(actor, link);
         const cXyz base = actor->current.pos;
-        // Toward Link's eyes and toward the camera, a little and a little more: a golden bug on a
-        // tree trunk or a ledge's edge is seen from below though a line to its center stops short.
+        // Seen means on the screen: in front of the camera, within its view, and with a clear line
+        // from the camera to the item (hidden under a boulder or behind a wall: not seen yet). The
+        // camera, not Link's eyes: standing at the foot of a cliff, Link cannot see over its edge
+        // but the camera above him shows the golden bug on the tree behind it.
+        // A few points on the item: a little above it, higher up, and drawn toward the camera (an
+        // item on a tree trunk or a wall sits in its surface, where a line to its center stops
+        // short).
         auto toward = [&base](const cXyz& eye, f32 by) {
             cXyz d = eye - base;
             const f32 len = d.abs();
             if (len > 1.0f) d *= by / len;
             return base + d;
         };
-        const cXyz cameraEye = camera != nullptr ? cXyz(camera->view.lookat.eye) : cXyz(link->eyePos);
+        cXyz look = cameraAt - cameraEye;
+        cXyz to = base - cameraEye;
+        const f32 lookLen = look.abs();
+        const f32 toLen = to.abs();
+        // Within about 50 degrees of where the camera looks.
+        const bool inView = camera == nullptr || lookLen < 1.0f || toLen < 1.0f ||
+                            (look.x * to.x + look.y * to.y + look.z * to.z) / (lookLen * toLen) > 0.64f;
         const cXyz probes[] = {base + cXyz(0.0f, 20.0f, 0.0f), base + cXyz(0.0f, 50.0f, 0.0f),
-                               toward(link->eyePos, 40.0f) + cXyz(0.0f, 20.0f, 0.0f), toward(link->eyePos, 90.0f),
-                               toward(cameraEye, 40.0f), toward(cameraEye, 90.0f)};
+                               toward(cameraEye, 40.0f), toward(cameraEye, 90.0f) + cXyz(0.0f, 20.0f, 0.0f)};
+        std::string clear;
         bool seen = false;
         for (const cXyz& target : probes) {
-            if (blocked(link->eyePos, target, link)) continue;
-            if (camera != nullptr && blocked(camera->view.lookat.eye, target, link)) continue;
-            seen = true;
-            break;
+            const bool ok = !blocked(cameraEye, target, link);
+            clear += ok ? '1' : '0';
+            seen = seen || ok;
         }
+        seen = seen && inView && distance <= kSeeDistance;
+        debug.beginObject();
+        debug.member("check", w.check);
+        debug.member("distance", static_cast<int>(distance));
+        debug.member("inView", inView);
+        debug.member("clear", clear);
+        debug.member("seen", seen);
+        debug.endObject();
         if (!seen) return false;
         add("check:" + w.check + display_suffix(w));
         return true;
     });
+    debug.endArray();
+    g_watchDebug = debug.str();
 }
+
+}  // namespace
+
+const std::string& watch_debug() { return g_watchDebug; }
+
+namespace {
 
 // ---- Hints ----
 

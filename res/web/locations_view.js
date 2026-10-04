@@ -137,6 +137,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let randoFlags = [];
   let roomRegion = () => null; // (stage, room) -> logic region
   let roomName = () => null; // (stage, room) -> the place's own name (interiors, caves, grottos)
+  let roomVariants = () => []; // (stage, room) -> grottos sharing the room: [{ name, area }]
   let lastRegion = null; // region Link was last seen in (marked reachable on entry)
   let seeds = []; // generated seeds with a spoiler log, newest first
   let seedHash = null; // seed whose placements are loaded
@@ -157,6 +158,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let groupByArea = false; // the check list grouped by the area (logic region) each check is in
   let detailHost = null; // where the Map tab shows a check's row and requirement (under the map)
   let sortReachable = false; // check list: reachable checks first
+  let regionFilter = { group: null, region: "" }; // check list: only this region of the province
   let openMenu = null; // toolbar menu kept open across redraws ("regions", "req", "seed")
   let regionsScroll = 0; // scroll position of the Reachable regions menu
 
@@ -254,7 +256,9 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       try {
         const entrances = yaml.load(await fetchText("rando/entrance_shuffle_data.yaml"));
         roomRegion = buildRoomRegions(entrances, world);
-        roomName = buildRoomNames(entrances, world);
+        const names = buildRoomNames(entrances, world);
+        roomName = names.name;
+        roomVariants = names.variants;
       } catch {}
       retries = 0;
     } catch (err) {
@@ -804,6 +808,15 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const overrides = getOverrides();
     const list = el("div", { className: "loc-list" });
     let shown = locations.filter((l) => l.group === selectedGroup);
+    // The logic regions of this province's checks, to show only one of them.
+    const regionOfLoc = (loc) => {
+      const area = world?.locationAccess.get(loc.name)?.[0]?.area;
+      const region = area ? world.areas.get(area)?.region : null;
+      return region && region !== "None" ? region : "Other";
+    };
+    const regionsHere = [...new Set(shown.map(regionOfLoc))].sort();
+    if (regionFilter.group !== selectedGroup || !regionsHere.includes(regionFilter.region)) regionFilter = { group: selectedGroup, region: "" };
+    if (regionFilter.region) shown = shown.filter((l) => regionOfLoc(l) === regionFilter.region);
     if (sortReachable) {
       // Stable: reachable first, then not yet known, blocked, excluded, done.
       const rank = { reachable: 0, unknown: 1, blocked: 2, excluded: 3, checked: 4, obtained: 5 };
@@ -835,6 +848,13 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       el("button", { type: "button", className: "loc-back", textContent: "‹ Back", onclick: () => { showChecks = false; render(); } }),
       el("span", { className: "loc-banner-title", textContent: selectedGroup }),
       el("span", { className: "loc-count" }, ...countLabel(counts(selectedGroup))),
+      regionsHere.length > 1 ? el("select", { className: "loc-region-filter", title: "Show the checks of one region only",
+        onchange: (e) => {
+          regionFilter = { group: selectedGroup, region: e.target.value };
+          render();
+        } },
+        el("option", { value: "", textContent: "All regions", selected: !regionFilter.region }),
+        ...regionsHere.map((r) => el("option", { value: r, textContent: r, selected: r === regionFilter.region }))) : null,
       el("label", { className: "loc-by-area", title: "Group the checks by the area they are in (the places the map shows)" },
         el("input", { type: "checkbox", checked: groupByArea, onchange: (e) => {
           groupByArea = e.target.checked;
@@ -1593,6 +1613,27 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     regionName: (stage, room) => roomRegion(stage, room),
     // The name of an interior, cave or grotto (null elsewhere).
     roomName: (stage, room) => roomName(stage, room),
+    // Grottos built alike that share one room: [{ name, area }].
+    roomVariants: (stage, room) => roomVariants(stage, room),
+    // The logic region a check is in (its area's region), or null.
+    checkRegion(name) {
+      const area = world?.locationAccess.get(name)?.[0]?.area;
+      const region = area ? world.areas.get(area)?.region : null;
+      return region && region !== "None" ? region : null;
+    },
+    // A logic area's region, or null.
+    areaRegion(area) {
+      const region = world?.areas.get(area)?.region;
+      return region && region !== "None" ? region : null;
+    },
+    // The checks of a logic area and the areas inside it (named after it).
+    areaChecks(area) {
+      const out = new Set();
+      for (const [name, a] of world?.areas ?? []) {
+        if (name === area || name.startsWith(area + " ")) for (const l of a.locations) out.add(l.name);
+      }
+      return out;
+    },
     // The checks the Map tab can place, by the key the mod finds them under (chest:, freestanding:,
     // poe:; manual:<name> for those placed by hand): [{ name, key, status }] with the status of the marker left of the check.
     mapChecks() {

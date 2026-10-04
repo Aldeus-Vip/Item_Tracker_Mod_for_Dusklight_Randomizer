@@ -32,4 +32,8 @@ void add_from_page(const std::string& body);
 // Writes "found": {"seed": "<hash or empty>", "entries": [...]} into the state object.
 void write_json(tracker::JsonWriter& w);
 
+// The items lying around not seen yet in this stage, for finding out why one is not noted:
+// [{"check", "distance", "inView", "clear" (per probe, 1 = clear line from the camera), "seen"}].
+const std::string& watch_debug();
+
 }  // namespace tracker::found

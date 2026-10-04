@@ -75,21 +75,35 @@
 - Checks placed with the mod (presets): Agitha's 24 rewards across her house in the golden bugs'
   order, Jovani's 20 and 60 Poe Soul rewards in his house. Your own places win over them
   (**Back to preset** undoes yours); **Copy my places** copies yours as JSON for the presets.
-- **Dungeons tab** in the same twilight design: a plate a dungeon with its emblem, the land it is
-  in, and right-aligned the small keys found (used ones too), big key or key shards, map, compass,
+- **Dungeons tab** in the same twilight design: a plate a dungeon (one line each) with its emblem,
+  the land it is in, and right-aligned the small keys found (used ones too), big key or key shards, map, compass,
   boss and extras. Click a dungeon to open its map. The Map's Dungeons list shows the same counts.
 - Dungeon emblems are the game's own dungeon map parchments, read from the game files when first
   shown (the original diamond until then).
 - Lake Hylia and Lanayru Spring (one stage whose map shows a room at a time) are separate places
   in Lanayru Province: Lanayru Spring can be picked and opened with its checks without going there.
+- Checks given by people (Sera, Barnes, Talo, Malo, Telma, ...) and golden wolves are placed where
+  the game files put that person or wolf (the one in the check's region). Presets and your own
+  places win.
+- Other: grottos built alike (one map for several) are one entry each, showing only that grotto's
+  checks (and keeping the checks you place there apart); a cave is one entry with all its rooms;
+  dungeon boss rooms are no longer listed (they show when Link is there). Each entry's name and
+  province can be changed (✎); Renado's Sanctuary's basement is in Eldin Province.
+- Checks: a region filter beside the province's title.
+- debug.html: the dungeon map backgrounds as read from the game, and the items lying around being
+  watched for "seen" (distance, in view, clear line), to find out what goes wrong.
 - The Dungeons and Other lists look like the game's menus: a dark twilight panel with drifting
   black squares, gold-ruled headings, and plates that light up with gold corners under the
   cursor. Dungeons are numbered in story order with the land they are in (the per-dungeon colors
   are gone).
 
 ### Fixed
-- Items seen from below (a golden bug on a tree or a ledge, as Faron Field's Female Beetle) were
-  not noted: sight is also tried toward Link and toward the camera, a little off the item.
+- Items seen from below (a golden bug on a tree beyond a cliff's edge, as Faron Field's Female
+  Beetle) were not noted: seen now means on the screen, with a clear line from the camera (not
+  from Link's eyes, which cannot see over the edge).
+- Lanayru Spring and Upper Zoras River showed their checks only with Link there: overworld places
+  opened from a province are drawn from the stage's own map (the checks' coordinates), and checks
+  the randomizer adds are moved by their room's offset.
 - The mod did not build for Windows, macOS, iOS and Android: Mirror Mode was read from a game
   setting mods cannot link to. It is now told from how the game projects to the screen.
 - Checks in rooms placed with an offset in their stage (Snowpeak Ruins' West Cannon Room chest,

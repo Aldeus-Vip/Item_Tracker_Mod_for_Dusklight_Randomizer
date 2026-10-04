@@ -136,7 +136,12 @@ void init_data_dir() {
     tracker::web::set_game_icons(
         [](int itemNo) { return tracker::icons::item_icon_png(static_cast<uint8_t>(itemNo)); });
     tracker::web::set_game_textures(
-        [](const std::string& archive) { return tracker::textures::list_json(archive); },
+        [](const std::string& archive) {
+            // Not archives: the dungeon map backgrounds' state, and the items being watched.
+            if (archive == "dungeon") return tracker::places::dungeon_art_status();
+            if (archive == "seen") return tracker::found::watch_debug();
+            return tracker::textures::list_json(archive);
+        },
         [](const std::string& archive, const std::string& name) {
             // "dungeon/<stage>": a dungeon's map background, read from the disc.
             if (archive == "dungeon") return tracker::places::dungeon_art(name);

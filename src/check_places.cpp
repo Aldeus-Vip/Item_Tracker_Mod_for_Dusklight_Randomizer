@@ -382,6 +382,7 @@ bool step_read() {
 // dMenu_DmapBg_c reads it), read from the disc when the page asks for it, a little each frame.
 
 std::map<std::string, std::string> g_art;  // stage -> PNG ("" = could not be read)
+std::map<std::string, std::string> g_artWhy;  // stage -> why it could not be read
 std::vector<std::string> g_artQueue;
 DVDFileInfo g_artFile;
 bool g_artOpen = false;
@@ -393,7 +394,9 @@ void finish_art(const std::string& stage) {
     const std::vector<uint8_t>* arc = &g_artBuffer;
     if (yaz0_decode(g_artBuffer, plain)) arc = &plain;
     std::string png;
+    std::string names;
     for (const ArcFile& f : rarc_files(*arc)) {
+        names += (names.empty() ? "" : " ") + f.name;
         if (f.name != "bg.bti") continue;
         std::vector<uint8_t> raw(f.data, f.data + f.size);
         std::vector<uint8_t> file;
@@ -404,8 +407,10 @@ void finish_art(const std::string& stage) {
         layer.alphaEnabled = file[1] != 0;
         const gx::Image image = gx::compose({layer});
         if (image.width) png = gx::encode_png(image);
+        else g_artWhy[stage] = "bg.bti format " + std::to_string(file[0]) + " could not be decoded";
         break;
     }
+    if (png.empty() && !g_artWhy.count(stage)) g_artWhy[stage] = "no bg.bti in the archive (" + names + ")";
     g_art[stage] = std::move(png);
 }
 
@@ -417,6 +422,7 @@ void step_art() {
         const s32 entry = DVDConvertPathToEntrynum(path.c_str());
         if (entry < 0 || !DVDFastOpen(entry, &g_artFile)) {
             g_art[stage] = "";
+            g_artWhy[stage] = path + " not found";
             g_artQueue.erase(g_artQueue.begin());
             return;
         }
@@ -437,6 +443,7 @@ void step_art() {
         finish_art(stage);
     } else {
         g_art[stage] = "";
+        g_artWhy[stage] = "reading the archive failed";
     }
     g_artBuffer.clear();
     g_artBuffer.shrink_to_fit();
@@ -493,6 +500,21 @@ void build_json(bool done) {
             if (!rooms.empty()) w.value(stage);
         }
         w.endArray();
+        // Rooms placed with an offset and a turn in their stage (FILI): [x, z, turn] by room, for
+        // places the page adds (the randomizer's patches, in room coordinates).
+        w.key("shifts").beginObject();
+        for (const auto& [stage, rooms] : g_shifts) {
+            w.key(stage).beginObject();
+            for (const auto& [room, sh] : rooms) {
+                w.key(std::to_string(room)).beginArray();
+                w.number(sh.x);
+                w.number(sh.z);
+                w.value(sh.turn);
+                w.endArray();
+            }
+            w.endObject();
+        }
+        w.endObject();
         // Stages whose map shows one room at a time (STAG up button 2, 3, 6): each room is a place
         // of its own (Lake Hylia and Lanayru Spring).
         w.key("singleRooms").beginArray();
@@ -721,6 +743,18 @@ void update() {
     }
     // Dungeon map backgrounds, between the reads of the check places.
     if (!g_open && (g_artOpen || tracker::is_playing())) step_art();
+}
+
+std::string dungeon_art_status() {
+    JsonWriter w;
+    w.beginObject();
+    for (const std::string& stage : g_artQueue) w.member(stage, std::string{"queued"});
+    for (const auto& [stage, png] : g_art) {
+        if (!png.empty()) w.member(stage, "read (" + std::to_string(png.size()) + " bytes)");
+        else w.member(stage, g_artWhy.count(stage) ? g_artWhy[stage] : std::string{"failed"});
+    }
+    w.endObject();
+    return w.str();
 }
 
 std::string dungeon_art(const std::string& stage) {

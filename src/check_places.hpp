@@ -51,5 +51,7 @@ std::string stage_map_json(const std::string& stage);
 // A dungeon's map background (the game's dungeon map parchment, with the dungeon's emblem) as PNG,
 // by its stage (D_MN05...). "" until read: asking for it queues the read.
 std::string dungeon_art(const std::string& stage);
+// {"<stage>": "queued" | "read (n bytes)" | why it could not be read}.
+std::string dungeon_art_status();
 
 }  // namespace tracker::places
