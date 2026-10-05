@@ -528,7 +528,8 @@ function normalizeSettings(raw) {
     const fix = {};
     if (typeof f.title === "string" && f.title.length <= 80) fix.title = f.title;
     if (typeof f.province === "string" && f.province.length <= 60) fix.province = f.province;
-    if (fix.title || fix.province) out.placeFixes[id] = fix;
+    if (f.hidden === true) fix.hidden = true;
+    if (fix.title || fix.province || fix.hidden) out.placeFixes[id] = fix;
   }
   return out;
 }
@@ -1021,6 +1022,7 @@ mapView = createMapView(locMap, {
   checkRegion: (name) => locationsView.checkRegion(name),
   areaRegion: (area) => locationsView.areaRegion(area),
   roomKind: (stage, room) => locationsView.roomKind(stage, room),
+  entrances: () => locationsView.entrances(),
   provinceOrder: () => locationsView.provinceOrder(),
   makeIcon: (name, className, fallback) => iconImg(name, className, (img) => img.replaceWith(fallback ?? "")),
   // Checks on the map: a right click (or any click with Checks + Map) shows the check in Checks.

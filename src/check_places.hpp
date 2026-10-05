@@ -29,6 +29,21 @@ void to_map(const std::string& stage, int room, float& x, float& z);
 // Whether the rooms' offsets of a stage are known.
 bool shift_known(const std::string& stage);
 
+// A door locked by a small key (or the big key) that is an actor of a room, not one of the doors
+// the stage keeps (key shutters: kshtr00, vshuter, L3Bdoor): shut while its switch is off.
+struct Shutter {
+    std::string name;
+    int room;
+    uint32_t prm;  // switch: low 8 bits
+    float x;
+    float y;
+    float z;
+    int angle;
+    bool big;  // the big key's (L3Bdoor)
+};
+// A stage's key shutters, in map coordinates (nullptr when not known yet).
+const std::vector<Shutter>* stage_shutters(const std::string& stage);
+
 // The file the result is kept in (the mod's data folder).
 void set_cache_file(std::string path);
 

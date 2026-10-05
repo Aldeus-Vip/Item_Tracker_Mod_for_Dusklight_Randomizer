@@ -139,6 +139,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let roomName = () => null; // (stage, room) -> the place's own name (interiors, caves, grottos)
   let roomVariants = () => []; // (stage, room) -> grottos sharing the room: [{ name, area }]
   let roomKind = () => null; // (stage, room) -> "Interior", "Cave" or "Grotto"
+  let entranceList = []; // the randomizer's entrances: [{ type, from, to, fwd: { stage, room, spawn }, back: { ... } }]
   let lastRegion = null; // region Link was last seen in (marked reachable on entry)
   let seeds = []; // generated seeds with a spoiler log, newest first
   let seedHash = null; // seed whose placements are loaded
@@ -262,6 +263,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         roomName = names.name;
         roomVariants = names.variants;
         roomKind = names.kind;
+        const side = (x) => (x && STAGE_NAMES[x.Stage] ? { stage: STAGE_NAMES[x.Stage], room: Number(x.Room), spawn: Number(x.Spawn) } : null);
+        entranceList = (entrances ?? []).map((e) => {
+          const [from, to] = String(e?.Forward?.Connection ?? "").split(" -> ");
+          return { type: e?.Type ?? "", from, to, fwd: side(e?.Forward), back: side(e?.Return) };
+        }).filter((e) => e.to && e.fwd);
       } catch {}
       retries = 0;
     } catch (err) {
@@ -1661,6 +1667,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     // The name of an interior, cave or grotto (null elsewhere).
     roomName: (stage, room) => roomName(stage, room),
     roomKind: (stage, room) => roomKind(stage, room),
+    entrances: () => entranceList,
     // The provinces in the order of the randomizer's world files (the game's order).
     provinceOrder: () => mapGroups.map((g) => g.title),
     // Grottos built alike that share one room: [{ name, area }].

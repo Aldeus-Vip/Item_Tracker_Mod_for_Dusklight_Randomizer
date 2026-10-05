@@ -93,6 +93,16 @@
 - Checks: a region filter beside the province's title.
 - debug.html: the dungeon map backgrounds as read from the game, and the items lying around being
   watched for "seen" (distance, in view, clear line), to find out what goes wrong.
+- **Entrances on the maps**: where each entrance of the randomizer's list is (the spawn point its
+  way back uses), a small plate with the kind of place it leads to (dungeon, house, cave, grotto,
+  field) and, of the checks there not checked yet, how many are reachable (reachable / left).
+  Click it for that place's map; hover for its name. "Entrances" in Checks Filter.
+- Boss and miniboss rooms (stages of their own) share the dungeon's map: their checks show on the
+  dungeon's map and the dungeon's on theirs, zooming out of a boss room shows the dungeon, and a
+  boss room's check opens the dungeon's map.
+- Key shutters (doors locked by a small key or the big key that are actors, as in Lakebed Temple)
+  show as locked doors, in the dungeon and from the Dungeons list.
+- Other: entries can be hidden (✎ › Hide); Castle Town's streets are left out (Field tab).
 - Dungeon maps opened from the Dungeons list show their doors (read from the game files) with
   locks shut or open as the save has them, and the boss's room.
 - The dungeon emblems are cut from the game's dungeon map parchments and drawn in the theme's gold.
@@ -100,7 +110,7 @@
   order; coming back from a place keeps the list where it was scrolled.
 - The Checks region filter lists the regions in the game's order.
 - Overworld places can be renamed with ✎ beside the map's title; some are named by the mod
-  (Mirror Chamber, Gerudo Desert, Faron Field, West/South/East of Castle Town). The map's room
+  (Mirror Chamber, Gerudo Desert, Faron Field, Eldin Field, Lanayru Field, West/South/East of Castle Town). The map's room
   numbers are listed under it.
 - In a cave or dungeon, the map is framed on the whole place from the start (also the parts not
   shown yet).
@@ -120,6 +130,8 @@
   are gone).
 
 ### Fixed
+- Forest Temple's doors and small keys did not show from outside: doors and map icons kept for
+  one story stage only (layer chunks) are read too.
 - Overworld places opened from a province lost their water and showed a stray square: they are
   drawn from the field map data again, with the save's switches.
 - Snowpeak Ruins' pumpkin and cheese in the Dungeons tab sit left of the keys, so the columns line

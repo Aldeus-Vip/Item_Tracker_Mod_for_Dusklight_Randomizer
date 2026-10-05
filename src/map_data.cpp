@@ -238,6 +238,27 @@ void for_each_door(F&& f) {
     for (int i = 0; roomDoors != nullptr && i < roomDoors->mNum && i < 0x40; i++) {
         f(door_info(roomDoors->mDrTgData[i], false, live));
     }
+    // Key shutters (actors, not doors the stage keeps), from the game files: locked while their
+    // switch is off.
+    const char* stage = dComIfGp_getStartStageName();
+    const std::vector<tracker::places::Shutter>* shutters = stage != nullptr ? tracker::places::stage_shutters(stage) : nullptr;
+    for (const tracker::places::Shutter& sh : shutters != nullptr ? *shutters : std::vector<tracker::places::Shutter>{}) {
+        DoorInfo d;
+        std::snprintf(d.name, sizeof(d.name), "%s", sh.name.c_str());
+        d.front = d.back = sh.room;
+        d.rawX = sh.x;
+        d.rawZ = sh.z;
+        d.pos.x = sh.x;
+        d.pos.y = sh.y;
+        d.pos.z = sh.z;
+        dMapInfo_n::correctionOriginPos(static_cast<s8>(sh.room), &d.pos);
+        d.angle = static_cast<u16>(sh.angle);
+        d.kind = sh.big ? "boss" : "key";
+        const int s = switch_state(static_cast<int>(sh.prm & 0xFF), sh.room);
+        d.state = s < 0 ? '?' : s == 0 ? 'L' : 'U';
+        if (sh.big && s < 0) d.state = dComIfGs_isDungeonItemBossKey() == 0 ? 'L' : 'U';
+        f(d);
+    }
 }
 
 void write_doors(JsonWriter& w) {

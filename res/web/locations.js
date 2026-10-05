@@ -68,7 +68,9 @@ export function buildRoomNames(entranceData, world) {
       const r = world?.areas.get(area)?.region;
       return r && r !== "None" ? r : null;
     };
-    let name = target.replace(/ (?:(?:North|South|East|West|Front|Back|Left|Right)(?: (?:East|West))? Door Interior|Lower|Upper|Interior|Elevator)$/, "");
+    // Door sides and floors dropped ("Kakariko Watchtower Lower Interior" -> "Kakariko Watchtower").
+    let name = target;
+    for (let i = 0; i < 2; i++) name = name.replace(/ (?:(?:North|South|East|West|Front|Back|Left|Right)(?: (?:East|West))? Door Interior|Lower|Upper|Interior|Elevator)$/, "");
     const region = world?.areas.get(target)?.region;
     if (entry.Type === "Interior") for (const prefix of [region, "Castle Town", "Kakariko", "Ordon", "Faron Woods", "Death Mountain", "Hidden Village"]) {
       if (prefix && prefix !== "None" && name.startsWith(prefix + " ") && name.length > prefix.length + 6) {

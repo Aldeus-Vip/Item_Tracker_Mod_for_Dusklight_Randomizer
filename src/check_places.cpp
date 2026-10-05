@@ -22,7 +22,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 7";
+constexpr const char* kCacheVersion = "check-places 8";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -149,6 +149,17 @@ struct Door {
     bool stageDoor = false;  // placed by the stage file: moved by its front room's offset
 };
 std::map<std::string, std::vector<Door>> g_doors;
+std::map<std::string, std::vector<Shutter>> g_shutters;  // in room coordinates (to_map when served)
+// Where Link starts in a room by the point an exit sends him to (PLYR: the point is the low byte of
+// angle.z), for placing entrances on the maps.
+struct Spawn {
+    int room;
+    int point;
+    float x;
+    float y;
+    float z;
+};
+std::map<std::string, std::vector<Spawn>> g_spawns;
 // The map screen's icons of a stage (TRES in the stage archive's room<n>.dzs: dTres_c::data_s):
 // monkeys, iron balls, statues, Sols, Ooccoo, small keys...
 struct Icon {
@@ -307,7 +318,8 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
             const auto s16 = [](const uint8_t* p) { return static_cast<float>(static_cast<int16_t>(be16(p))); };
             g_floors[stage] = {s16(data + 0x1A), std::fabs(s16(data + 0x1C)), std::fabs(s16(data + 0x1E)), be16(data + 0x0A) & 7, (data[0x09] >> 1) & 0x1F};
         }
-        if (std::memcmp(node, "Door", 4) == 0) {
+        // Doors of all story stages too (layer chunks Doo0..Doob: Forest Temple keeps its doors there).
+        if (std::memcmp(node, "Doo", 3) == 0) {
             const uint32_t num = be32(node + 4);
             for (uint32_t i = 0; i < num && i < 0x40 && data + (i + 1) * 0x24 <= b + size; i++) {
                 const uint8_t* e = data + i * 0x24;
@@ -332,7 +344,7 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
         if (stageArchiveRoom && roomNo >= 0 && std::memcmp(node, "FILI", 4) == 0 && be32(node + 4) > 0 && data + 0x20 <= b + size) {
             g_shifts[stage][roomNo] = {befloat(data + 0x14), befloat(data + 0x18), static_cast<int16_t>(be16(data + 0x1C))};
         }
-        if (stageArchiveRoom && roomNo >= 0 && std::memcmp(node, "TRES", 4) == 0) {
+        if (stageArchiveRoom && roomNo >= 0 && std::memcmp(node, "TRE", 3) == 0) {
             const uint32_t num = be32(node + 4);
             for (uint32_t i = 0; i < num && data + (i + 1) * 0x14 <= b + size && i < 512; i++) {
                 const uint8_t* e = data + i * 0x14;
@@ -343,7 +355,12 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
                     type != 16) {
                     continue;
                 }
-                g_icons[stage].push_back({type, roomNo, e[0x10], befloat(e + 4), befloat(e + 8), befloat(e + 12)});
+                const Icon icon{type, roomNo, e[0x10], befloat(e + 4), befloat(e + 8), befloat(e + 12)};
+                bool known = false;
+                for (const Icon& o : g_icons[stage]) {
+                    known = known || (o.type == icon.type && o.room == icon.room && o.sw == icon.sw && o.x == icon.x && o.z == icon.z);
+                }
+                if (!known) g_icons[stage].push_back(icon);
             }
         }
         if (roomNo < 0 || (std::memcmp(node, "MPAT", 4) != 0 && std::memcmp(node, "MPA0", 4) != 0)) continue;
@@ -555,6 +572,19 @@ void build_json(bool done) {
             w.endObject();
         }
         w.endObject();
+        // Spawn points: {stage: [[room, point, x, z, floor]]} in map coordinates.
+        w.key("spawns").beginObject();
+        for (const auto& [stage, list] : g_spawns) {
+            w.key(stage).beginArray();
+            for (const Spawn& sp : list) {
+                float x = sp.x;
+                float z = sp.z;
+                if (sp.room >= 0) to_map(stage, sp.room, x, z);
+                w.beginArray().value(sp.room).value(sp.point).number(x, 0).number(z, 0).value(floor_of(stage, sp.y)).endArray();
+            }
+            w.endArray();
+        }
+        w.endObject();
         // Stages whose map shows one room at a time (STAG up button 2, 3, 6): each room is a place
         // of its own (Lake Hylia and Lanayru Spring).
         w.key("singleRooms").beginArray();
@@ -588,6 +618,8 @@ bool load_cache() {
     g_icons.clear();
     g_shifts.clear();
     g_doors.clear();
+    g_shutters.clear();
+    g_spawns.clear();
     while (std::getline(in, line)) {
         std::istringstream fields(line);
         std::string kind;
@@ -601,6 +633,16 @@ bool load_cache() {
             if (fields >> f.gap >> f.rangeUp >> f.rangeDown >> f.mapKind) {
                 fields >> f.saveTbl;
                 g_floors[stage] = f;
+            }
+        } else if (kind == "W") {
+            Spawn sp{};
+            if (fields >> sp.room >> sp.point >> sp.x >> sp.y >> sp.z) g_spawns[stage].push_back(sp);
+        } else if (kind == "K") {
+            Shutter sh{};
+            int big = 0;
+            if (std::getline(fields, sh.name, '\t') && (fields >> sh.room >> sh.prm >> sh.x >> sh.y >> sh.z >> sh.angle >> big)) {
+                sh.big = big != 0;
+                g_shutters[stage].push_back(std::move(sh));
             }
         } else if (kind == "D") {
             Door d;
@@ -633,6 +675,14 @@ void save_cache() {
         for (const Place& p : places) out << "P\t" << stage << '\t' << p.key << '\t' << p.room << ' ' << p.x << ' ' << p.y << ' ' << p.z << "\n";
     }
     for (const auto& [stage, f] : g_floors) out << "F\t" << stage << '\t' << f.gap << ' ' << f.rangeUp << ' ' << f.rangeDown << ' ' << f.mapKind << ' ' << f.saveTbl << "\n";
+    for (const auto& [stage, list] : g_spawns) {
+        for (const Spawn& sp : list) out << "W\t" << stage << '\t' << sp.room << ' ' << sp.point << ' ' << sp.x << ' ' << sp.y << ' ' << sp.z << "\n";
+    }
+    for (const auto& [stage, list] : g_shutters) {
+        for (const Shutter& sh : list) {
+            out << "K\t" << stage << '\t' << sh.name << '\t' << sh.room << ' ' << sh.prm << ' ' << sh.x << ' ' << sh.y << ' ' << sh.z << ' ' << sh.angle << ' ' << (sh.big ? 1 : 0) << "\n";
+        }
+    }
     for (const auto& [stage, doors] : g_doors) {
         for (const Door& d : doors) {
             out << "D\t" << stage << '\t' << d.name << '\t' << d.prm << ' ' << d.angleY << ' ' << d.angleZ << ' ' << d.x << ' ' << d.y << ' ' << d.z << ' ' << (d.stageDoor ? 1 : 0) << "\n";
@@ -698,6 +748,18 @@ void parse_room_file(const std::string& stage, int room, const uint8_t* b, uint3
     if (chunks > 256 || (size != 0 && 4 + chunks * 12 > size)) return;
     for (uint32_t c = 0; c < chunks; c++) {
         const uint8_t* node = b + 4 + c * 12;
+        if (std::memcmp(node, "PLYR", 4) == 0) {
+            const uint32_t num = be32(node + 4);
+            const uint8_t* data = chunk_data(b, node);
+            for (uint32_t i = 0; i < num && i < 256 && (size == 0 || data + (i + 1) * 0x20 <= b + size); i++) {
+                const uint8_t* e = data + i * 0x20;
+                const Spawn sp{room, e[0x1D], befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14)};
+                bool known = false;
+                for (const Spawn& o : g_spawns[stage]) known = known || (o.room == sp.room && o.point == sp.point);
+                if (!known) g_spawns[stage].push_back(sp);
+            }
+            continue;
+        }
         // Actors (ACTR, TRES, TGOB and their layers ACT0.., TRE0..: 0x20 bytes each) and scaled
         // objects (SCOB, TGSC, SCO0..: 0x24 bytes).
         uint32_t stride = 0;
@@ -733,6 +795,14 @@ void parse_room_file(const std::string& stage, int room, const uint8_t* b, uint3
                 const uint32_t sw = (prm >> 8) & 0xFF;
                 if (sw == 0xFF) continue;
                 std::snprintf(key, sizeof(key), "poe:%s:%u", stage.c_str(), sw);
+            } else if (std::strcmp(name, "kshtr00") == 0 || std::strcmp(name, "vshuter") == 0 || std::strcmp(name, "L3Bdoor") == 0) {
+                if (room >= 0) {
+                    Shutter sh{name, room, prm, befloat(e + 0xC), befloat(e + 0x10), befloat(e + 0x14), be16(e + 0x1A), std::strcmp(name, "L3Bdoor") == 0};
+                    bool known = false;
+                    for (const Shutter& o : g_shutters[stage]) known = known || (o.room == sh.room && o.x == sh.x && o.z == sh.z);
+                    if (!known) g_shutters[stage].push_back(std::move(sh));
+                }
+                continue;
             } else if (is_npc(name)) {
                 std::snprintf(key, sizeof(key), "npc:%s:%d", name, room);
             } else {
@@ -817,6 +887,8 @@ void update() {
         g_icons.clear();
         g_shifts.clear();
         g_doors.clear();
+        g_shutters.clear();
+        g_spawns.clear();
         g_phase = Phase::Read;
         build_json(false);
         break;
@@ -930,8 +1002,33 @@ std::string doors_json(const std::string& stage) {
         w.member("state", std::string(1, state));
         w.endObject();
     }
+    // Key shutters: locked while their switch is off.
+    for (const Shutter& sh : g_shutters[stage]) {
+        float x = sh.x;
+        float z = sh.z;
+        to_map(stage, sh.room, x, z);
+        const int st = switch_state(static_cast<int>(sh.prm & 0xFF));
+        const char state = st < 0 ? '?' : st == 0 ? 'L' : 'U';
+        w.beginObject();
+        w.member("name", sh.name);
+        w.key("rooms").beginArray().value(sh.room).value(sh.room).endArray();
+        w.key("x").number(x);
+        w.key("z").number(z);
+        w.member("angle", sh.angle);
+        w.key("floors").beginArray().value(floor_of(stage, sh.y)).value(floor_of(stage, sh.y)).endArray();
+        w.member("kind", sh.big ? "boss" : "key");
+        if (state != '?') w.member("locked", state == 'L');
+        w.member("state", std::string(1, state));
+        w.endObject();
+    }
     w.endArray();
     return w.str();
+}
+
+const std::vector<Shutter>* stage_shutters(const std::string& stage) {
+    if (g_phase != Phase::Done) return nullptr;
+    const auto it = g_shutters.find(stage);
+    return it == g_shutters.end() ? nullptr : &it->second;
 }
 
 std::string stage_map_json(const std::string& stage) {
