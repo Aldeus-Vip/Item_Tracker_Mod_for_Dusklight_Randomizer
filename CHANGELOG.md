@@ -115,6 +115,9 @@
 - Dungeon map backgrounds (over 1 MiB) could not be sent to the page: the server sends up to 8 MiB.
 - Clicking a check in Checks opens its requirement a moment later, so a double-click (the check on
   the map) is not taken by the panel opening over it.
+- Items the game hides behind an invisible wall (Faron Field's Female Beetle) count as seen when
+  near and in view, without the line-of-sight test: they are listed in the mod's
+  seen_without_sight.txt.
 - Items seen from below (a golden bug on a tree beyond a cliff's edge, as Faron Field's Female
   Beetle) were not noted: seen now means on the screen, with a clear line from the camera (not
   from Link's eyes, which cannot see over the edge).

@@ -7,6 +7,7 @@
 #include <mods/items.h>
 #include <mods/svc/item.h>
 #include <mods/svc/log.hpp>
+#include <mods/svc/resource.h>
 #include <mods/svc/save.h>
 
 #include "JSystem/JMessage/control.h"
@@ -33,7 +34,30 @@ constexpr size_t kMaxEntryBytes = 600;
 // is in sight.
 constexpr float kSeeDistance = 3000.0f;
 
-std::string g_watchDebug = "[]";  // the items being watched and why they are not seen yet
+std::string g_watchDebug = "[]";
+// Checks seen without the line-of-sight test (res/seen_without_sight.txt), read once.
+std::set<std::string> g_noSight;
+bool g_noSightRead = false;
+
+void read_no_sight() {
+    g_noSightRead = true;
+    if (svc_resource == nullptr) return;
+    ResourceBuffer buffer = RESOURCE_BUFFER_INIT;
+    if (svc_resource->load(mod_ctx, "seen_without_sight.txt", &buffer) != MOD_OK) return;
+    const std::string text{static_cast<const char*>(buffer.data), buffer.size};
+    svc_resource->free(mod_ctx, &buffer);
+    size_t start = 0;
+    while (start < text.size()) {
+        size_t end = text.find('\n', start);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(start, end - start);
+        start = end + 1;
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\t')) line.pop_back();
+        size_t first = line.find_first_not_of(" \t");
+        if (first == std::string::npos || line[first] == '#') continue;
+        g_noSight.insert(line.substr(first));
+    }
+}  // the items being watched and why they are not seen yet
 std::set<std::string> g_entries;  // known now (saved + learned since the last save)
 std::string g_seed;               // seed hash the page is showing for this save
 
@@ -199,12 +223,16 @@ void check_watched() {
             clear += ok ? '1' : '0';
             seen = seen || ok;
         }
-        seen = seen && inView && distance <= kSeeDistance;
+        // Listed checks: near enough and in view is enough (an invisible wall blocks the line).
+        if (!g_noSightRead) read_no_sight();
+        const bool noSight = g_noSight.count(w.check) != 0;
+        seen = (seen || noSight) && inView && distance <= kSeeDistance;
         debug.beginObject();
         debug.member("check", w.check);
         debug.member("distance", static_cast<int>(distance));
         debug.member("inView", inView);
         debug.member("clear", clear);
+        debug.member("noSight", noSight);
         debug.member("seen", seen);
         debug.endObject();
         if (!seen) return false;

@@ -27,8 +27,8 @@
 <h1>Tracker debug</h1>
 
 <h2>Items lying around being watched (this stage)</h2>
-<p>Updates every second. <b>clear</b>: one digit per point on the item (above it, higher, toward the camera, farther toward the camera, its eye point, its attention point, 120 above, 200 above); 1 = the camera sees it. Seen needs a 1, <b>inView</b> and a distance up to 3000.</p>
-<table><thead><tr><th>Check</th><th>Distance</th><th>inView</th><th>clear</th><th>Seen</th></tr></thead><tbody id="seen"></tbody></table>
+<p>Updates every second. <b>clear</b>: one digit per point on the item (above it, higher, toward the camera, farther toward the camera, its eye point, its attention point, 120 above, 200 above); 1 = the camera sees it. Seen needs a 1, <b>inView</b> and a distance up to 3000. <b>No sight</b>: listed in the mod's seen_without_sight.txt — the 1 is not needed.</p>
+<table><thead><tr><th>Check</th><th>Distance</th><th>inView</th><th>clear</th><th>No sight</th><th>Seen</th></tr></thead><tbody id="seen"></tbody></table>
 
 <h2>Dungeon map backgrounds (bg.bti)</h2>
 <p>Read from the game files on request. Click on a picture: the point's place in % (x, y) shows under it — send it for the emblem's position.</p>
@@ -44,7 +44,7 @@
       const list = await (await fetch("game-textures/seen/", { cache: "no-store" })).json();
       document.getElementById("seen").replaceChildren(...(list.length ? list : [{ check: "(none)" }]).map((w) => {
         const tr = document.createElement("tr");
-        for (const [v, cls] of [[w.check], [w.distance ?? ""], [w.inView ?? "", w.inView ? "ok" : "bad"], [w.clear ?? ""], [w.seen ?? "", w.seen ? "ok" : "bad"]]) {
+        for (const [v, cls] of [[w.check], [w.distance ?? ""], [w.inView ?? "", w.inView ? "ok" : "bad"], [w.clear ?? ""], [w.noSight ? "yes" : ""], [w.seen ?? "", w.seen ? "ok" : "bad"]]) {
           const td = document.createElement("td");
           td.textContent = String(v);
           if (cls && w.distance !== undefined) td.className = cls;

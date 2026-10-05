@@ -1,0 +1,7 @@
+# Items lying around counted as seen without the line-of-sight test: only near enough (3000) and
+# in the camera's view. For items the game hides behind invisible walls or level collision that
+# does not show (the line from the camera is blocked although the item is on screen).
+# One check name per line, as the debug page (debug.html) shows it.
+
+# Faron Field Female Beetle (on the tree beyond the cliff's edge)
+freestanding:F_SP121:158
