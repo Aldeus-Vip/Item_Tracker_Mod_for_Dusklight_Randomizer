@@ -138,6 +138,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let roomRegion = () => null; // (stage, room) -> logic region
   let roomName = () => null; // (stage, room) -> the place's own name (interiors, caves, grottos)
   let roomVariants = () => []; // (stage, room) -> grottos sharing the room: [{ name, area }]
+  let roomKind = () => null; // (stage, room) -> "Interior", "Cave" or "Grotto"
   let lastRegion = null; // region Link was last seen in (marked reachable on entry)
   let seeds = []; // generated seeds with a spoiler log, newest first
   let seedHash = null; // seed whose placements are loaded
@@ -260,6 +261,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         const names = buildRoomNames(entrances, world);
         roomName = names.name;
         roomVariants = names.variants;
+        roomKind = names.kind;
       } catch {}
       retries = 0;
     } catch (err) {
@@ -828,7 +830,10 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       const region = area ? world.areas.get(area)?.region : null;
       return region && region !== "None" ? region : "Other";
     };
-    const regionsHere = [...new Set(shown.map(regionOfLoc))].sort();
+    // In the order of the randomizer's world files (about the order of the game), then by name.
+    const regionRank = new Map(mapGroups.flatMap((g) => g.regions).map((r, i) => [r, i]));
+    const rank = (r) => regionRank.get(r) ?? 1e6;
+    const regionsHere = [...new Set(shown.map(regionOfLoc))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
     if (regionFilter.group !== selectedGroup || !regionsHere.includes(regionFilter.region)) regionFilter = { group: selectedGroup, region: "" };
     if (regionFilter.region) shown = shown.filter((l) => regionOfLoc(l) === regionFilter.region);
     if (sortReachable) {
@@ -1655,6 +1660,9 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     regionName: (stage, room) => roomRegion(stage, room),
     // The name of an interior, cave or grotto (null elsewhere).
     roomName: (stage, room) => roomName(stage, room),
+    roomKind: (stage, room) => roomKind(stage, room),
+    // The provinces in the order of the randomizer's world files (the game's order).
+    provinceOrder: () => mapGroups.map((g) => g.title),
     // Grottos built alike that share one room: [{ name, area }].
     roomVariants: (stage, room) => roomVariants(stage, room),
     // The logic region a check is in (its area's region), or null.

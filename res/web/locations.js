@@ -97,7 +97,9 @@ export function buildRoomNames(entranceData, world) {
     while (words.every((w) => w.length > n && w[n] === words[0][n])) n++;
     return n >= 2 ? words[0].slice(0, n).join(" ") : all.join(" / ");
   };
-  return { name, variants };
+  // Interior, Cave or Grotto.
+  const kind = (stage, room) => places.get(`${stage}/${room}`)?.values().next().value?.type ?? null;
+  return { name, variants, kind };
 }
 
 // Region groups shown on the left, as in the randomizer's in-game tracker tab.

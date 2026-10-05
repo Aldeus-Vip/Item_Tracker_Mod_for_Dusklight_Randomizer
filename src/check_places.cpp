@@ -4,6 +4,8 @@
 #include "json_writer.hpp"
 #include "tracker_state.hpp"
 
+#include "d/d_com_inf_game.h"
+
 #include <dolphin/dvd.h>
 
 #include <algorithm>
@@ -20,7 +22,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 6";
+constexpr const char* kCacheVersion = "check-places 7";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -132,7 +134,21 @@ struct FloorSpacing {
     float rangeUp = 0;
     float rangeDown = 0;
     int mapKind = 0;  // STAG "up button": 2, 3, 6 = the map shows only the room Link is in
+    int saveTbl = -1;  // the stage's switches and chests in the save (dStage_stagInfo_GetSaveTbl)
 };
+// The doors the maps mark (the "Door" chunks of stage.dzs and the rooms: stage_tgsc_data_class),
+// as the game keeps them (dStage_KeepDoorInfo).
+struct Door {
+    std::string name;
+    uint32_t prm = 0;
+    int angleY = 0;
+    int angleZ = 0;
+    float x = 0;
+    float y = 0;
+    float z = 0;
+    bool stageDoor = false;  // placed by the stage file: moved by its front room's offset
+};
+std::map<std::string, std::vector<Door>> g_doors;
 // The map screen's icons of a stage (TRES in the stage archive's room<n>.dzs: dTres_c::data_s):
 // monkeys, iron balls, statues, Sols, Ooccoo, small keys...
 struct Icon {
@@ -289,7 +305,27 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
         if (data < b || data + 8 > b + size) continue;
         if (std::memcmp(node, "STAG", 4) == 0 && data + 0x20 <= b + size) {
             const auto s16 = [](const uint8_t* p) { return static_cast<float>(static_cast<int16_t>(be16(p))); };
-            g_floors[stage] = {s16(data + 0x1A), std::fabs(s16(data + 0x1C)), std::fabs(s16(data + 0x1E)), be16(data + 0x0A) & 7};
+            g_floors[stage] = {s16(data + 0x1A), std::fabs(s16(data + 0x1C)), std::fabs(s16(data + 0x1E)), be16(data + 0x0A) & 7, (data[0x09] >> 1) & 0x1F};
+        }
+        if (std::memcmp(node, "Door", 4) == 0) {
+            const uint32_t num = be32(node + 4);
+            for (uint32_t i = 0; i < num && i < 0x40 && data + (i + 1) * 0x24 <= b + size; i++) {
+                const uint8_t* e = data + i * 0x24;
+                Door d;
+                char name[9] = {};
+                std::memcpy(name, e, 8);
+                d.name = name;
+                d.prm = be32(e + 8);
+                d.x = befloat(e + 0x0C);
+                d.y = befloat(e + 0x10);
+                d.z = befloat(e + 0x14);
+                d.angleY = be16(e + 0x1A);
+                d.angleZ = be16(e + 0x1C);
+                d.stageDoor = roomNo < 0;
+                bool known = false;
+                for (const Door& o : g_doors[stage]) known = known || (o.name == d.name && o.x == d.x && o.z == d.z && o.y == d.y);
+                if (!known && !d.name.empty()) g_doors[stage].push_back(std::move(d));
+            }
         }
         // (The stage archive's room files carry the map's FILI, dStage_FileList2_dt_c; a room's own
         // file has another FILI.)
@@ -302,7 +338,11 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
                 const uint8_t* e = data + i * 0x14;
                 const int type = e[0x11];
                 // dTres type groups the map screen draws as icons (d_menu_dmap.cpp).
-                if (type != 2 && type != 9 && type != 11 && type != 12 && type != 13 && type != 14 && type != 15 && type != 16) continue;
+                // Chests (0) and the boss (3) too: a chest's icon tells its room (resolve_duplicates).
+                if (type != 0 && type != 2 && type != 3 && type != 9 && type != 11 && type != 12 && type != 13 && type != 14 && type != 15 &&
+                    type != 16) {
+                    continue;
+                }
                 g_icons[stage].push_back({type, roomNo, e[0x10], befloat(e + 4), befloat(e + 8), befloat(e + 12)});
             }
         }
@@ -547,6 +587,7 @@ bool load_cache() {
     g_floors.clear();
     g_icons.clear();
     g_shifts.clear();
+    g_doors.clear();
     while (std::getline(in, line)) {
         std::istringstream fields(line);
         std::string kind;
@@ -557,7 +598,17 @@ bool load_cache() {
             if (std::getline(fields, p.key, '\t') && (fields >> p.room >> p.x >> p.y >> p.z)) g_places[stage].push_back(std::move(p));
         } else if (kind == "F") {
             FloorSpacing f;
-            if (fields >> f.gap >> f.rangeUp >> f.rangeDown >> f.mapKind) g_floors[stage] = f;
+            if (fields >> f.gap >> f.rangeUp >> f.rangeDown >> f.mapKind) {
+                fields >> f.saveTbl;
+                g_floors[stage] = f;
+            }
+        } else if (kind == "D") {
+            Door d;
+            int stageDoor = 0;
+            if (std::getline(fields, d.name, '\t') && (fields >> d.prm >> d.angleY >> d.angleZ >> d.x >> d.y >> d.z >> stageDoor)) {
+                d.stageDoor = stageDoor != 0;
+                g_doors[stage].push_back(std::move(d));
+            }
         } else if (kind == "S") {
             int room = 0;
             RoomShift sh;
@@ -581,7 +632,12 @@ void save_cache() {
     for (const auto& [stage, places] : g_places) {
         for (const Place& p : places) out << "P\t" << stage << '\t' << p.key << '\t' << p.room << ' ' << p.x << ' ' << p.y << ' ' << p.z << "\n";
     }
-    for (const auto& [stage, f] : g_floors) out << "F\t" << stage << '\t' << f.gap << ' ' << f.rangeUp << ' ' << f.rangeDown << ' ' << f.mapKind << "\n";
+    for (const auto& [stage, f] : g_floors) out << "F\t" << stage << '\t' << f.gap << ' ' << f.rangeUp << ' ' << f.rangeDown << ' ' << f.mapKind << ' ' << f.saveTbl << "\n";
+    for (const auto& [stage, doors] : g_doors) {
+        for (const Door& d : doors) {
+            out << "D\t" << stage << '\t' << d.name << '\t' << d.prm << ' ' << d.angleY << ' ' << d.angleZ << ' ' << d.x << ' ' << d.y << ' ' << d.z << ' ' << (d.stageDoor ? 1 : 0) << "\n";
+        }
+    }
     for (const auto& [stage, rooms] : g_shifts) {
         for (const auto& [room, sh] : rooms) out << "S\t" << stage << '\t' << room << ' ' << sh.x << ' ' << sh.z << ' ' << sh.turn << "\n";
     }
@@ -760,6 +816,7 @@ void update() {
         g_floors.clear();
         g_icons.clear();
         g_shifts.clear();
+        g_doors.clear();
         g_phase = Phase::Read;
         build_json(false);
         break;
@@ -815,6 +872,68 @@ const std::vector<Place>* stage_places(const std::string& stage) {
 
 const std::string& cached_json() { return g_json; }
 
+// A stage's doors as map_data.hpp gives the doors of the stage Link is in, their kind and state
+// from the save (the stage's saved switches; zone and temporary switches are not known: '?').
+std::string doors_json(const std::string& stage) {
+    const auto fl = g_floors.find(stage);
+    const int saveTbl = fl != g_floors.end() ? fl->second.saveTbl : -1;
+    const auto switch_state = [saveTbl](int sw) {
+        if (sw == 0xFF || sw >= 0x80 || saveTbl < 0) return -1;
+        return dComIfGs_isStageSwitch(saveTbl, sw) ? 1 : 0;
+    };
+    const auto side_state = [](int front, int back) {
+        if (front < 0 && back < 0) return '?';
+        const bool f = front == 0;
+        const bool b = back == 0;
+        return f && b ? 'D' : f ? 'F' : b ? 'B' : 'O';
+    };
+    JsonWriter w;
+    w.beginArray();
+    for (const Door& d : g_doors[stage]) {
+        const int front = (d.prm >> 13) & 0x3F;
+        const int back = (d.prm >> 19) & 0x3F;
+        const int frontOpt = (d.prm >> 8) & 0x3;
+        const int backOpt = (d.prm >> 10) & 0x7;
+        const int sw = d.angleZ & 0xFF;
+        const int sw2 = (d.angleZ >> 8) & 0xFF;
+        const char* kind = "door";
+        char state = 'O';
+        const bool boss = d.name == "bdoor" || d.name.find("Bdoor") != std::string::npos;
+        if (boss) {
+            kind = "boss";
+            const int st = switch_state(sw);
+            state = st < 0 ? '?' : st == 0 ? 'L' : 'U';
+        } else if (frontOpt == 2 || backOpt == 2) {
+            kind = "key";
+            const int st = switch_state(sw);
+            state = st < 0 ? '?' : st == 0 ? 'L' : 'U';
+        } else if (d.name.rfind("L", 0) == 0 && d.name.find("door") != std::string::npos &&
+                   ((frontOpt == 0 && sw != 0xFF) || (backOpt == 0 && sw2 != 0xFF))) {
+            kind = "switch";
+            state = side_state(frontOpt == 0 && sw != 0xFF ? switch_state(sw) : 1, backOpt == 0 && sw2 != 0xFF ? switch_state(sw2) : 1);
+        } else if (frontOpt == 1 || frontOpt == 3 || backOpt == 1 || backOpt == 3) {
+            kind = "stop";
+            state = side_state(frontOpt == 1 || frontOpt == 3 ? switch_state(sw) : 1, backOpt == 1 || backOpt == 3 ? switch_state(sw2) : 1);
+        }
+        float x = d.x;
+        float z = d.z;
+        if (d.stageDoor) to_map(stage, front, x, z);
+        w.beginObject();
+        w.member("name", d.name);
+        w.key("rooms").beginArray().value(front).value(back).endArray();
+        w.key("x").number(x);
+        w.key("z").number(z);
+        w.member("angle", d.angleY);
+        w.key("floors").beginArray().value(floor_of(stage, d.y)).value(floor_of(stage, d.y)).endArray();
+        w.member("kind", kind);
+        if (state == 'L' || state == 'U') w.member("locked", state == 'L');
+        w.member("state", std::string(1, state));
+        w.endObject();
+    }
+    w.endArray();
+    return w.str();
+}
+
 std::string stage_map_json(const std::string& stage) {
     if (g_phase != Phase::Done) return "";
     const auto it = g_maps.find(stage);
@@ -838,6 +957,7 @@ std::string stage_map_json(const std::string& stage) {
         w.endArray();
         out += R"("icons":)" + w.str() + ",";
     }
+    out += R"("doors":)" + doors_json(stage) + ",";
     out += R"("rooms":[)";
     bool first = true;
     for (const auto& [room, json] : it->second) {

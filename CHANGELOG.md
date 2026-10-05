@@ -93,6 +93,17 @@
 - Checks: a region filter beside the province's title.
 - debug.html: the dungeon map backgrounds as read from the game, and the items lying around being
   watched for "seen" (distance, in view, clear line), to find out what goes wrong.
+- Dungeon maps opened from the Dungeons list show their doors (read from the game files) with
+  locks shut or open as the save has them, and the boss's room.
+- The dungeon emblems are cut from the game's dungeon map parchments and drawn in the theme's gold.
+- Other: each province's places by kind (houses and interiors, caves, grottos), in the game's
+  order; coming back from a place keeps the list where it was scrolled.
+- The Checks region filter lists the regions in the game's order.
+- Overworld places can be renamed with ✎ beside the map's title; some are named by the mod
+  (Mirror Chamber, Gerudo Desert, Faron Field, West/South/East of Castle Town). The map's room
+  numbers are listed under it.
+- In a cave or dungeon, the map is framed on the whole place from the start (also the parts not
+  shown yet).
 - Under the map, "Which ones ▾" lists the checks on another floor, in another part or not found,
   with why (no chest with that box number in the stage's files, a shop item, given by a person,
   ...); click one to pick it and place it by hand.
@@ -109,6 +120,12 @@
   are gone).
 
 ### Fixed
+- Overworld places opened from a province lost their water and showed a stray square: they are
+  drawn from the field map data again, with the save's switches.
+- Snowpeak Ruins' pumpkin and cheese in the Dungeons tab sit left of the keys, so the columns line
+  up.
+- A check in another room of a stage whose map shows one room at a time (Lanayru Spring from Lake
+  Hylia) was said to be "on another floor".
 - A chest whose box number comes back in another room of its stage was put in the wrong room
   (Lanayru Spring Underwater Left Chest in Lake Hylia, Snowpeak Ruins West Cannon Room Central
   Chest): the room the game's map marks it in is taken (the check places are read again once).

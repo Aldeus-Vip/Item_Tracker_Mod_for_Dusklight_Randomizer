@@ -854,8 +854,8 @@ function renderDungeons(dungeons) {
     // Column titles over the items, which line up from dungeon to dungeon.
     const head = document.createElement("div");
     head.className = "dungeon-row dungeon-head";
-    for (const [cls, text, short] of [["twilight-no", ""], ["twilight-emblem", ""], ["twilight-text", ""], ["dcell", "Keys", "Key"],
-      ["dcell", "Big Key", "BK"], ["dcell", "Map", "Map"], ["dcell", "Compass", "Cmp"], ["dcell", "Boss", "Boss"], ["dcell dcell-other", "Other", "+"]]) {
+    for (const [cls, text, short] of [["twilight-no", ""], ["twilight-emblem", ""], ["twilight-text", ""], ["dcell dcell-other", "", ""],
+      ["dcell", "Keys", "Key"], ["dcell", "Big Key", "BK"], ["dcell", "Map", "Map"], ["dcell", "Compass", "Cmp"], ["dcell", "Boss", "Boss"]]) {
       const label = Object.assign(document.createElement("span"), { className: cls, textContent: text });
       if (short) label.dataset.short = short;
       head.append(label);
@@ -907,7 +907,9 @@ function renderDungeons(dungeons) {
     }
     const other = span("dcell dcell-other");
     for (const extra of DUNGEON_EXTRAS[d.name] ?? []) other.append(mark((items[extra.id] ?? 0) > 0, extra.label, extra.icon));
-    row.append(keys, bigKey, mapCell, compassCell, cell(bossMark), other);
+    // The dungeon's own items (Snowpeak's pumpkin and cheese) left of the keys, so the columns
+    // line up.
+    row.append(other, keys, bigKey, mapCell, compassCell, cell(bossMark));
 
     if (stage) {
       row.tabIndex = 0;
@@ -1018,6 +1020,8 @@ mapView = createMapView(locMap, {
   areaChecks: (area) => locationsView.areaChecks(area),
   checkRegion: (name) => locationsView.checkRegion(name),
   areaRegion: (area) => locationsView.areaRegion(area),
+  roomKind: (stage, room) => locationsView.roomKind(stage, room),
+  provinceOrder: () => locationsView.provinceOrder(),
   makeIcon: (name, className, fallback) => iconImg(name, className, (img) => img.replaceWith(fallback ?? "")),
   // Checks on the map: a right click (or any click with Checks + Map) shows the check in Checks.
   checks: {

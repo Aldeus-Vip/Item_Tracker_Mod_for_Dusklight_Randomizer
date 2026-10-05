@@ -5,6 +5,7 @@
 
 import { DUNGEON_ICONS } from "./layout.js";
 import yaml from "./vendor/js-yaml.mjs";
+import { STAGE_NAMES } from "./locations.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, props = {}, ...children) => {
@@ -144,6 +145,10 @@ const PERSON_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10
 const WOLF_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3l3.5 4L10 5.5 13.5 7 17 3l-.6 7.2L10 18 3.6 10.2z" fill="currentColor"/><circle cx="7.6" cy="10" r="1" fill="#000"/><circle cx="12.4" cy="10" r="1" fill="#000"/></svg>`;
 
 // The dungeons in the order of the story, with the land each is in (shown under the name).
+// The kinds of Other places, in this order.
+const KINDS = ["Interior", "Cave", "Grotto"];
+const KIND_TITLES = { Interior: "Houses and interiors", Cave: "Caves", Grotto: "Grottos" };
+
 export const DUNGEON_STAGES = [
   ["Forest Temple", "D_MN05", "Faron Woods"],
   ["Goron Mines", "D_MN04", "Death Mountain"],
@@ -160,26 +165,81 @@ const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
 // A small gold emblem in the manner of the Twili markings (original art).
 const EMBLEM = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1 23 12 12 23 1 12Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 6 18 12 12 18 6 12Z" fill="currentColor" opacity=".85"/><path d="M12 9.5 14.5 12 12 14.5 9.5 12Z" fill="#000" opacity=".55"/></svg>`;
 
-// A dungeon's emblem: the game's own dungeon map parchment (read from the disc by the mod, a few
-// seconds after it is first asked for), the original diamond until then or when it cannot be read.
-const emblemArt = new Map(); // stage -> loaded URL, or "failed"
+// A dungeon's emblem: cut from the game's own dungeon map parchment (read from the disc by the mod,
+// a few seconds after it is first asked for; 512 px, the emblem about 120 px around these points,
+// in % of its width and height), its ink kept as a shape filled with the theme's gold. The
+// original diamond until then or when it cannot be read.
+const EMBLEM_AT = {
+  D_MN05: [23.9, 23.4], D_MN04: [20.9, 23.5], D_MN01: [74.5, 71.1], D_MN10: [82.0, 22.1], D_MN11: [81.3, 77.4],
+  D_MN06: [77.9, 44.6], D_MN07: [73.2, 77.4], D_MN08: [18.0, 46.8], D_MN09: [16.2, 16.3],
+};
+const emblemArt = new Map(); // stage -> mask data URL, "loading" or "failed"
+const emblemWaiting = new Map(); // stage -> [boxes waiting for it]
+
+function emblemMask(img, stage) {
+  const [px, py] = EMBLEM_AT[stage];
+  const size = Math.round(img.naturalWidth * (120 / 512));
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const g = canvas.getContext("2d", { willReadFrequently: true });
+  g.drawImage(img, (img.naturalWidth * px) / 100 - size / 2, (img.naturalHeight * py) / 100 - size / 2, size, size, 0, 0, size, size);
+  const data = g.getImageData(0, 0, size, size);
+  const px4 = data.data;
+  const lum = new Float32Array(size * size);
+  for (let i = 0; i < lum.length; i++) lum[i] = 0.299 * px4[i * 4] + 0.587 * px4[i * 4 + 1] + 0.114 * px4[i * 4 + 2];
+  const sorted = Float32Array.from(lum).sort();
+  const paper = sorted[Math.floor(sorted.length * 0.8)];
+  const ink = sorted[Math.floor(sorted.length * 0.04)];
+  const span = Math.max(1, paper - ink);
+  for (let i = 0; i < lum.length; i++) {
+    // Darker than the parchment: the emblem's ink (the paper's grain fades out).
+    const a = Math.min(1, Math.max(0, ((paper - lum[i]) / span) * 1.35 - 0.18));
+    px4[i * 4] = px4[i * 4 + 1] = px4[i * 4 + 2] = 255;
+    px4[i * 4 + 3] = Math.round(a * 255);
+  }
+  g.putImageData(data, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
+function showEmblem(box, url) {
+  // The shape inside, the glow on the box (a mask would cut the glow off).
+  const shape = el("span", { className: "twilight-emblem-shape" });
+  shape.style.setProperty("--emblem", `url("${url}")`);
+  box.replaceChildren(shape);
+  box.classList.add("art");
+}
+
 export function dungeonEmblem(stage) {
   const box = el("span", { className: "twilight-emblem" });
   box.innerHTML = EMBLEM;
   const known = emblemArt.get(stage);
-  if (known === "failed") return box;
-  const img = el("img", { className: "twilight-emblem-art", alt: "", draggable: false });
+  if (!EMBLEM_AT[stage] || known === "failed") return box;
+  if (known && known !== "loading") {
+    showEmblem(box, known);
+    return box;
+  }
+  if (!emblemWaiting.has(stage)) emblemWaiting.set(stage, []);
+  emblemWaiting.get(stage).push(box);
+  if (known === "loading") return box;
+  emblemArt.set(stage, "loading");
+  const img = new Image();
   let tries = 0;
   img.onload = () => {
-    emblemArt.set(stage, img.src);
-    box.replaceChildren(img);
-    box.classList.add("art");
+    let url = null;
+    try { url = emblemMask(img, stage); } catch { /* not readable */ }
+    emblemArt.set(stage, url ?? "failed");
+    for (const b of emblemWaiting.get(stage) ?? []) if (url) showEmblem(b, url);
+    emblemWaiting.delete(stage);
   };
   img.onerror = () => {
-    if (++tries >= 15) return emblemArt.set(stage, "failed");
-    setTimeout(() => { if (box.isConnected) img.src = `game-textures/dungeon/${stage}.png?try=${tries}`; }, 2000);
+    if (++tries >= 15) {
+      emblemArt.set(stage, "failed");
+      emblemWaiting.delete(stage);
+      return;
+    }
+    setTimeout(() => { img.src = `game-textures/dungeon/${stage}.png?try=${tries}`; }, 2000);
   };
-  img.src = known ?? `game-textures/dungeon/${stage}.png`;
+  img.src = `game-textures/dungeon/${stage}.png`;
   return box;
 }
 
@@ -227,7 +287,7 @@ const linePath = (v, strip) => strip.map((i, n) => `${n ? "L" : "M"}${v[i * 2]} 
  * @param options.makeIcon     (name, className, fallbackText) => <img> of a tracker icon (follows the
  *                             icon settings; right-click opens the icon editor via data-icon)
  */
-export function createMapView(root, { getState, regionName, roomName = null, roomVariants = null, areaChecks = null, checkRegion = null, areaRegion = null, makeIcon, checks: checkSource = null, onPlaces = null, provinceOf = () => null }) {
+export function createMapView(root, { getState, regionName, roomName = null, roomVariants = null, areaChecks = null, checkRegion = null, areaRegion = null, roomKind = null, provinceOrder = () => [], makeIcon, checks: checkSource = null, onPlaces = null, provinceOf = () => null }) {
   let visible = false;
   let map = null; // last /map
   let player = null; // last /map-player
@@ -727,6 +787,12 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const mine = map.rooms.filter((r) => r.no === player.stayRoom);
       if (mine.length) rooms = extent = mine;
     }
+    // A dungeon or cave Link is in: framed on its whole map from the game files too (rooms not
+    // loaded now).
+    if (dungeon) {
+      const own = stageMap(map.stage);
+      if (own?.rooms?.length) extent = [...extent, ...own.rooms];
+    }
     if (!dungeon && !interior && !map.singleRoom) {
       const place = fieldPlace();
       const nos = place && new Set(place.stage.rooms.map((r) => r.no));
@@ -738,11 +804,13 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     }
     const floors = [...new Set(rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
     const floor = pickedFloor ?? player.stayFloor ?? floors[floors.length - 1] ?? 0;
-    const title = (isInterior(map.stage) ? roomTitle(map.stage, map.stayRoom) : regionName(map.stage, map.stayRoom)) ?? map.stage;
+    // An overworld place's title: named by hand or by the mod (by its rooms), else its region.
+    titleKey = !dungeon && !interior ? fieldKey(map.stage, map.singleRoom ? [player.stayRoom] : extent.map((r) => r.no)) : null;
+    const title = (titleKey && fieldTitle(titleKey)) ?? (isInterior(map.stage) ? roomTitle(map.stage, map.stayRoom) : regionName(map.stage, map.stayRoom)) ?? map.stage;
     const d = dungeon ? findDungeon(title) : null;
     const items = getState()?.items ?? {};
     const key = JSON.stringify(["stage", mapVersion, map.stage, floor, player.stayRoom, player.stayFloor, player.wolf, title,
-      d, d?.name === "Goron Mines" ? items["Goron Mines Key Shard"] : 0]);
+      d, d?.name === "Goron Mines" ? items["Goron Mines Key Shard"] : 0, typeof stageMaps.get(map.stage) === "object"]);
     if (key !== sceneKey) {
       sceneKey = key;
       if (viewStage !== map.stage) {
@@ -772,8 +840,41 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   function mapCaption(stage, rooms) {
     const nos = [...new Set(rooms)].filter((n) => n >= 0).sort((a, b) => a - b);
     if (!nos.length) return `Map: ${stage}`;
-    if (nos.length > 4) return `Map: ${stage} · ${nos.length} rooms`;
     return `Map: ${stage} · room${nos.length > 1 ? "s" : ""} ${nos.join(", ")}`;
+  }
+
+  // Names of the overworld's places by their stage and rooms ("F_SP121/1+6+15"): the mod's, and
+  // those set by hand with ✎ beside the map's title (kept with the Other places' fixes).
+  const FIELD_TITLES = {
+    "F_SP125/4": "Mirror Chamber",
+    "F_SP124/0": "Gerudo Desert",
+    "F_SP122/8+16+17": "West/South/East of Castle Town",
+    "F_SP121/1+6+15": "Faron Field",
+  };
+  let titleKey = null; // the overworld place shown now, for naming it by hand
+  function fieldKey(stage, rooms) {
+    return `${stage}/${[...new Set(rooms)].filter((n) => n >= 0).sort((a, b) => a - b).join("+")}`;
+  }
+  function fieldTitle(key) {
+    return placeFixes()[key]?.title || FIELD_TITLES[key] || null;
+  }
+  function editTitle(span) {
+    const key = titleKey;
+    if (!key) return;
+    const input = el("input", { type: "text", className: "plate map-fix-title", value: span.textContent, title: `Name of ${key} (empty: back to the mod's name)` });
+    const done = (save) => {
+      if (save) checkSource?.setPlaceFix?.(key, input.value.trim() ? { title: input.value.trim() } : null);
+      sceneKey = "";
+      render();
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") done(true);
+      if (e.key === "Escape") done(false);
+    });
+    input.addEventListener("blur", () => done(true));
+    span.replaceWith(input);
+    input.focus();
+    input.select();
   }
 
   // Each room's extent on the floor shown (or on any floor when it has nothing there).
@@ -812,8 +913,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
     for (const room of extent) {
       const v = room.vertices;
+      // Also the parts not shown yet (a cave's far rooms appear once a switch is set): the frame
+      // keeps its size.
       for (const f of room.floors) for (const g of f.groups) {
-        if (!g.shown) continue;
         for (const p of g.polys) {
           if (p.type & 0x80) continue;
           for (const i of p.strip) {
@@ -1356,8 +1458,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
 
   // The title, with the option to follow Link.
   function titleBar(title) {
+    const name = el("span", { className: "loc-banner-title", textContent: title });
     return el("div", { className: "loc-banner map-title" },
-      el("span", { className: "loc-banner-title", textContent: title }),
+      name,
+      titleKey && (mode === "stage" || mode === "area") ? el("button", { type: "button", className: "map-title-edit", textContent: "✎",
+        title: "Rename this place (kept in the page's settings)", onclick: () => editTitle(name) }) : null,
       el("label", { className: "map-follow", title: "Keep the map on Link: slide and zoom to his room, and go back to his floor and map when he moves" },
         el("input", { type: "checkbox", checked: followOn, onchange: (e) => {
           followOn = e.target.checked;
@@ -1456,7 +1561,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   function checkNote() {
     const placed = new Map(patchedChecks(map.stage, map.checks ?? []).map((c) => [c.key, c]));
     const shown = new Set((scene?.checks ?? []).map((c) => c.name));
-    const drawn = new Set(map.rooms.map((r) => r.no));
+    // The rooms drawn now (on a stage whose map shows one room at a time, only Link's).
+    const drawn = new Set(scene?.rooms ? [...scene.rooms.keys()] : map.rooms.map((r) => r.no));
     let mine = checkSource.list().filter((c) => c.key.split(":")[1] === map.stage);
     // A house, cave or grotto: only the checks of the room shown (a shop's room is in its key).
     if (isInterior(map.stage)) {
@@ -1652,6 +1758,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   }
 
   function renderField(from = null) {
+    titleKey = null;
     const place = fieldPlace();
     // A new stage: its own province.
     if (fieldStage !== map.stage) {
@@ -1794,7 +1901,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     scene.hover = area;
     for (const a of scene.areas) a.node.classList.toggle("lit", same(a));
     const name = scene.kind === "world" ? PROVINCES[area.region.no] ?? `Region ${area.region.no}`
-      : regionName(area.stage.name, area.stage.rooms[0]?.no ?? 0) ?? area.stage.name;
+      : fieldTitle(fieldKey(area.stage.name, area.stage.rooms.map((r) => r.no))) ?? regionName(area.stage.name, area.stage.part ?? area.stage.rooms[0]?.no ?? 0) ?? area.stage.name;
     // The title names the lit place (or province), as the game's map screen does.
     const titleEl = root.querySelector(".map-title .loc-banner-title");
     if (titleEl) titleEl.textContent = name;
@@ -1843,7 +1950,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       .then((r) => (r.ok ? r.json() : null))
       .then((m) => {
         stageMaps.set(name, m ?? "missing");
-        if (m && areaPlace?.name === name) {
+        if (m && (areaPlace?.name === name || map?.stage === name)) {
           sceneKey = "";
           render();
         }
@@ -1855,14 +1962,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   function renderArea() {
     const { region, stage, name, rooms: onlyRooms } = areaPlace;
     let rooms = stage?.rooms ?? null;
-    // A place of the overworld: drawn from the stage's own map (the same coordinates as its checks)
-    // once known, else from the field map data.
-    if (stage) {
-      const own = stageMap(name);
-      const nos = new Set(stage.rooms.map((r) => r.no));
-      const mine = own?.rooms?.filter((r) => nos.has(r.no)) ?? [];
-      if (mine.length) rooms = mine;
-    }
     if (!rooms) {
       const m = stageMap(name);
       if (!m) {
@@ -1881,7 +1980,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       }
     }
     const key = JSON.stringify(["area", region?.no ?? null, name, stage?.part ?? null, onlyRooms ?? null, areaPlace.variant ?? null, areaFloor, !!places?.done,
-      typeof stageMaps.get(name) === "object"]);
+      typeof stageMaps.get(name) === "object", dungeonKey(name)]);
     if (key === sceneKey) {
       updateChecks();
       return;
@@ -1891,18 +1990,27 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     checkScope = areaPlace.variant && areaChecks ? areaChecks(areaPlace.variant) : null;
     const dungeon = name.startsWith("D_") && !stage;
     const remoteMap = stage ? null : stageMap(name);
-    map = { stage: name, stayRoom: -1, exists: true, area: true, doors: [], checksAll: !!places?.done, icons: remoteMap?.icons ?? [],
+    // A dungeon's doors from its files, locked or not from the save (the big key door: whether
+    // the dungeon's big key is held); its boss's room from the map's boss icon.
+    const dState = dungeon ? findDungeon(placeTitle(name)) : null;
+    const doors = dungeon ? (remoteMap?.doors ?? []).map((dr) => (dr.kind === "boss" && dr.state === "?"
+      ? { ...dr, state: dState?.bigKey ? "U" : "L", locked: !dState?.bigKey } : dr)) : [];
+    const bossIcon = dungeon ? (remoteMap?.icons ?? []).find((i) => i.type === 3) : null;
+    map = { stage: name, stayRoom: -1, exists: true, area: true, doors, checksAll: !!places?.done, icons: remoteMap?.icons ?? [],
+      boss: bossIcon ? { room: bossIcon.room, x: bossIcon.x, z: bossIcon.z, floor: bossIcon.floor } : null,
       checks: (places?.stages?.[name] ?? []).map((p) => ({ key: p.key, room: p.room, x: p.x, z: p.z, floor: p.floor ?? 0 })),
-      // Every part of the map, also those the game shows only once a switch is set (a cave's far
-      // rooms): this view is for finding and placing checks.
+      // A cave's map: every part, also those the game shows only once a switch is set (its far
+      // rooms), as this view is for finding and placing checks. The overworld's places as the field
+      // map data shows them (water and bridges by the save's switches), dungeons as the game does.
       rooms: rooms.map((r) => ({ ...r, layer: 0, visited: true,
-        floors: r.floors.map((f) => ({ ...f, groups: f.groups.map((g) => ({ ...g, shown: true })) })) })), bounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 } };
+        floors: stage || name.startsWith("D_MN") ? r.floors : r.floors.map((f) => ({ ...f, groups: f.groups.map((g) => ({ ...g, shown: true })) })) })), bounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 } };
     try {
       const floors = [...new Set(map.rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
       const floor = areaFloor ?? (floors.includes(0) ? 0 : floors[floors.length - 1] ?? 0);
       if (!dungeon) for (const c of map.checks) c.floor = floor;
       const d = dungeon ? findDungeon(placeTitle(name)) : null;
-      build(dungeon, map.rooms, floors, floor, areaPlace.title ?? placeTitle(name), d, map.rooms,
+      titleKey = stage ? fieldKey(name, stage.rooms.map((r) => r.no)) : null;
+      build(dungeon, map.rooms, floors, floor, (titleKey && fieldTitle(titleKey)) ?? areaPlace.title ?? placeTitle(name), d, map.rooms,
         mapCaption(name, map.rooms.map((r) => r.no)));
     } finally {
       map = real;
@@ -1959,6 +2067,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     title.focus();
   }
 
+  // What a dungeon's remote map shows from the save (its big key, for the boss door).
+  function dungeonKey(name) {
+    return name.startsWith("D_") ? !!findDungeon(placeTitle(name))?.bigKey : null;
+  }
+
   // A stage's name for people: the dungeon, or the logic region of its first room.
   function placeTitle(name) {
     const dungeon = DUNGEON_STAGES.find(([, s]) => s === name);
@@ -1967,8 +2080,27 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     return regionName(name, stage?.rooms[0]?.no ?? 0) ?? name;
   }
 
+  const provinceRank = (p) => {
+    const i = provinceOrder().indexOf(p);
+    return i < 0 ? 1e6 : i;
+  };
+  const stageRank = (st) => {
+    const i = STAGE_NAMES.indexOf(st);
+    return i < 0 ? 1e6 : i;
+  };
+
+  // Where the Dungeons or Other list was scrolled when a place was opened from it.
+  const selectScroll = { dungeons: null, other: null };
+  function saveSelectScroll() {
+    const list = root.querySelector(".map-select");
+    const outer = [];
+    for (let n = root; n && n !== document.body; n = n.parentElement) if (n.scrollTop > 0) outer.push([n, n.scrollTop]);
+    selectScroll[mode] = { list: list?.scrollTop ?? 0, outer, page: window.scrollY };
+  }
+
   // The Dungeons and Other tabs: lists of places whose map can be opened.
   function renderSelect() {
+    titleKey = null;
     const key = JSON.stringify(["select", mode, !!places?.done, (places?.maps ?? []).length,
       mode === "dungeons" ? [getState()?.dungeons, getState()?.items?.["Goron Mines Key Shard"]] : null]);
     if (key === sceneKey) return;
@@ -1983,7 +2115,10 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         const b = el("button", {
           type: "button", className: "plate twilight-plate map-dungeon-button", disabled: !known.has(stage),
           title: known.has(stage) ? `Open ${label}'s map` : "Its map is known once the game files are read",
-          onclick: () => openRemote({ name: stage, back: "dungeons" }),
+          onclick: () => {
+            saveSelectScroll();
+            openRemote({ name: stage, back: "dungeons" });
+          },
         },
           el("span", { className: "twilight-no", textContent: ROMAN[i] }),
           dungeonEmblem(stage),
@@ -2009,7 +2144,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
           for (const no of roomNos) {
             const variants = roomVariants?.(st, no) ?? [];
             if (variants.length) {
-              for (const v of variants) out.push({ stage: st, rooms: [no], title: v.name, variant: v.area, region: v.region, id: `${st}/${no}/${v.area}` });
+              variants.forEach((v, i) => out.push({ stage: st, rooms: [no], title: v.name, variant: v.area, region: v.region, kind: "Grotto", order: i,
+                id: `${st}/${no}/${v.area}` }));
             } else {
               plain.push(no);
             }
@@ -2031,13 +2167,18 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
           return out.map((it) => {
             const region = it.region || (it.variant && areaRegion?.(it.variant)) || regionName(st, it.rooms?.[0] ?? 0) || placeTitle(st);
             const fix = placeFixes()[it.id] ?? {};
-            return { ...it, title: fix.title || it.title, defaultTitle: it.title,
+            const kind = it.kind ?? roomKind?.(st, it.rooms?.[0] ?? (places?.mapRooms?.[st] ?? [0])[0]) ?? (st.startsWith("R_") ? "Interior" : "Cave");
+            return { ...it, title: fix.title || it.title, defaultTitle: it.title, kind,
               province: fix.province || provinceOf(region) || provinceOf(it.title) || "Other" };
           });
         })
         // Places of no province (not in the logic) are left out.
         .filter((it) => it.province !== "Other")
-        .sort((a, b) => a.province.localeCompare(b.province) || a.title.localeCompare(b.title));
+        // In the game's order: provinces as the randomizer's world files list them, then the
+        // stages' and rooms' numbers.
+        .sort((a, b) => provinceRank(a.province) - provinceRank(b.province) || a.province.localeCompare(b.province) ||
+          KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || stageRank(a.stage) - stageRank(b.stage) ||
+          (a.rooms?.[0] ?? 0) - (b.rooms?.[0] ?? 0) || (a.order ?? 0) - (b.order ?? 0));
       const groups = new Map();
       for (const item of list) {
         if (!groups.has(item.province)) groups.set(item.province, []);
@@ -2045,11 +2186,16 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       }
       const results = el("div", { className: "map-other-list" });
       for (const [province, items] of groups) {
+        const kinds = KINDS.filter((k) => items.some((it) => it.kind === k));
         results.append(el("div", { className: "map-other-group" },
           el("h4", { className: "twilight-heading" }, el("span", { textContent: province })),
-          ...items.map((it) => {
+          ...kinds.map((kind) => el("div", { className: "map-other-kind" }, el("h5", { textContent: KIND_TITLES[kind] }),
+          ...items.filter((it) => it.kind === kind).map((it) => {
             const b = el("button", { type: "button", className: "plate twilight-plate map-other-button", title: it.rooms ? `${it.stage} · room ${it.rooms.join(", ")}` : it.stage, textContent: it.title,
-              onclick: () => openRemote({ name: it.stage, rooms: it.rooms, title: it.title, variant: it.variant, back: "other" }) });
+              onclick: () => {
+                saveSelectScroll();
+                openRemote({ name: it.stage, rooms: it.rooms, title: it.title, variant: it.variant, back: "other" });
+              } });
             b.dataset.search = `${it.title} ${it.stage}`.toLowerCase();
             // Rename it or move it to another province (kept in the page's settings).
             const edit = el("span", { className: "map-other-edit", title: "Change its name or province", textContent: "✎", role: "button", tabIndex: 0 });
@@ -2059,15 +2205,20 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
             });
             b.append(edit);
             return b;
-          })));
+          })))));
       }
       const filter = () => {
         const q = selectFilter.trim().toLowerCase();
         for (const g of results.querySelectorAll(".map-other-group")) {
           let any = false;
-          for (const b of g.querySelectorAll(".map-other-button")) {
-            b.hidden = q !== "" && !b.dataset.search.includes(q);
-            any = any || !b.hidden;
+          for (const k of g.querySelectorAll(".map-other-kind")) {
+            let anyHere = false;
+            for (const b of k.querySelectorAll(".map-other-button")) {
+              b.hidden = q !== "" && !b.dataset.search.includes(q);
+              anyHere = anyHere || !b.hidden;
+            }
+            k.hidden = !anyHere;
+            any = any || anyHere;
           }
           g.hidden = !any;
         }
@@ -2079,6 +2230,16 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     }
     root.replaceChildren(el("div", { className: "map-pane" }, ...paneTop(mode === "dungeons" ? "Dungeons" : "Other places"),
       el("div", { className: "map-layout" }, el("div", { className: "map-stage" }, body)), noticeBox()));
+    // Back from a place opened from this list: where the list was scrolled to.
+    const saved = selectScroll[mode];
+    if (saved) {
+      selectScroll[mode] = null;
+      requestAnimationFrame(() => {
+        body.scrollTop = saved.list;
+        for (const [node, top] of saved.outer) if (node.isConnected) node.scrollTop = top;
+        window.scrollTo(0, saved.page);
+      });
+    }
     updateProgress();
     updatePick(true);
   }

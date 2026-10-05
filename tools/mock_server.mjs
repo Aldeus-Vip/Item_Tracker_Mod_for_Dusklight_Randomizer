@@ -292,6 +292,18 @@ createServer(async (req, res) => {
     res.end(JSON.stringify(state));
     return;
   }
+  // DUNGEON_ART_DIR: dungeon map backgrounds as <stage>.png (/game-textures/dungeon/<stage>.png).
+  if (path.startsWith("/game-textures/dungeon/") && process.env.DUNGEON_ART_DIR) {
+    const file = decodeURIComponent(path.slice(23));
+    if (!/^D_MN\d\d\.png$/.test(file)) return res.writeHead(404).end();
+    try {
+      const body = await readFile(join(process.env.DUNGEON_ART_DIR, file));
+      res.writeHead(200, { "Content-Type": "image/png" });
+      return res.end(body);
+    } catch {
+      return res.writeHead(404).end();
+    }
+  }
   if (path.startsWith("/game-textures/itemicon/")) {
     // Stand-in for the game's item icon archive: the PNGs in ICON_DIR as "<name>.bti".
     const rest = decodeURIComponent(path.slice(24));
