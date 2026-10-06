@@ -1764,11 +1764,15 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         if (st === "reachable" || st === "blocked" || st === "unknown") left++;
         if (st === "reachable") reachable++;
       }
+      // An icon on the entrance's point, its count above; on hover, a plate with the place's name.
+      const count = `${reachable}/${left}`;
       const node = el("button", { type: "button", className: `map-entrance ${kind.toLowerCase()}` + (left === 0 ? " done" : "") + (added ? " added" : ""),
-        title: `${title}\n${reachable} reachable of the ${left} checks left there · Click: its map (right-click there: back here) · Right-click: move${added ? ", change or remove" : ""} this entrance`, ariaLabel: title },
+        title: `Click: its map (right-click there: back here) · Right-click: move${added ? ", change or remove" : ""} this entrance`, ariaLabel: `${title} ${count}` },
       el("span", { className: "map-entrance-icon" }),
-      el("span", { className: "map-entrance-name", textContent: title }),
-      left ? el("span", { className: "map-entrance-count", textContent: `${reachable}/${left}` }) : null);
+      left ? el("span", { className: "map-entrance-count", textContent: count }) : null,
+      el("span", { className: "map-entrance-card" },
+        el("span", { className: "map-entrance-name", textContent: title }),
+        el("span", { className: "map-entrance-card-count", textContent: left ? `${reachable} reachable / ${left} left` : "nothing left" })));
       const icon = node.querySelector(".map-entrance-icon");
       if (kind === "Dungeon") {
         icon.append(iconSlot("Map_Dungeon_Enter", "Dungeon entrance", "map-entrance-img", el("span", { innerHTML: ENTRANCE_GLYPHS.Dungeon })));
@@ -2418,21 +2422,32 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     render();
   }
 
-  // A stage's map from the mod (/stage-map), fetched once.
+  // A stage's map from the mod (/stage-map), fetched once; asked again a few seconds after it was
+  // not there (the game files still being read, the mod busy).
+  const missingAt = new Map();
   function stageMap(name) {
     const known = stageMaps.get(name);
-    if (known) return typeof known === "string" ? null : known;
+    if (known === "missing" && Date.now() - (missingAt.get(name) ?? 0) > 3000) stageMaps.delete(name);
+    else if (known) return typeof known === "string" ? null : known;
     stageMaps.set(name, "loading");
+    const missing = (why) => {
+      stageMaps.set(name, "missing");
+      missingAt.set(name, Date.now());
+      if (why) console.warn(`stage-map/${name}: ${why}`);
+      // Shown "not known yet": tried again.
+      if (areaPlace?.name === name) setTimeout(() => { if (mode === "area" && areaPlace?.name === name) { sceneKey = ""; render(); } }, 3500);
+    };
     fetch(`stage-map/${name}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((m) => {
-        stageMaps.set(name, m ?? "missing");
-        if (m && (areaPlace?.name === name || map?.stage === name)) {
+        if (!m) return missing(null);
+        stageMaps.set(name, m);
+        if (areaPlace?.name === name || map?.stage === name) {
           sceneKey = "";
           render();
         }
       })
-      .catch(() => stageMaps.set(name, "missing"));
+      .catch((e) => missing(String(e)));
     return null;
   }
 
@@ -2911,6 +2926,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // The check highlighted in Checks (when linked): picked on the map too (null: none).
     pickCheck(name) {
       if (!checkSource || reqName === (name ?? null)) return;
+      // The map on screen goes to the check's place (as a double-click does).
+      if (name && visible && getState()?.inGame && map && player) return showCheck(name);
       reqName = name ?? null;
       if (placing && placing !== reqName) placing = null;
       updatePick(true);

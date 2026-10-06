@@ -30,6 +30,11 @@
 <p>Updates every second. <b>clear</b>: one digit per point on the item (above it, higher, toward the camera, farther toward the camera, its eye point, its attention point, 120 above, 200 above); 1 = the camera sees it. Seen needs a 1, <b>inView</b> and a distance up to 3000. <b>No sight</b>: listed in the mod's seen_without_sight.txt — the 1 is not needed.</p>
 <table><thead><tr><th>Check</th><th>Distance</th><th>inView</th><th>clear</th><th>No sight</th><th>Seen</th></tr></thead><tbody id="seen"></tbody></table>
 
+<h2>Map data of a stage</h2>
+<p>What the mod knows of a stage's map: the map Link is in now, the stage's maps read from the game files (with what was found of an overworld room's ground), and the overworld map's rooms. Leave the stage empty for the one Link is in. <b>Copy</b> and send it when a map does not show.</p>
+<div><input id="md-stage" placeholder="e.g. F_SP117" size="10"> <button type="button" id="md-read">Read</button> <button type="button" id="md-copy">Copy</button></div>
+<pre id="md-out" class="pos" style="white-space: pre-wrap; max-width: 900px;"></pre>
+
 <h2>Dungeon map backgrounds (bg.bti)</h2>
 <p>Read from the game files on request. Click on a picture: the point's place in % (x, y) shows under it — send it for the emblem's position.</p>
 <pre id="status" class="pos"></pre>
@@ -101,6 +106,64 @@
   }
   setInterval(status, 2000);
   status();
+
+  // A room's map in a line: its floors and how many shapes each has.
+  const roomLine = (r) => `room ${r.no}${r.ground ? " (ground)" : ""}: ` + (r.floors ?? []).map((f) =>
+    `floor ${f.no} ${(f.groups ?? []).reduce((n, g) => n + (g.polys?.length ?? 0), 0)} shapes${(f.groups ?? []).some((g) => g.shown === false) ? " (some hidden)" : ""}`).join(", ")
+    + ` · ${(r.vertices?.length ?? 0) / 2} points`;
+  async function get(url) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) return { error: `${res.status}` };
+      const text = await res.text();
+      try { return JSON.parse(text); } catch (e) { return { error: `not JSON (${text.length} bytes): ${e}` }; }
+    } catch (e) {
+      return { error: String(e) };
+    }
+  }
+  async function mapData() {
+    const out = [];
+    const player = await get("map-player");
+    const stage = document.getElementById("md-stage").value.trim() || player.stage || "";
+    out.push(`Link: stage ${player.stage ?? "?"}, room ${player.stayRoom ?? "?"}, floor ${player.stayFloor ?? "?"}`);
+    out.push(`Stage: ${stage}`);
+    const live = await get("map");
+    if (live.stage === stage) {
+      out.push(`\nMap now (the game's): ${live.exists ? "exists" : "none"}`);
+      for (const r of live.rooms ?? []) out.push("  " + roomLine(r) + (r.visited ? "" : " · not visited"));
+    }
+    const sm = await get(`stage-map/${stage}`);
+    out.push(`\nFrom the game files (stage-map): ${sm.error ? "error " + sm.error : `${sm.rooms?.length ?? 0} rooms, ${sm.doors?.length ?? 0} doors, ${sm.icons?.length ?? 0} icons`}`);
+    for (const r of sm.rooms ?? []) out.push("  " + roomLine(r));
+    if (sm.doors?.length) {
+      const byFloor = {};
+      for (const d of sm.doors) byFloor[d.floors.join("/")] = (byFloor[d.floors.join("/")] ?? 0) + 1;
+      out.push("  doors by floor: " + Object.entries(byFloor).map(([k, n]) => `${k}: ${n}`).join(", "));
+    }
+    for (const [room, info] of Object.entries(sm.groundInfo ?? {})) out.push(`  ground of room ${room}: ${info}`);
+    const places = await get("check-places");
+    out.push(`\nCheck places: ${places.done ? "read" : `reading ${places.read}/${places.total}`}; map rooms ${JSON.stringify(places.mapRooms?.[stage] ?? null)}; ${(places.stages?.[stage] ?? []).length} checks; ${(places.spawns?.[stage] ?? []).length} spawn points; single-room map: ${(places.singleRooms ?? []).includes(stage)}`);
+    const field = await get("field-map");
+    const parts = (field.regions ?? []).flatMap((r) => r.stages.filter((st) => st.name === stage).map((st) => ({ region: r.no, st })));
+    out.push(`\nOverworld map: ${field.ready ? `${parts.length} entries` : field.error ?? "not read yet"}`);
+    for (const { region, st } of parts) {
+      out.push(`  province ${region} at ${Math.round(st.x)}, ${Math.round(st.z)}:`);
+      for (const r of st.rooms) out.push("    " + roomLine(r));
+    }
+    document.getElementById("md-out").textContent = out.join("\n");
+  }
+  document.getElementById("md-read").addEventListener("click", mapData);
+  document.getElementById("md-copy").addEventListener("click", async () => {
+    const text = document.getElementById("md-out").textContent;
+    try { await navigator.clipboard.writeText(text); } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      document.body.append(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+  });
 </script>
 </body>
 </html>

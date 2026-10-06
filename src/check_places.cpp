@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 10";
+constexpr const char* kCacheVersion = "check-places 11";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -165,17 +165,26 @@ std::map<std::string, std::vector<Spawn>> g_spawns;
 // collision (room.dzb), as rectangles of a grid in room coordinates (x0, z0, x1, z1), made into a
 // map once all is read (finish_ground_maps).
 std::map<std::string, std::map<int, std::vector<std::array<float, 4>>>> g_ground;
+// What was found for each overworld room's ground (its files, triangles, rectangles), shown on the
+// debug page.
+std::map<std::string, std::map<int, std::string>> g_groundInfo;
 
 // The walkable ground of a room's collision (cBgD_t: vertices, triangles): triangles facing up,
 // filled into a grid of up to 160 cells across, each row's runs of cells as rectangles.
 void read_ground(const std::string& stage, int room, const std::vector<uint8_t>& dzb) {
+    std::string& info = g_groundInfo[stage][room];
+    info += "room.dzb " + std::to_string(dzb.size()) + " bytes";
     if (dzb.size() < 0x34) return;
     const uint8_t* b = dzb.data();
     const uint32_t vNum = be32(b);
     const uint32_t vOff = be32(b + 4);
     const uint32_t tNum = be32(b + 8);
     const uint32_t tOff = be32(b + 0xC);
-    if (vNum == 0 || tNum == 0 || vOff + vNum * 12 > dzb.size() || tOff + tNum * 10 > dzb.size()) return;
+    info += ", " + std::to_string(vNum) + " vertices, " + std::to_string(tNum) + " triangles";
+    if (vNum == 0 || tNum == 0 || vOff + vNum * 12 > dzb.size() || tOff + tNum * 10 > dzb.size()) {
+        info += " (out of the file)";
+        return;
+    }
     const auto vtx = [&](uint32_t i, float out[3]) {
         const uint8_t* v = b + vOff + i * 12;
         out[0] = befloat(v);
@@ -210,11 +219,15 @@ void read_ground(const std::string& stage, int room, const std::vector<uint8_t>&
         }
         tris.push_back(tr);
     }
+    info += ", " + std::to_string(tris.size()) + " ground";
     if (tris.empty()) return;
     const float cell = std::max(40.0f, std::max(maxX - minX, maxZ - minZ) / 160.0f);
     const int cols = static_cast<int>((maxX - minX) / cell) + 1;
     const int rows = static_cast<int>((maxZ - minZ) / cell) + 1;
-    if (cols > 400 || rows > 400) return;
+    if (cols > 400 || rows > 400) {
+        info += " (too large)";
+        return;
+    }
     std::vector<uint8_t> grid(static_cast<size_t>(cols) * rows, 0);
     for (const Tri& t : tris) {
         const int c0 = std::max(0, static_cast<int>((std::min({t.x[0], t.x[1], t.x[2]}) - minX) / cell));
@@ -246,6 +259,7 @@ void read_ground(const std::string& stage, int room, const std::vector<uint8_t>&
             c = e;
         }
     }
+    info += ", " + std::to_string(rects.size()) + " rectangles";
     if (!rects.empty()) g_ground[stage][room] = std::move(rects);
 }
 
@@ -254,7 +268,13 @@ void read_ground(const std::string& stage, int room, const std::vector<uint8_t>&
 void finish_ground_maps() {
     for (auto& [stage, rooms] : g_ground) {
         for (auto& [room, rects] : rooms) {
-            if (g_maps[stage].count(room)) continue;
+            // A room with a map of its own keeps it, unless that map has nothing to draw.
+            const auto own = g_maps[stage].find(room);
+            if (own != g_maps[stage].end() && own->second.find(R"("polys":[{)") != std::string::npos) {
+                g_groundInfo[stage][room] += "; its own map (MPAT) is drawn";
+                continue;
+            }
+            if (own != g_maps[stage].end()) g_groundInfo[stage][room] += "; its own map (MPAT) has no shapes: the ground is drawn";
             JsonWriter w;
             w.beginObject();
             w.member("no", room);
@@ -522,6 +542,11 @@ void parse_archive(const Job& job) {
     const std::vector<uint8_t>* arc = &g_buffer;
     if (yaz0_decode(g_buffer, plain)) arc = &plain;
     std::vector<Place>& out = g_places[job.stage];
+    if (job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
+        std::string names;
+        for (const ArcFile& f : rarc_files(*arc)) names += (names.empty() ? "" : " ") + f.name;
+        g_groundInfo[job.stage][job.room] = "files: " + names + "; ";
+    }
     for (const ArcFile& f : rarc_files(*arc)) {
         int room = -2;
         if (f.name == "room.dzb" && job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
@@ -774,6 +799,7 @@ bool load_cache() {
     g_doors.clear();
     g_shutters.clear();
     g_spawns.clear();
+    g_groundInfo.clear();
     while (std::getline(in, line)) {
         std::istringstream fields(line);
         std::string kind;
@@ -812,6 +838,10 @@ bool load_cache() {
         } else if (kind == "I") {
             Icon i;
             if (fields >> i.type >> i.room >> i.sw >> i.x >> i.y >> i.z) g_icons[stage].push_back(i);
+        } else if (kind == "G") {
+            int room = 0;
+            std::string info;
+            if ((fields >> room) && fields.get() == '\t' && std::getline(fields, info)) g_groundInfo[stage][room] = info;
         } else if (kind == "M") {
             std::string room;
             std::string json;
@@ -841,6 +871,9 @@ void save_cache() {
         for (const Door& d : doors) {
             out << "D\t" << stage << '\t' << d.name << '\t' << d.prm << ' ' << d.angleY << ' ' << d.angleZ << ' ' << d.x << ' ' << d.y << ' ' << d.z << ' ' << (d.stageDoor ? 1 : 0) << "\n";
         }
+    }
+    for (const auto& [stage, rooms] : g_groundInfo) {
+        for (const auto& [room, info] : rooms) out << "G\t" << stage << '\t' << room << '\t' << info << "\n";
     }
     for (const auto& [stage, rooms] : g_shifts) {
         for (const auto& [room, sh] : rooms) out << "S\t" << stage << '\t' << room << ' ' << sh.x << ' ' << sh.z << ' ' << sh.turn << ' ' << sh.minFloor << ' ' << sh.maxFloor << "\n";
@@ -1043,6 +1076,7 @@ void update() {
         g_doors.clear();
         g_shutters.clear();
         g_spawns.clear();
+        g_groundInfo.clear();
         g_phase = Phase::Read;
         build_json(false);
         break;
@@ -1188,8 +1222,12 @@ const std::vector<Shutter>* stage_shutters(const std::string& stage) {
 
 std::string stage_map_json(const std::string& stage) {
     if (g_phase != Phase::Done) return "";
+    // (An overworld stage with no map at all still answers, with what was found of its ground.)
+    static const std::map<int, std::string> kNone;
     const auto it = g_maps.find(stage);
-    if (it == g_maps.end() || it->second.empty()) return "";
+    const bool none = it == g_maps.end() || it->second.empty();
+    if (none && !g_groundInfo.count(stage)) return "";
+    const std::map<int, std::string>& maps = none ? kNone : it->second;
     std::string out = R"({"stage":")" + stage + R"(",)";
     const auto fl = g_floors.find(stage);
     out += R"("singleRoom":)" + std::string((fl != g_floors.end() && (fl->second.mapKind == 2 || fl->second.mapKind == 3 || fl->second.mapKind == 6)) ? "true" : "false") + ",";
@@ -1210,9 +1248,16 @@ std::string stage_map_json(const std::string& stage) {
         out += R"("icons":)" + w.str() + ",";
     }
     out += R"("doors":)" + doors_json(stage) + ",";
+    {
+        JsonWriter w;
+        w.beginObject();
+        for (const auto& [room, info] : g_groundInfo[stage]) w.member(std::to_string(room).c_str(), info);
+        w.endObject();
+        out += R"("groundInfo":)" + w.str() + ",";
+    }
     out += R"("rooms":[)";
     bool first = true;
-    for (const auto& [room, json] : it->second) {
+    for (const auto& [room, json] : maps) {
         if (!first) out += ',';
         out += json;
         first = false;
