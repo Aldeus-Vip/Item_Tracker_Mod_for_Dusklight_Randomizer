@@ -100,7 +100,9 @@ The menu ornaments in `res/web/art/ui/` (gold corners, banner scroll ends, textu
 art made for this mod, in the style of Twilight Princess menus.
 
 The page font is [Nunito](https://github.com/googlefonts/nunito) by Vernon Adams et al., under the
-SIL Open Font License 1.1 (`res/web/fonts/Nunito-OFL.txt`).
+SIL Open Font License 1.1 (`res/web/fonts/Nunito-OFL.txt`). The Old English font (Options › Font) is
+[UnifrakturMaguntia](https://github.com/google/fonts/tree/main/ofl/unifrakturmaguntia), also under the SIL Open Font License 1.1
+(`res/web/fonts/UnifrakturMaguntia-OFL.txt`).
 
 ### Custom requirements
 
@@ -162,9 +164,7 @@ Add a Browser Source with the tracker URL. These URL options can be combined:
 
 | Option | Effect |
 |---|---|
-| `?view=items`, `?view=dungeons`, `?view=locations`, `?view=dashboard` | Show one tab |
-| `?panes=items,map` | The Dashboard's panes (any of `items`, `dungeons`, `checks`, `map`, in order) |
-| `?layout=columns`, `?layout=grid`, `?layout=rows` | How the Dashboard's panes are laid out |
+| `?view=items`, `?view=dungeons`, `?view=locations` | Show one tab |
 | `?mode=simple`, `?mode=advanced` | Simple or advanced display (else as set in Options) |
 | `?header=0` | Hide the tab bar |
 | `?transparent=1` | Transparent background |
@@ -240,5 +240,5 @@ The state and event format is described in [docs/protocol.md](docs/protocol.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The Nunito font is under the SIL Open Font License 1.1.
+MIT — see [LICENSE](LICENSE). The Nunito and UnifrakturMaguntia fonts are under the SIL Open Font License 1.1.
 Changes are listed in [CHANGELOG.md](CHANGELOG.md).

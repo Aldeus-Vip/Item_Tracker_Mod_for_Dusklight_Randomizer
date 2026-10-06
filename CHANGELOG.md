@@ -3,16 +3,18 @@
 ## Unreleased
 
 ### New
-- **Options** (was Theme): every setting in one place — Display (Simple / Advanced), Theme,
-  Background, Item frames, Dashboard, and the debug page (Advanced).
+- **Options** (was Theme): every setting in one place, each part in a frame of its own — Display
+  (Simple / Advanced, linking Checks and Map, the font), Theme, Background, Item Background.
 - **Simple display** (the default): the main things only. Custom requirements, Reachable Regions,
   seeds, By area, the region filter, placing checks by hand, renaming places and the map's details
   are under Advanced.
-- **Item frames**: the theme's fill or a color of one's own, and its opacity (down to fully
-  transparent), for a background image or a transparent OBS source.
-- **Dashboard** tab: Items, Dungeons, Checks and the Map side by side, two by two or one under
-  another, as chosen in Options (or `?panes=` / `?layout=` in the address for OBS). Double-click
-  a check: it shows on the Dashboard's map; click a dungeon: its map opens there.
+- **Item Background**: the theme's fill or a color of one's own, its opacity (down to fully
+  transparent, for a background image or a transparent OBS source), and how bright the obtained
+  items' green glow is.
+- **Font**: standard, Old English (UnifrakturMaguntia, SIL OFL) or a font of one's own uploaded (a
+  Hylian font, ...), for the titles or all text.
+- **Link Checks and Map** (Options › Display, on by default): picking a region in Checks opens its
+  map, and the place the map shows sets Checks to its region.
 - Resting the pointer on a check shows its requirement beside it (no click needed).
 - **Map** in Locations (sub-tabs Checks / Map / Checks + Map): the map of the stage Link is in,
   drawn from the game's own map data, with Link's position and facing, following him between
@@ -104,6 +106,13 @@
 - Checks: a region filter beside the province's title.
 - debug.html: the dungeon map backgrounds as read from the game, and the items lying around being
   watched for "seen" (distance, in view, clear line), to find out what goes wrong.
+- Entrances show on both ends (a house's way out to the field too), one plate per place they lead
+  to, none between two parts of the map shown; their counts are of the checks of the map they open
+  (its rooms). Right-click on a map opened from an entrance goes back where it was opened.
+- The Sacred Grove's rooms the game has no map for (Lost Woods, Past Sacred Grove, the Master
+  Sword's pedestal) are drawn from their ground (the rooms' collision), with Link on them; they
+  are in Other › Other areas.
+- The Dungeons and Other lists scroll on their own: the tabs above stay in view.
 - **Entrances on the maps**: where each entrance of the randomizer's list is (the spawn point its
   way back uses), a small plate with the kind of place it leads to (dungeon, house, cave, grotto,
   field) and, of the checks there not checked yet, how many are reachable (reachable / left).

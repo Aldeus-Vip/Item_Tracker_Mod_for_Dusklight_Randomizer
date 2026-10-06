@@ -198,6 +198,10 @@ int main() {
     const std::string bg = request(http("GET", "/background"));
     check(status_is(bg, "200") && bg.find("Content-Type: image/png") != std::string::npos && bg.ends_with(png),
         "GET /background returns the image");
+    const std::string ttf = std::string("\x00\x01\x00\x00", 4) + std::string(100, 'f');
+    check(status_is(request(http("POST", "/font", ttf, "Content-Type: font/upload\r\n" + own)), "200"), "POST /font");
+    check(request(http("GET", "/font")).find("font/ttf") != std::string::npos, "GET /font returns the font");
+    check(status_is(request(http("POST", "/font", "hello", "Content-Type: font/upload\r\n" + own)), "415"), "POST /font rejects non-fonts");
     check(status_is(request(http("POST", "/background", "hello", "Content-Type: image/png\r\n" + own)), "415"),
         "non-image upload is rejected");
     check(status_is(request("POST /background HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: image/png\r\n"

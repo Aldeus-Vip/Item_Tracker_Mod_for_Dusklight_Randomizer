@@ -30,6 +30,7 @@ constexpr size_t kMaxImageBytes = 8 * 1024 * 1024;
 constexpr std::string_view kLayoutFile = "layout.json";
 constexpr std::string_view kSettingsFile = "settings.json";
 constexpr std::string_view kBackgroundFile = "background";
+constexpr std::string_view kFontFile = "font";
 // NetService allows 32 streams per mod; keep headroom for page asset requests.
 constexpr size_t kMaxClients = 24;
 
@@ -468,6 +469,38 @@ void delete_background(Client& client, const Request& req) {
     broadcast_config_changed();
 }
 
+// A font uploaded for the page's text (Options), by its magic bytes: TrueType, OpenType, WOFF.
+std::string_view font_type(std::string_view data) {
+    if (data.starts_with(std::string_view("\x00\x01\x00\x00", 4)) || data.starts_with("true")) return "font/ttf";
+    if (data.starts_with("OTTO")) return "font/otf";
+    if (data.starts_with("wOFF")) return "font/woff";
+    if (data.starts_with("wOF2")) return "font/woff2";
+    return {};
+}
+
+void serve_font(Client& client) {
+    std::string body;
+    if (!read_file(config_path(kFontFile), body) || font_type(body).empty()) {
+        send_error(client, "404 Not Found");
+        return;
+    }
+    send_response(client, "200 OK", font_type(body), body);
+}
+
+void save_font(Client& client, const Request& req) {
+    if (!check_write_allowed(client, req, "font/")) return;
+    if (font_type(req.body).empty()) {
+        send_error(client, "415 Unsupported Media Type");
+        return;
+    }
+    if (!write_file(config_path(kFontFile), req.body)) {
+        send_error(client, "500 Internal Server Error");
+        return;
+    }
+    send_response(client, "200 OK", "application/json; charset=utf-8", "{\"ok\":true}");
+    broadcast_config_changed();
+}
+
 // POST /icons/<name>.png: a custom icon uploaded on the tracker page, stored in the icon folder
 // under the icon's name (whatever the uploaded file was called).
 void save_icon(Client& client, const Request& req, std::string_view encodedName) {
@@ -596,7 +629,7 @@ void add_found(Client& client, const Request& req) {
 // Largest request body accepted for a target.
 size_t max_body_bytes(std::string_view target) {
     if (target.starts_with("/icons/")) return kMaxIconBytes;
-    return target == "/background" ? kMaxImageBytes : kMaxJsonBytes;
+    return target == "/background" || target == "/font" ? kMaxImageBytes : kMaxJsonBytes;
 }
 
 // Handles one complete request. Returns true if the connection should stay open (event stream).
@@ -614,6 +647,8 @@ bool handle_request(Client& client, const Request& req) {
             save_json_file(client, req, kSettingsFile);
         } else if (target == "/background") {
             save_background(client, req);
+        } else if (target == "/font") {
+            save_font(client, req);
         } else if (target.starts_with("/icons/")) {
             save_icon(client, req, target.substr(7));
         } else if (target == "/found") {
@@ -691,6 +726,10 @@ bool handle_request(Client& client, const Request& req) {
     }
     if (target == "/background") {
         serve_background(client);
+        return false;
+    }
+    if (target == "/font") {
+        serve_font(client);
         return false;
     }
     if (target == "/") {

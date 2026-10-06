@@ -9,6 +9,7 @@
 #include <dolphin/dvd.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -22,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 8";
+constexpr const char* kCacheVersion = "check-places 9";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -160,6 +161,140 @@ struct Spawn {
     float z;
 };
 std::map<std::string, std::vector<Spawn>> g_spawns;
+// Overworld rooms the game has no map for (the Sacred Grove's): their ground from the room's
+// collision (room.dzb), as rectangles of a grid in room coordinates (x0, z0, x1, z1), made into a
+// map once all is read (finish_ground_maps).
+std::map<std::string, std::map<int, std::vector<std::array<float, 4>>>> g_ground;
+
+// The walkable ground of a room's collision (cBgD_t: vertices, triangles): triangles facing up,
+// filled into a grid of up to 160 cells across, each row's runs of cells as rectangles.
+void read_ground(const std::string& stage, int room, const std::vector<uint8_t>& dzb) {
+    if (dzb.size() < 0x34) return;
+    const uint8_t* b = dzb.data();
+    const uint32_t vNum = be32(b);
+    const uint32_t vOff = be32(b + 4);
+    const uint32_t tNum = be32(b + 8);
+    const uint32_t tOff = be32(b + 0xC);
+    if (vNum == 0 || tNum == 0 || vOff + vNum * 12 > dzb.size() || tOff + tNum * 10 > dzb.size()) return;
+    const auto vtx = [&](uint32_t i, float out[3]) {
+        const uint8_t* v = b + vOff + i * 12;
+        out[0] = befloat(v);
+        out[1] = befloat(v + 4);
+        out[2] = befloat(v + 8);
+    };
+    struct Tri {
+        float x[3];
+        float z[3];
+    };
+    std::vector<Tri> tris;
+    float minX = 1e30f, minZ = 1e30f, maxX = -1e30f, maxZ = -1e30f;
+    for (uint32_t i = 0; i < tNum; i++) {
+        const uint8_t* t = b + tOff + i * 10;
+        const uint32_t ia = be16(t), ib = be16(t + 2), ic = be16(t + 4);
+        if (ia >= vNum || ib >= vNum || ic >= vNum) continue;
+        float a[3], c1[3], c2[3];
+        vtx(ia, a);
+        vtx(ib, c1);
+        vtx(ic, c2);
+        const float ux = c1[0] - a[0], uy = c1[1] - a[1], uz = c1[2] - a[2];
+        const float vx = c2[0] - a[0], vy = c2[1] - a[1], vz = c2[2] - a[2];
+        const float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (len < 1e-3f || std::fabs(ny) / len < 0.55f) continue;  // walls and ceilings
+        Tri tr{{a[0], c1[0], c2[0]}, {a[2], c1[2], c2[2]}};
+        for (int k = 0; k < 3; k++) {
+            minX = std::min(minX, tr.x[k]);
+            maxX = std::max(maxX, tr.x[k]);
+            minZ = std::min(minZ, tr.z[k]);
+            maxZ = std::max(maxZ, tr.z[k]);
+        }
+        tris.push_back(tr);
+    }
+    if (tris.empty()) return;
+    const float cell = std::max(40.0f, std::max(maxX - minX, maxZ - minZ) / 160.0f);
+    const int cols = static_cast<int>((maxX - minX) / cell) + 1;
+    const int rows = static_cast<int>((maxZ - minZ) / cell) + 1;
+    if (cols > 400 || rows > 400) return;
+    std::vector<uint8_t> grid(static_cast<size_t>(cols) * rows, 0);
+    for (const Tri& t : tris) {
+        const int c0 = std::max(0, static_cast<int>((std::min({t.x[0], t.x[1], t.x[2]}) - minX) / cell));
+        const int c1 = std::min(cols - 1, static_cast<int>((std::max({t.x[0], t.x[1], t.x[2]}) - minX) / cell));
+        const int r0 = std::max(0, static_cast<int>((std::min({t.z[0], t.z[1], t.z[2]}) - minZ) / cell));
+        const int r1 = std::min(rows - 1, static_cast<int>((std::max({t.z[0], t.z[1], t.z[2]}) - minZ) / cell));
+        const float d = (t.z[1] - t.z[2]) * (t.x[0] - t.x[2]) + (t.x[2] - t.x[1]) * (t.z[0] - t.z[2]);
+        if (std::fabs(d) < 1e-6f) continue;
+        for (int r = r0; r <= r1; r++) {
+            for (int c = c0; c <= c1; c++) {
+                const float px = minX + (c + 0.5f) * cell;
+                const float pz = minZ + (r + 0.5f) * cell;
+                const float l1 = ((t.z[1] - t.z[2]) * (px - t.x[2]) + (t.x[2] - t.x[1]) * (pz - t.z[2])) / d;
+                const float l2 = ((t.z[2] - t.z[0]) * (px - t.x[2]) + (t.x[0] - t.x[2]) * (pz - t.z[2])) / d;
+                if (l1 >= -0.02f && l2 >= -0.02f && 1 - l1 - l2 >= -0.02f) grid[static_cast<size_t>(r) * cols + c] = 1;
+            }
+        }
+    }
+    std::vector<std::array<float, 4>> rects;
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols;) {
+            if (!grid[static_cast<size_t>(r) * cols + c]) {
+                c++;
+                continue;
+            }
+            int e = c;
+            while (e < cols && grid[static_cast<size_t>(r) * cols + e]) e++;
+            rects.push_back({minX + c * cell, minZ + r * cell, minX + e * cell, minZ + (r + 1) * cell});
+            c = e;
+        }
+    }
+    if (!rects.empty()) g_ground[stage][room] = std::move(rects);
+}
+
+// The ground maps of the rooms with no map of their own, in the map's coordinates (by the rooms'
+// offsets), in the format of the game's maps (one floor, one group of rectangles).
+void finish_ground_maps() {
+    for (auto& [stage, rooms] : g_ground) {
+        for (auto& [room, rects] : rooms) {
+            if (g_maps[stage].count(room)) continue;
+            JsonWriter w;
+            w.beginObject();
+            w.member("no", room);
+            w.member("ground", true);
+            w.key("floors").beginArray().beginObject();
+            w.member("no", 0);
+            w.key("groups").beginArray().beginObject();
+            w.member("sw", 255);
+            w.member("swType", 1);
+            w.member("shown", true);
+            w.key("polys").beginArray();
+            for (size_t i = 0; i < rects.size(); i++) {
+                const int v = static_cast<int>(i * 4);
+                w.beginObject();
+                w.member("type", 0);
+                w.key("strip").beginArray().value(v).value(v + 1).value(v + 2).value(v + 3).endArray();
+                w.endObject();
+            }
+            w.endArray();
+            w.key("lines").beginArray().endArray();
+            w.endObject().endArray();
+            w.endObject().endArray();
+            w.key("vertices").beginArray();
+            for (const auto& r : rects) {
+                const float pts[4][2] = {{r[0], r[1]}, {r[2], r[1]}, {r[0], r[3]}, {r[2], r[3]}};
+                for (const auto& p : pts) {
+                    float x = p[0];
+                    float z = p[1];
+                    to_map(stage, room, x, z);
+                    w.number(x, 0);
+                    w.number(z, 0);
+                }
+            }
+            w.endArray();
+            w.endObject();
+            g_maps[stage][room] = w.str();
+        }
+    }
+    g_ground.clear();
+}
 // The map screen's icons of a stage (TRES in the stage archive's room<n>.dzs: dTres_c::data_s):
 // monkeys, iron balls, statues, Sols, Ooccoo, small keys...
 struct Icon {
@@ -385,6 +520,14 @@ void parse_archive(const Job& job) {
     std::vector<Place>& out = g_places[job.stage];
     for (const ArcFile& f : rarc_files(*arc)) {
         int room = -2;
+        if (f.name == "room.dzb" && job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
+            // An overworld room's collision: its ground, for a room with no map.
+            std::vector<uint8_t> raw(f.data, f.data + f.size);
+            std::vector<uint8_t> dzb;
+            if (!yaz0_decode(raw, dzb)) dzb = std::move(raw);
+            read_ground(job.stage, job.room, dzb);
+            continue;
+        }
         if (f.name == "room.dzr" && job.room >= 0) {
             room = job.room;
         } else if (job.room == -1 && f.name == "stage.dzs") {
@@ -896,6 +1039,7 @@ void update() {
         if (!tracker::is_playing() && !g_open) break;
         if (g_job >= g_jobs.size()) {
             resolve_duplicates();
+            finish_ground_maps();
             save_cache();
             g_phase = Phase::Done;
             build_json(true);

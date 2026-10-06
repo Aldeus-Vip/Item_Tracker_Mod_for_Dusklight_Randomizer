@@ -264,7 +264,9 @@ main { padding: 12px; }
 }
 
 /* Obtained: green glow inside and around the frame */
-.slot.on .frame { --slot-glow: var(--owned-soft); filter: drop-shadow(0 0 3px var(--owned)) drop-shadow(0 0 1px var(--owned)); }
+/* The obtained glow, as strong as set in Options (--glow-a: 0 to 1) */
+.slot.on .frame { --slot-glow: rgb(126 217 140 / calc(0.28 * var(--glow-a, 1)));
+  filter: drop-shadow(0 0 3px rgb(126 217 140 / var(--glow-a, 1))) drop-shadow(0 0 1px rgb(126 217 140 / var(--glow-a, 1))); }
 
 /* Icons have mixed aspect ratios: fit each one inside the same inner box. */
 .frame .icon {
@@ -963,7 +965,8 @@ body.rule-window { margin: 0; min-height: 100vh; }
   z-index: 1;
 }
 .bug-icon { position: relative; width: 70%; height: 70%; object-fit: contain; filter: grayscale(1) brightness(0.55); opacity: 0.55; }
-.bug-cell.on { --slot-glow: var(--owned-soft); filter: drop-shadow(0 0 3px var(--owned)) drop-shadow(0 0 1px var(--owned)); }
+.bug-cell.on { --slot-glow: rgb(126 217 140 / calc(0.28 * var(--glow-a, 1)));
+  filter: drop-shadow(0 0 3px rgb(126 217 140 / var(--glow-a, 1))) drop-shadow(0 0 1px rgb(126 217 140 / var(--glow-a, 1))); }
 .bug-cell.on .bug-icon { filter: none; opacity: 1; }
 .bug-name { position: absolute; right: 12%; bottom: 8%; z-index: 2; font-size: 11px; color: var(--muted); }
 .bug-agitha { position: absolute; top: -12%; left: -10%; z-index: 3; width: 46%; height: 46%; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7)); }
@@ -1628,11 +1631,9 @@ body.custom-fill {
   --slot-mid: var(--fill);
   --slot-lo: color-mix(in srgb, var(--fill) 55%, #000);
 }
-.options-bar .swatch.mode, .options-bar .swatch.dash-pane { padding-left: 10px; }
-.options-bar .swatch.mode i, .options-bar .swatch.dash-pane i { display: none; }
+.options-bar .swatch.mode { padding-left: 10px; }
 #fill-color { width: 34px; height: 24px; padding: 0; border: 1px solid var(--rim-lo); background: none; cursor: pointer; }
 #fill-color:disabled { opacity: 0.35; cursor: default; }
-#dash-options { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
 /* ---- Simple mode: the main things only (every tool is under Options › Display › Advanced) ---- */
 body.simple .adv-only,
@@ -1649,24 +1650,32 @@ body.simple .map-title-edit,
 body.simple details.map-check-note,
 body.simple .map-caption { display: none !important; }
 
-/* ---- Dashboard: the chosen panes side by side, two by two, or one under another ---- */
-.dash-grid { display: grid; gap: 14px; align-items: start; grid-template-columns: repeat(var(--panes, 1), minmax(0, 1fr)); }
-.dash-grid[data-layout="grid"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.dash-grid[data-layout="rows"] { grid-template-columns: minmax(0, 1fr); }
-.dash-cell { min-width: 0; overflow-x: auto; }
-.dash-cell > .view, .dash-cell > div { display: block; }
-.dash-cell[data-pane="map"] { position: sticky; top: calc(var(--bar-h, 0px) + 10px); max-height: calc(100vh - var(--bar-h, 0px) - 20px); overflow-y: auto; overflow-x: hidden; }
-.dash-grid[data-layout="rows"] .dash-cell[data-pane="map"] { position: static; max-height: none; }
-.dash-cell[data-pane="map"] .map-frame { max-height: calc(100vh - var(--bar-h, 0px) - 230px); }
-.dash-cell .dungeon-panel { max-width: none; }
-@media (max-width: 900px) {
-  .dash-grid, .dash-grid[data-layout="grid"] { grid-template-columns: minmax(0, 1fr); }
-  .dash-cell[data-pane="map"] { position: static; max-height: none; }
-}
 /* A check's requirement over the list while the pointer rests on its row */
 .loc-hover-req { position: fixed; z-index: 60; max-width: min(420px, calc(100vw - 16px)); max-height: 60vh; overflow: auto; padding: 10px 12px; pointer-events: none;
   border: 1px solid var(--rim-hi); border-radius: 4px; background: linear-gradient(180deg, var(--plate-top), var(--plate-bottom)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7); }
 .loc-hover-req h3 { font-size: 14px; margin: 0 6px 0 0; }
-/* The Items pane fits its tiles to the pane's width */
-.dash-cell[data-pane="items"] { container-type: inline-size; }
-.dash-cell[data-pane="items"] > .view { --tile: clamp(34px, calc(100cqw / (var(--columns) * 1.16)), 64px); --gap: calc(var(--tile) * 0.12); }
+
+/* ---- Options: each part in a frame of its own, its title in the accent color between gold rules ---- */
+.options-bar { flex-wrap: wrap; align-items: flex-start; }
+.opt-groups { display: flex; flex-wrap: wrap; gap: 12px; flex: 1; }
+.opt-group { flex: 1 1 220px; min-width: 0; padding: 8px 12px 10px; border: 1px solid var(--rim-lo); border-radius: 4px;
+  background: linear-gradient(180deg, var(--plate-top), var(--plate-bottom));
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.6), inset 0 0 0 3px var(--rim-lo), 0 2px 6px rgba(0, 0, 0, 0.5); }
+.opt-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 700 12px/1.2 var(--title-font, inherit); letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--gold); text-shadow: 0 0 8px var(--sel-glow); }
+.opt-title::before, .opt-title::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-dim)); }
+.opt-title::after { background: linear-gradient(90deg, var(--gold-dim), transparent); }
+.opt-title > span::before, .opt-title > span::after { content: "◆"; margin: 0 6px; font-size: 7px; vertical-align: 2px; color: var(--gold-dim); }
+.opt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0; }
+.opt-label { color: var(--muted); font-size: 12px; }
+.options-bar .edit-actions { align-self: flex-end; }
+
+/* ---- Font (Options › Display): the titles, or all text ---- */
+@font-face { font-family: "TP Old English"; src: url("fonts/UnifrakturMaguntia-Book.ttf") format("truetype"); font-display: swap; }
+body { --base-font: "TP Nunito", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif; }
+.tabs button, .loc-subtab, .loc-banner-title, .twilight-heading, .twilight-name, .group-head, .bug-head, .map-tab,
+.loc-group-name, .opt-title, .map-other-kind > h5, .dungeon-head .dcell { font-family: var(--title-font, inherit); }
+body.font-all, body.font-all button, body.font-all select, body.font-all input { font-family: var(--title-font, inherit); }
+/* Blackletter and other display fonts read badly in capitals: titles keep their own case then */
+body.font-fancy :is(.opt-title, .twilight-heading, .map-other-kind > h5, .dungeon-head .dcell, .loc-subtab, .map-tab) {
+  text-transform: none; letter-spacing: 0.04em; font-size: 1.12em; }

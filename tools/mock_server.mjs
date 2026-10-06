@@ -157,7 +157,7 @@ createServer(async (req, res) => {
     return;
   }
   // Saved configuration, kept in memory (the mod stores these in its data directory).
-  if (path === "/layout" || path === "/settings" || path === "/background") {
+  if (path === "/layout" || path === "/settings" || path === "/background" || path === "/font") {
     if (req.method === "POST" || req.method === "DELETE") {
       const chunks = [];
       for await (const chunk of req) chunks.push(chunk);

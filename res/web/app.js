@@ -20,13 +20,8 @@ const views = {
   items: document.getElementById("view-items"),
   dungeons: document.getElementById("view-dungeons"),
   locations: document.getElementById("view-locations"),
-  dashboard: document.getElementById("view-dashboard"),
 };
 let mapView = null; // Map sub-tab of Locations (created with it)
-// The Dashboard: Items, Dungeons, Checks and the Map side by side, as chosen in Options.
-const DASH_PANES = [["items", "Items"], ["dungeons", "Dungeons"], ["checks", "Checks"], ["map", "Map"]];
-const DASH_LAYOUTS = [["columns", "Side by side"], ["grid", "Two by two"], ["rows", "One under another"]];
-let dashboardPanes = null; // the panes shown while the Dashboard is open
 
 let state = null;          // last state from the mod
 let lastRendered = {};     // tile id -> signature, to flash changed tiles
@@ -39,8 +34,6 @@ let selected = null;       // { section, index } picked in edit mode
 
 function showView(name) {
   if (!views[name]) name = "items";
-  if (name !== "dashboard") unmountDashboard();
-  currentView = name;
   for (const [key, el] of Object.entries(views)) el.hidden = key !== name;
   for (const button of document.querySelectorAll(".tabs button")) {
     button.setAttribute("aria-selected", String(button.dataset.view === name));
@@ -48,10 +41,9 @@ function showView(name) {
   editButton.hidden = name !== "items" || editing;
   if (name === "items") fitCaptions(views.items);
   if (mapView) showLocTab(locTab); // the map follows Link only while it is shown
-  if (name === "dashboard") mountDashboard();
   try { localStorage.setItem("tracker.view", name); } catch {}
 }
-let currentView = "items";
+
 
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const button = e.target.closest("button[data-view]");
@@ -493,9 +485,12 @@ const DEFAULT_SETTINGS = {
   // Simple (the main things only) or advanced (every tool).
   mode: "simple",
   // The items' frames: the theme's fill or a color of one's own, and how opaque (0 to 1).
-  frameFill: { custom: false, color: "#20231a", alpha: 1 },
-  // The Dashboard's panes in order and how they are laid out.
-  dashboard: { panes: ["items", "checks", "map"], layout: "columns" },
+  frameFill: { custom: false, color: "#20231a", alpha: 1, glow: 1 },
+  // The page's font (Options › Display): standard, Old English, or one uploaded, for the titles or
+  // all text; rev changes on every upload.
+  font: { family: "default", scope: "titles", rev: 0 },
+  // Checks and Map follow each other's region.
+  linkMap: true,
 };
 let settings = structuredClone(DEFAULT_SETTINGS);
 const themeBar = document.getElementById("theme-bar");
@@ -540,11 +535,13 @@ function normalizeSettings(raw) {
     if (typeof ff.color === "string" && /^#[0-9a-f]{6}$/i.test(ff.color)) out.frameFill.color = ff.color;
     out.frameFill.alpha = Math.max(0, Math.min(1, Number.isFinite(Number(ff.alpha)) ? Number(ff.alpha) : 1));
   }
-  const db = raw?.dashboard;
-  if (db && typeof db === "object") {
-    const panes = Array.isArray(db.panes) ? db.panes.filter((x, i, a) => DASH_PANES.some(([id]) => id === x) && a.indexOf(x) === i) : [];
-    if (panes.length) out.dashboard.panes = panes;
-    if (DASH_LAYOUTS.some(([id]) => id === db.layout)) out.dashboard.layout = db.layout;
+  if (ff && typeof ff === "object") out.frameFill.glow = Math.max(0, Math.min(1, Number.isFinite(Number(ff.glow)) ? Number(ff.glow) : 1));
+  out.linkMap = raw?.linkMap !== false;
+  const fo = raw?.font;
+  if (fo && typeof fo === "object") {
+    out.font.family = ["default", "oldenglish", "custom"].includes(fo.family) ? fo.family : "default";
+    out.font.scope = fo.scope === "all" ? "all" : "titles";
+    out.font.rev = Number(fo.rev) || 0;
   }
   for (const [name, area] of Object.entries(raw?.checkAreas ?? {})) {
     if (name.length <= 200 && typeof area === "string" && area.length <= 80) out.checkAreas[name] = area;
@@ -593,8 +590,28 @@ function applySettings() {
   document.getElementById("fill-color").value = ff.color;
   document.getElementById("fill-color").disabled = !ff.custom;
   document.getElementById("fill-alpha").value = String(Math.round(ff.alpha * 100));
-  renderDashOptions();
-  if (dashboardPanes) mountDashboard();
+  document.body.style.setProperty("--glow-a", String(ff.glow));
+  document.getElementById("glow-alpha").value = String(Math.round(ff.glow * 100));
+  // Font.
+  const fo = settings.font;
+  const face = fo.family === "oldenglish" ? '"TP Old English"' : fo.family === "custom" ? '"TP My Font"' : null;
+  if (fo.family === "custom") {
+    let style = document.getElementById("my-font");
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "my-font";
+      document.head.append(style);
+    }
+    style.textContent = `@font-face { font-family: "TP My Font"; src: url("font?rev=${fo.rev}"); font-display: swap; }`;
+  }
+  document.body.style.setProperty("--title-font", face ? `${face}, var(--base-font)` : "var(--base-font)");
+  document.body.classList.toggle("font-all", !!face && fo.scope === "all");
+  document.body.classList.toggle("font-fancy", !!face);
+  document.getElementById("font-family").value = fo.family;
+  document.getElementById("font-scope").value = fo.scope;
+  document.getElementById("font-scope").disabled = !face;
+  document.getElementById("font-upload").hidden = fo.family !== "custom";
+  document.getElementById("link-map").checked = settings.linkMap;
 }
 
 let renderedIcons = null; // icon source the views were last drawn with
@@ -666,6 +683,46 @@ fillAlpha.addEventListener("input", () => {
   applySettings();
 });
 fillAlpha.addEventListener("change", () => saveSettings());
+const glowAlpha = document.getElementById("glow-alpha");
+glowAlpha.addEventListener("input", () => {
+  settings.frameFill.glow = Number(glowAlpha.value) / 100;
+  applySettings();
+});
+glowAlpha.addEventListener("change", () => saveSettings());
+document.getElementById("font-family").addEventListener("change", (e) => {
+  settings.font.family = e.target.value;
+  applySettings();
+  saveSettings();
+});
+document.getElementById("link-map").addEventListener("change", (e) => {
+  settings.linkMap = e.target.checked;
+  saveSettings();
+});
+document.getElementById("font-scope").addEventListener("change", (e) => {
+  settings.font.scope = e.target.value;
+  applySettings();
+  saveSettings();
+});
+document.getElementById("font-file").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) {
+    setStatus("offline", "Font too large (max 8 MB)");
+    return;
+  }
+  try {
+    const res = await fetch("font", { method: "POST", headers: { "Content-Type": "font/upload" }, body: file });
+    if (!res.ok) throw new Error(res.status === 415 ? "not a TrueType, OpenType or WOFF font" : `HTTP ${res.status}`);
+  } catch (err) {
+    setStatus("offline", `Could not upload the font (${err.message})`);
+    return;
+  }
+  settings.font.family = "custom";
+  settings.font.rev = Date.now();
+  applySettings();
+  saveSettings();
+});
 document.getElementById("bg-fit").addEventListener("change", (e) => {
   settings.background.fit = e.target.value;
   applySettings();
@@ -975,10 +1032,8 @@ function renderDungeons(dungeons) {
       row.tabIndex = 0;
       row.title = `Open ${d.name}'s map`;
       const open = () => {
-        if (!dashboardPanes?.includes("map")) {
-          showView("locations");
-          if (locTab === "checks") showLocTab("map");
-        }
+        showView("locations");
+        if (locTab === "checks") showLocTab("map");
         mapView?.showDungeon(stage);
       };
       row.addEventListener("click", (e) => { if (!editing) open(); });
@@ -1010,8 +1065,6 @@ let locTab = "checks";
 try { locTab = localStorage.getItem("tracker.locTab") || "checks"; } catch {}
 
 function showLocTab(name) {
-  // The Dashboard holds the panes itself.
-  if (dashboardPanes) return;
   const wide = views.locations.clientWidth === 0 || views.locations.clientWidth >= BOTH_MIN_WIDTH;
   locTab = name;
   try { localStorage.setItem("tracker.locTab", name); } catch {}
@@ -1064,6 +1117,10 @@ const locationsView = createLocationsView(locChecks, {
   setStatus,
   // The map knows where the game places each check (for grouping by area) and shows them.
   placeOf: (key) => mapView?.placeOf(key) ?? null,
+  // Checks and Map linked (Options): a region picked in Checks opens its map.
+  onRegionPicked(region) {
+    if (settings.linkMap) mapView?.showRegion(region);
+  },
   // Areas set by hand for checks of the list (By area, region filter).
   getCheckAreas: () => settings.checkAreas,
   saveCheckArea(name, area) {
@@ -1072,12 +1129,7 @@ const locationsView = createLocationsView(locChecks, {
     saveSettings();
   },
   showOnMap(name) {
-    if (dashboardPanes && !dashboardPanes.includes("map")) {
-      showView("locations");
-      showLocTab("map");
-    } else if (!dashboardPanes && locSplit.dataset.tab === "checks") {
-      showLocTab("map");
-    }
+    if (locSplit.dataset.tab === "checks") showLocTab("map");
     mapView?.showCheck(name);
   },
 });
@@ -1091,6 +1143,10 @@ mapView = createMapView(locMap, {
   areaRegion: (area) => locationsView.areaRegion(area),
   roomKind: (stage, room) => locationsView.roomKind(stage, room),
   entrances: () => locationsView.entrances(),
+  // ... and the place the map shows sets Checks to its region.
+  onShown(region) {
+    if (settings.linkMap) locationsView.showRegion(region);
+  },
   provinceOrder: () => locationsView.provinceOrder(),
   makeIcon: (name, className, fallback) => iconImg(name, className, (img) => img.replaceWith(fallback ?? "")),
   // Checks on the map: a right click (or any click with Checks + Map) shows the check in Checks.
@@ -1101,7 +1157,7 @@ mapView = createMapView(locMap, {
     unmount: () => locationsView.unmountDetail(),
     focused: () => locationsView.focusedName(),
     setFocused: (name) => locationsView.setFocused(name),
-    bothShown: () => (dashboardPanes ? dashboardPanes.includes("checks") && dashboardPanes.includes("map") : locSplit.dataset.tab === "both"),
+    bothShown: () => locSplit.dataset.tab === "both",
     manualPlaces: () => settings.mapPlaces,
     // Names and provinces of the Map's Other places changed by hand.
     placeFixes: () => settings.placeFixes,
@@ -1117,12 +1173,7 @@ mapView = createMapView(locMap, {
       locationsView.refresh();
     },
     jump(name) {
-      if (dashboardPanes && !dashboardPanes.includes("checks")) {
-        showView("locations");
-        showLocTab("checks");
-      } else if (!dashboardPanes && locSplit.dataset.tab !== "both") {
-        showLocTab("checks");
-      }
+      if (locSplit.dataset.tab !== "both") showLocTab("checks");
       locationsView.jumpTo(name);
     },
   },
@@ -1132,92 +1183,6 @@ mapView = createMapView(locMap, {
 locMap.addEventListener("contextmenu", onIconContextMenu);
 showLocTab(locTab);
 
-// ---- Dashboard ----
-
-const dashGrid = document.createElement("div");
-dashGrid.className = "dash-grid";
-views.dashboard.append(dashGrid);
-const main = views.items.parentElement;
-
-function dashPaneNode(id) {
-  return { items: views.items, dungeons: views.dungeons, checks: locChecks, map: locMap }[id];
-}
-// The panes of the Dashboard: ?panes=items,map in the address (an OBS source), else Options.
-function dashChoice() {
-  const fromUrl = (params.get("panes") ?? "").split(",").filter((x) => DASH_PANES.some(([id]) => id === x));
-  const layout = DASH_LAYOUTS.some(([id]) => id === params.get("layout")) ? params.get("layout") : settings.dashboard.layout;
-  return { panes: fromUrl.length ? fromUrl : settings.dashboard.panes, layout };
-}
-function mountDashboard() {
-  const { panes, layout } = dashChoice();
-  dashboardPanes = panes;
-  dashGrid.dataset.layout = layout;
-  dashGrid.style.setProperty("--panes", String(panes.length));
-  dashGrid.replaceChildren(...panes.map((id) => {
-    const cell = document.createElement("div");
-    cell.className = "dash-cell";
-    cell.dataset.pane = id;
-    const node = dashPaneNode(id);
-    node.hidden = false;
-    cell.append(node);
-    return cell;
-  }));
-  // Panes taken out: back where they belong (hidden).
-  for (const [id] of DASH_PANES) {
-    if (panes.includes(id)) continue;
-    const node = dashPaneNode(id);
-    if (id === "checks" || id === "map") locSplit.append(node);
-    else main.insertBefore(node, views.locations);
-    node.hidden = true;
-  }
-  if (panes.includes("items")) fitCaptions(views.items);
-  mapView?.setVisible(panes.includes("map"));
-}
-function unmountDashboard() {
-  if (!dashboardPanes) return;
-  dashboardPanes = null;
-  main.insertBefore(views.items, views.locations);
-  main.insertBefore(views.dungeons, views.locations);
-  locSplit.append(locChecks, locMap);
-  locChecks.hidden = false;
-  locMap.hidden = false;
-}
-// Options › Dashboard: which panes, in which order, and how they are laid out.
-function renderDashOptions() {
-  const box = document.getElementById("dash-options");
-  if (!box) return;
-  const chosen = settings.dashboard.panes;
-  const save = () => {
-    applySettings();
-    saveSettings();
-  };
-  box.replaceChildren(...DASH_PANES.map(([id, label]) => {
-    const on = chosen.includes(id);
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "swatch dash-pane";
-    b.setAttribute("aria-pressed", String(on));
-    b.textContent = on ? `${chosen.indexOf(id) + 1}. ${label}` : label;
-    b.title = on ? "Click: take it off the Dashboard" : "Click: add it to the Dashboard (at the end)";
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (on && chosen.length > 1) settings.dashboard.panes = chosen.filter((x) => x !== id);
-      else if (!on) settings.dashboard.panes = [...chosen, id];
-      save();
-    });
-    return b;
-  }), (() => {
-    const select = document.createElement("select");
-    select.setAttribute("aria-label", "Dashboard layout");
-    for (const [id, label] of DASH_LAYOUTS) select.append(new Option(label, id, false, id === settings.dashboard.layout));
-    select.addEventListener("change", () => {
-      settings.dashboard.layout = select.value;
-      save();
-    });
-    return select;
-  })());
-}
-renderDashOptions();
 showView(initialView || "items");
 let locationsLoaded = false;
 

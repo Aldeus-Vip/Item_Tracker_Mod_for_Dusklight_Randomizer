@@ -14,7 +14,6 @@
       <button type="button" role="tab" data-view="items" aria-selected="true">Items</button>
       <button type="button" role="tab" data-view="dungeons" aria-selected="false">Dungeons</button>
       <button type="button" role="tab" data-view="locations" aria-selected="false">Locations</button>
-      <button type="button" role="tab" data-view="dashboard" aria-selected="false">Dashboard</button>
     </nav>
     <div class="bar-right">
       <button type="button" id="theme" class="tool">Options</button>
@@ -36,44 +35,63 @@
   </div>
 
   <div class="edit-bar options-bar" id="theme-bar" hidden>
-    <div class="theme-row">
-      <span class="label">Display</span>
-      <button type="button" class="swatch mode" data-mode="simple" title="The main things only: what is reachable, what is left, the map">Simple</button>
-      <button type="button" class="swatch mode" data-mode="advanced" title="Everything: custom requirements, reachable regions, seeds, placing checks by hand, renaming places, details">Advanced</button>
-    </div>
-    <div class="theme-row">
-      <span class="label">Theme</span>
-      <button type="button" class="swatch" data-choice="twilight"><i></i>Twilight</button>
-      <button type="button" class="swatch" data-choice="midna"><i></i>Midna</button>
-      <button type="button" class="swatch" data-choice="hyrule"><i></i>Hyrule</button>
-      <button type="button" class="swatch" data-choice="shadow"><i></i>Shadow</button>
-    </div>
-    <div class="theme-row">
-      <span class="label">Background</span>
-      <label class="tool">Upload image…<input type="file" id="bg-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
-      <button type="button" id="bg-remove" class="tool">Remove</button>
-      <select id="bg-fit" aria-label="Image fit">
-        <option value="cover">Fill</option>
-        <option value="tile">Tile</option>
-      </select>
-      <label>Darken <input type="range" id="bg-dim" min="0" max="85" step="5"></label>
-    </div>
-    <div class="theme-row">
-      <span class="label">Item frames</span>
-      <select id="fill-mode" aria-label="Frame fill">
-        <option value="theme">Theme color</option>
-        <option value="custom">Custom color</option>
-      </select>
-      <input type="color" id="fill-color" aria-label="Frame fill color">
-      <label>Opacity <input type="range" id="fill-alpha" min="0" max="100" step="5"></label>
-    </div>
-    <div class="theme-row">
-      <span class="label">Dashboard</span>
-      <span id="dash-options"></span>
-    </div>
-    <div class="theme-row adv-only">
-      <span class="label">Tools</span>
-      <a class="tool" href="debug.html" target="_blank" rel="noopener">Debug page</a>
+    <div class="opt-groups">
+      <section class="opt-group">
+        <h3 class="opt-title"><span>Display</span></h3>
+        <div class="opt-row">
+          <button type="button" class="swatch mode" data-mode="simple" title="The main things only: what is reachable, what is left, the map">Simple</button>
+          <button type="button" class="swatch mode" data-mode="advanced" title="Everything: custom requirements, reachable regions, seeds, placing checks by hand, renaming places, details">Advanced</button>
+        </div>
+        <div class="opt-row">
+          <label title="The map shows the region picked in Checks, and Checks the region of the place the map shows"><input type="checkbox" id="link-map"> Link Checks and Map</label>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">Font</span>
+          <select id="font-family" aria-label="Font">
+            <option value="default">Standard</option>
+            <option value="oldenglish">Old English</option>
+            <option value="custom">My font…</option>
+          </select>
+          <select id="font-scope" aria-label="Where the font is used">
+            <option value="titles">Titles</option>
+            <option value="all">All text</option>
+          </select>
+          <label class="tool" id="font-upload" title="A TrueType, OpenType or WOFF font (a Hylian font, ...)">Upload font…<input type="file" id="font-file" accept=".ttf,.otf,.woff,.woff2,font/*" hidden></label>
+        </div>
+      </section>
+      <section class="opt-group">
+        <h3 class="opt-title"><span>Theme</span></h3>
+        <div class="opt-row">
+          <button type="button" class="swatch" data-choice="twilight"><i></i>Twilight</button>
+          <button type="button" class="swatch" data-choice="midna"><i></i>Midna</button>
+          <button type="button" class="swatch" data-choice="hyrule"><i></i>Hyrule</button>
+          <button type="button" class="swatch" data-choice="shadow"><i></i>Shadow</button>
+        </div>
+      </section>
+      <section class="opt-group">
+        <h3 class="opt-title"><span>Background</span></h3>
+        <div class="opt-row">
+          <label class="tool">Upload image…<input type="file" id="bg-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
+          <button type="button" id="bg-remove" class="tool">Remove</button>
+          <select id="bg-fit" aria-label="Image fit">
+            <option value="cover">Fill</option>
+            <option value="tile">Tile</option>
+          </select>
+        </div>
+        <div class="opt-row"><label>Darken <input type="range" id="bg-dim" min="0" max="85" step="5"></label></div>
+      </section>
+      <section class="opt-group">
+        <h3 class="opt-title"><span>Item Background</span></h3>
+        <div class="opt-row">
+          <select id="fill-mode" aria-label="Item background">
+            <option value="theme">Theme color</option>
+            <option value="custom">Custom color</option>
+          </select>
+          <input type="color" id="fill-color" aria-label="Item background color">
+        </div>
+        <div class="opt-row"><label>Opacity <input type="range" id="fill-alpha" min="0" max="100" step="5"></label></div>
+        <div class="opt-row"><label title="The green light around items you have">Obtained glow <input type="range" id="glow-alpha" min="0" max="100" step="5"></label></div>
+      </section>
     </div>
     <span class="edit-actions"><button type="button" id="theme-close" class="tool primary">Done</button></span>
   </div>
@@ -85,7 +103,6 @@
     <section id="view-items" class="view" role="tabpanel"></section>
     <section id="view-dungeons" class="view" role="tabpanel" hidden></section>
     <section id="view-locations" class="view" role="tabpanel" hidden></section>
-    <section id="view-dashboard" class="view" role="tabpanel" hidden></section>
   </main>
 
   <script type="module" src="app.js"></script>

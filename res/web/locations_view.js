@@ -127,7 +127,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {} }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {}, onRegionPicked = () => {} }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -834,13 +834,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const list = el("div", { className: "loc-list" });
     let shown = locations.filter((l) => l.group === selectedGroup);
     // The logic regions of this province's checks, to show only one of them.
-    const regionOfLoc = (loc) => {
-      const fixed = getCheckAreas()[loc.name];
-      if (fixed) return fixed;
-      const area = world?.locationAccess.get(loc.name)?.[0]?.area;
-      const region = area ? world.areas.get(area)?.region : null;
-      return region && region !== "None" ? region : "Other";
-    };
+
     // In the order of the randomizer's world files (about the order of the game), then by name.
     const regionRank = new Map(mapGroups.flatMap((g) => g.regions).map((r, i) => [r, i]));
     const rank = (r) => regionRank.get(r) ?? 1e6;
@@ -882,6 +876,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         onchange: (e) => {
           regionFilter = { group: selectedGroup, region: e.target.value };
           render();
+          if (e.target.value) onRegionPicked(e.target.value);
         } },
         el("option", { value: "", textContent: "All regions", selected: !regionFilter.region }),
         ...regionsHere.map((r) => el("option", { value: r, textContent: r, selected: r === regionFilter.region }))) : null,
@@ -979,6 +974,15 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   }
 
   // A check's status and requirement (under the map, and over a row the pointer rests on).
+  // The region a check is listed under (set by hand, else its logic area's).
+  function regionOfLoc(loc) {
+    const fixed = getCheckAreas()[loc.name];
+    if (fixed) return fixed;
+    const area = world?.locationAccess.get(loc.name)?.[0]?.area;
+    const region = area ? world.areas.get(area)?.region : null;
+    return region && region !== "None" ? region : "Other";
+  }
+
   function requirementPanel(name) {
     if (!world) return null;
     const status = results.get(name) ?? "unknown";
@@ -1780,6 +1784,19 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       render();
     },
     mountDetail,
+    // Shows the checks of a region (the map's place, when Checks and Map are linked): its province
+    // opened and the region filter set. Nothing changes when no check is in that region.
+    showRegion(region) {
+      if (!region || !world) return;
+      const loc = locations.find((l) => regionOfLoc(l) === region);
+      if (!loc) return;
+      if (selectedGroup === loc.group && regionFilter.region === region) return;
+      selectedGroup = loc.group;
+      highlightedGroup = loc.group;
+      regionFilter = { group: loc.group, region };
+      showChecks = true;
+      render();
+    },
     // Closes a check shown under the map.
     unmountDetail() {
       if (editing?.host) editing = null;
