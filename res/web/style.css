@@ -250,6 +250,7 @@ main { padding: 12px; }
   pointer-events: none;
 }
 .frame::before {
+  opacity: var(--fill-alpha, 1);
   background:
     url("frame-grain.svg") center / 100% 100% no-repeat,
     radial-gradient(circle, var(--slot-glow), transparent 70%),
@@ -949,6 +950,7 @@ body.rule-window { margin: 0; min-height: 100vh; }
   pointer-events: none;
 }
 .bug-cell::before {
+  opacity: var(--fill-alpha, 1);
   background:
     url("frame-grain.svg") center / 100% 100% no-repeat,
     radial-gradient(circle, var(--slot-glow), transparent 70%),
@@ -1619,3 +1621,52 @@ details.map-check-note > summary::-webkit-details-marker { display: none; }
 .map-entrance.grotto { color: #c8b0f0; }
 .map-entrance.done { opacity: 0.55; }
 .map-entrance-count { color: var(--text); }
+
+/* ---- Options: item frames filled with a color of one's own ---- */
+body.custom-fill {
+  --slot-hi: color-mix(in srgb, var(--fill) 70%, #fff);
+  --slot-mid: var(--fill);
+  --slot-lo: color-mix(in srgb, var(--fill) 55%, #000);
+}
+.options-bar .swatch.mode, .options-bar .swatch.dash-pane { padding-left: 10px; }
+.options-bar .swatch.mode i, .options-bar .swatch.dash-pane i { display: none; }
+#fill-color { width: 34px; height: 24px; padding: 0; border: 1px solid var(--rim-lo); background: none; cursor: pointer; }
+#fill-color:disabled { opacity: 0.35; cursor: default; }
+#dash-options { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* ---- Simple mode: the main things only (every tool is under Options › Display › Advanced) ---- */
+body.simple .adv-only,
+body.simple #edit,
+body.simple .loc-menu,
+body.simple .loc-by-area,
+body.simple .loc-region-filter,
+body.simple .loc-area-pick,
+body.simple .loc-custom-actions,
+body.simple .loc-rando,
+body.simple .map-pick-actions,
+body.simple .map-other-edit,
+body.simple .map-title-edit,
+body.simple details.map-check-note,
+body.simple .map-caption { display: none !important; }
+
+/* ---- Dashboard: the chosen panes side by side, two by two, or one under another ---- */
+.dash-grid { display: grid; gap: 14px; align-items: start; grid-template-columns: repeat(var(--panes, 1), minmax(0, 1fr)); }
+.dash-grid[data-layout="grid"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dash-grid[data-layout="rows"] { grid-template-columns: minmax(0, 1fr); }
+.dash-cell { min-width: 0; overflow-x: auto; }
+.dash-cell > .view, .dash-cell > div { display: block; }
+.dash-cell[data-pane="map"] { position: sticky; top: calc(var(--bar-h, 0px) + 10px); max-height: calc(100vh - var(--bar-h, 0px) - 20px); overflow-y: auto; overflow-x: hidden; }
+.dash-grid[data-layout="rows"] .dash-cell[data-pane="map"] { position: static; max-height: none; }
+.dash-cell[data-pane="map"] .map-frame { max-height: calc(100vh - var(--bar-h, 0px) - 230px); }
+.dash-cell .dungeon-panel { max-width: none; }
+@media (max-width: 900px) {
+  .dash-grid, .dash-grid[data-layout="grid"] { grid-template-columns: minmax(0, 1fr); }
+  .dash-cell[data-pane="map"] { position: static; max-height: none; }
+}
+/* A check's requirement over the list while the pointer rests on its row */
+.loc-hover-req { position: fixed; z-index: 60; max-width: min(420px, calc(100vw - 16px)); max-height: 60vh; overflow: auto; padding: 10px 12px; pointer-events: none;
+  border: 1px solid var(--rim-hi); border-radius: 4px; background: linear-gradient(180deg, var(--plate-top), var(--plate-bottom)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7); }
+.loc-hover-req h3 { font-size: 14px; margin: 0 6px 0 0; }
+/* The Items pane fits its tiles to the pane's width */
+.dash-cell[data-pane="items"] { container-type: inline-size; }
+.dash-cell[data-pane="items"] > .view { --tile: clamp(34px, calc(100cqw / (var(--columns) * 1.16)), 64px); --gap: calc(var(--tile) * 0.12); }

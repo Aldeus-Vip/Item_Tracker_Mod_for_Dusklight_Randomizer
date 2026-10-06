@@ -14,9 +14,10 @@
       <button type="button" role="tab" data-view="items" aria-selected="true">Items</button>
       <button type="button" role="tab" data-view="dungeons" aria-selected="false">Dungeons</button>
       <button type="button" role="tab" data-view="locations" aria-selected="false">Locations</button>
+      <button type="button" role="tab" data-view="dashboard" aria-selected="false">Dashboard</button>
     </nav>
     <div class="bar-right">
-      <button type="button" id="theme" class="tool">Theme</button>
+      <button type="button" id="theme" class="tool">Options</button>
       <button type="button" id="edit" class="tool">Edit</button>
       <div class="status" id="status" data-state="connecting">
         <span class="dot" aria-hidden="true"></span>
@@ -34,7 +35,12 @@
     </span>
   </div>
 
-  <div class="edit-bar" id="theme-bar" hidden>
+  <div class="edit-bar options-bar" id="theme-bar" hidden>
+    <div class="theme-row">
+      <span class="label">Display</span>
+      <button type="button" class="swatch mode" data-mode="simple" title="The main things only: what is reachable, what is left, the map">Simple</button>
+      <button type="button" class="swatch mode" data-mode="advanced" title="Everything: custom requirements, reachable regions, seeds, placing checks by hand, renaming places, details">Advanced</button>
+    </div>
     <div class="theme-row">
       <span class="label">Theme</span>
       <button type="button" class="swatch" data-choice="twilight"><i></i>Twilight</button>
@@ -52,6 +58,23 @@
       </select>
       <label>Darken <input type="range" id="bg-dim" min="0" max="85" step="5"></label>
     </div>
+    <div class="theme-row">
+      <span class="label">Item frames</span>
+      <select id="fill-mode" aria-label="Frame fill">
+        <option value="theme">Theme color</option>
+        <option value="custom">Custom color</option>
+      </select>
+      <input type="color" id="fill-color" aria-label="Frame fill color">
+      <label>Opacity <input type="range" id="fill-alpha" min="0" max="100" step="5"></label>
+    </div>
+    <div class="theme-row">
+      <span class="label">Dashboard</span>
+      <span id="dash-options"></span>
+    </div>
+    <div class="theme-row adv-only">
+      <span class="label">Tools</span>
+      <a class="tool" href="debug.html" target="_blank" rel="noopener">Debug page</a>
+    </div>
     <span class="edit-actions"><button type="button" id="theme-close" class="tool primary">Done</button></span>
   </div>
 
@@ -62,6 +85,7 @@
     <section id="view-items" class="view" role="tabpanel"></section>
     <section id="view-dungeons" class="view" role="tabpanel" hidden></section>
     <section id="view-locations" class="view" role="tabpanel" hidden></section>
+    <section id="view-dashboard" class="view" role="tabpanel" hidden></section>
   </main>
 
   <script type="module" src="app.js"></script>

@@ -20,8 +20,13 @@ const views = {
   items: document.getElementById("view-items"),
   dungeons: document.getElementById("view-dungeons"),
   locations: document.getElementById("view-locations"),
+  dashboard: document.getElementById("view-dashboard"),
 };
 let mapView = null; // Map sub-tab of Locations (created with it)
+// The Dashboard: Items, Dungeons, Checks and the Map side by side, as chosen in Options.
+const DASH_PANES = [["items", "Items"], ["dungeons", "Dungeons"], ["checks", "Checks"], ["map", "Map"]];
+const DASH_LAYOUTS = [["columns", "Side by side"], ["grid", "Two by two"], ["rows", "One under another"]];
+let dashboardPanes = null; // the panes shown while the Dashboard is open
 
 let state = null;          // last state from the mod
 let lastRendered = {};     // tile id -> signature, to flash changed tiles
@@ -34,6 +39,8 @@ let selected = null;       // { section, index } picked in edit mode
 
 function showView(name) {
   if (!views[name]) name = "items";
+  if (name !== "dashboard") unmountDashboard();
+  currentView = name;
   for (const [key, el] of Object.entries(views)) el.hidden = key !== name;
   for (const button of document.querySelectorAll(".tabs button")) {
     button.setAttribute("aria-selected", String(button.dataset.view === name));
@@ -41,8 +48,10 @@ function showView(name) {
   editButton.hidden = name !== "items" || editing;
   if (name === "items") fitCaptions(views.items);
   if (mapView) showLocTab(locTab); // the map follows Link only while it is shown
+  if (name === "dashboard") mountDashboard();
   try { localStorage.setItem("tracker.view", name); } catch {}
 }
+let currentView = "items";
 
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const button = e.target.closest("button[data-view]");
@@ -53,8 +62,6 @@ let initialView = params.get("view");
 if (!initialView) {
   try { initialView = localStorage.getItem("tracker.view"); } catch {}
 }
-showView(initialView || "items");
-
 function setStatus(kind, text) {
   statusEl.dataset.state = kind;
   statusText.textContent = text;
@@ -483,6 +490,12 @@ const DEFAULT_SETTINGS = {
   placeFixes: {},
   // Areas set by hand for checks (By area, the region filter): { [check name]: area }.
   checkAreas: {},
+  // Simple (the main things only) or advanced (every tool).
+  mode: "simple",
+  // The items' frames: the theme's fill or a color of one's own, and how opaque (0 to 1).
+  frameFill: { custom: false, color: "#20231a", alpha: 1 },
+  // The Dashboard's panes in order and how they are laid out.
+  dashboard: { panes: ["items", "checks", "map"], layout: "columns" },
 };
 let settings = structuredClone(DEFAULT_SETTINGS);
 const themeBar = document.getElementById("theme-bar");
@@ -520,6 +533,19 @@ function normalizeSettings(raw) {
     out.mapPlaces[name] = { stage: p.stage, room, x: num(p.x), z: num(p.z), floor: Number.isInteger(p.floor) ? p.floor : 0 };
     if (typeof p.variant === "string" && p.variant.length <= 100) out.mapPlaces[name].variant = p.variant;
   }
+  out.mode = raw?.mode === "advanced" ? "advanced" : "simple";
+  const ff = raw?.frameFill;
+  if (ff && typeof ff === "object") {
+    out.frameFill.custom = ff.custom === true;
+    if (typeof ff.color === "string" && /^#[0-9a-f]{6}$/i.test(ff.color)) out.frameFill.color = ff.color;
+    out.frameFill.alpha = Math.max(0, Math.min(1, Number.isFinite(Number(ff.alpha)) ? Number(ff.alpha) : 1));
+  }
+  const db = raw?.dashboard;
+  if (db && typeof db === "object") {
+    const panes = Array.isArray(db.panes) ? db.panes.filter((x, i, a) => DASH_PANES.some(([id]) => id === x) && a.indexOf(x) === i) : [];
+    if (panes.length) out.dashboard.panes = panes;
+    if (DASH_LAYOUTS.some(([id]) => id === db.layout)) out.dashboard.layout = db.layout;
+  }
   for (const [name, area] of Object.entries(raw?.checkAreas ?? {})) {
     if (name.length <= 200 && typeof area === "string" && area.length <= 80) out.checkAreas[name] = area;
   }
@@ -554,6 +580,21 @@ function applySettings() {
   }
   document.getElementById("bg-dim").value = String(Math.round(bg.dim * 100));
   document.getElementById("bg-remove").disabled = !bg.enabled;
+  // Simple / advanced (?mode= in the address wins, for an OBS source).
+  const mode = params.get("mode") === "advanced" || params.get("mode") === "simple" ? params.get("mode") : settings.mode;
+  document.body.classList.toggle("simple", mode !== "advanced");
+  for (const b of themeBar.querySelectorAll(".swatch.mode")) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
+  // Item frames.
+  const ff = settings.frameFill;
+  document.body.classList.toggle("custom-fill", ff.custom);
+  document.body.style.setProperty("--fill", ff.color);
+  document.body.style.setProperty("--fill-alpha", String(ff.alpha));
+  document.getElementById("fill-mode").value = ff.custom ? "custom" : "theme";
+  document.getElementById("fill-color").value = ff.color;
+  document.getElementById("fill-color").disabled = !ff.custom;
+  document.getElementById("fill-alpha").value = String(Math.round(ff.alpha * 100));
+  renderDashOptions();
+  if (dashboardPanes) mountDashboard();
 }
 
 let renderedIcons = null; // icon source the views were last drawn with
@@ -603,10 +644,28 @@ document.getElementById("theme-close").addEventListener("click", () => (themeBar
 themeBar.addEventListener("click", (e) => {
   const swatch = e.target.closest(".swatch");
   if (!swatch) return;
-  settings.theme = swatch.dataset.choice;
+  if (swatch.dataset.mode) settings.mode = swatch.dataset.mode;
+  else settings.theme = swatch.dataset.choice;
   applySettings();
   saveSettings();
 });
+document.getElementById("fill-mode").addEventListener("change", (e) => {
+  settings.frameFill.custom = e.target.value === "custom";
+  applySettings();
+  saveSettings();
+});
+const fillColor = document.getElementById("fill-color");
+fillColor.addEventListener("input", () => {
+  settings.frameFill.color = fillColor.value;
+  applySettings();
+});
+fillColor.addEventListener("change", () => saveSettings());
+const fillAlpha = document.getElementById("fill-alpha");
+fillAlpha.addEventListener("input", () => {
+  settings.frameFill.alpha = Number(fillAlpha.value) / 100;
+  applySettings();
+});
+fillAlpha.addEventListener("change", () => saveSettings());
 document.getElementById("bg-fit").addEventListener("change", (e) => {
   settings.background.fit = e.target.value;
   applySettings();
@@ -916,8 +975,10 @@ function renderDungeons(dungeons) {
       row.tabIndex = 0;
       row.title = `Open ${d.name}'s map`;
       const open = () => {
-        showView("locations");
-        if (locTab === "checks") showLocTab("map");
+        if (!dashboardPanes?.includes("map")) {
+          showView("locations");
+          if (locTab === "checks") showLocTab("map");
+        }
         mapView?.showDungeon(stage);
       };
       row.addEventListener("click", (e) => { if (!editing) open(); });
@@ -949,6 +1010,8 @@ let locTab = "checks";
 try { locTab = localStorage.getItem("tracker.locTab") || "checks"; } catch {}
 
 function showLocTab(name) {
+  // The Dashboard holds the panes itself.
+  if (dashboardPanes) return;
   const wide = views.locations.clientWidth === 0 || views.locations.clientWidth >= BOTH_MIN_WIDTH;
   locTab = name;
   try { localStorage.setItem("tracker.locTab", name); } catch {}
@@ -1009,7 +1072,12 @@ const locationsView = createLocationsView(locChecks, {
     saveSettings();
   },
   showOnMap(name) {
-    if (locSplit.dataset.tab === "checks") showLocTab("map");
+    if (dashboardPanes && !dashboardPanes.includes("map")) {
+      showView("locations");
+      showLocTab("map");
+    } else if (!dashboardPanes && locSplit.dataset.tab === "checks") {
+      showLocTab("map");
+    }
     mapView?.showCheck(name);
   },
 });
@@ -1033,7 +1101,7 @@ mapView = createMapView(locMap, {
     unmount: () => locationsView.unmountDetail(),
     focused: () => locationsView.focusedName(),
     setFocused: (name) => locationsView.setFocused(name),
-    bothShown: () => locSplit.dataset.tab === "both",
+    bothShown: () => (dashboardPanes ? dashboardPanes.includes("checks") && dashboardPanes.includes("map") : locSplit.dataset.tab === "both"),
     manualPlaces: () => settings.mapPlaces,
     // Names and provinces of the Map's Other places changed by hand.
     placeFixes: () => settings.placeFixes,
@@ -1049,7 +1117,12 @@ mapView = createMapView(locMap, {
       locationsView.refresh();
     },
     jump(name) {
-      if (locSplit.dataset.tab !== "both") showLocTab("checks");
+      if (dashboardPanes && !dashboardPanes.includes("checks")) {
+        showView("locations");
+        showLocTab("checks");
+      } else if (!dashboardPanes && locSplit.dataset.tab !== "both") {
+        showLocTab("checks");
+      }
       locationsView.jumpTo(name);
     },
   },
@@ -1058,6 +1131,94 @@ mapView = createMapView(locMap, {
 });
 locMap.addEventListener("contextmenu", onIconContextMenu);
 showLocTab(locTab);
+
+// ---- Dashboard ----
+
+const dashGrid = document.createElement("div");
+dashGrid.className = "dash-grid";
+views.dashboard.append(dashGrid);
+const main = views.items.parentElement;
+
+function dashPaneNode(id) {
+  return { items: views.items, dungeons: views.dungeons, checks: locChecks, map: locMap }[id];
+}
+// The panes of the Dashboard: ?panes=items,map in the address (an OBS source), else Options.
+function dashChoice() {
+  const fromUrl = (params.get("panes") ?? "").split(",").filter((x) => DASH_PANES.some(([id]) => id === x));
+  const layout = DASH_LAYOUTS.some(([id]) => id === params.get("layout")) ? params.get("layout") : settings.dashboard.layout;
+  return { panes: fromUrl.length ? fromUrl : settings.dashboard.panes, layout };
+}
+function mountDashboard() {
+  const { panes, layout } = dashChoice();
+  dashboardPanes = panes;
+  dashGrid.dataset.layout = layout;
+  dashGrid.style.setProperty("--panes", String(panes.length));
+  dashGrid.replaceChildren(...panes.map((id) => {
+    const cell = document.createElement("div");
+    cell.className = "dash-cell";
+    cell.dataset.pane = id;
+    const node = dashPaneNode(id);
+    node.hidden = false;
+    cell.append(node);
+    return cell;
+  }));
+  // Panes taken out: back where they belong (hidden).
+  for (const [id] of DASH_PANES) {
+    if (panes.includes(id)) continue;
+    const node = dashPaneNode(id);
+    if (id === "checks" || id === "map") locSplit.append(node);
+    else main.insertBefore(node, views.locations);
+    node.hidden = true;
+  }
+  if (panes.includes("items")) fitCaptions(views.items);
+  mapView?.setVisible(panes.includes("map"));
+}
+function unmountDashboard() {
+  if (!dashboardPanes) return;
+  dashboardPanes = null;
+  main.insertBefore(views.items, views.locations);
+  main.insertBefore(views.dungeons, views.locations);
+  locSplit.append(locChecks, locMap);
+  locChecks.hidden = false;
+  locMap.hidden = false;
+}
+// Options › Dashboard: which panes, in which order, and how they are laid out.
+function renderDashOptions() {
+  const box = document.getElementById("dash-options");
+  if (!box) return;
+  const chosen = settings.dashboard.panes;
+  const save = () => {
+    applySettings();
+    saveSettings();
+  };
+  box.replaceChildren(...DASH_PANES.map(([id, label]) => {
+    const on = chosen.includes(id);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "swatch dash-pane";
+    b.setAttribute("aria-pressed", String(on));
+    b.textContent = on ? `${chosen.indexOf(id) + 1}. ${label}` : label;
+    b.title = on ? "Click: take it off the Dashboard" : "Click: add it to the Dashboard (at the end)";
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (on && chosen.length > 1) settings.dashboard.panes = chosen.filter((x) => x !== id);
+      else if (!on) settings.dashboard.panes = [...chosen, id];
+      save();
+    });
+    return b;
+  }), (() => {
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", "Dashboard layout");
+    for (const [id, label] of DASH_LAYOUTS) select.append(new Option(label, id, false, id === settings.dashboard.layout));
+    select.addEventListener("change", () => {
+      settings.dashboard.layout = select.value;
+      save();
+    });
+    return select;
+  })());
+}
+renderDashOptions();
+showView(initialView || "items");
 let locationsLoaded = false;
 
 // Height of the sticky header bar, for the sticky parts of the views below it.

@@ -3,6 +3,17 @@
 ## Unreleased
 
 ### New
+- **Options** (was Theme): every setting in one place — Display (Simple / Advanced), Theme,
+  Background, Item frames, Dashboard, and the debug page (Advanced).
+- **Simple display** (the default): the main things only. Custom requirements, Reachable Regions,
+  seeds, By area, the region filter, placing checks by hand, renaming places and the map's details
+  are under Advanced.
+- **Item frames**: the theme's fill or a color of one's own, and its opacity (down to fully
+  transparent), for a background image or a transparent OBS source.
+- **Dashboard** tab: Items, Dungeons, Checks and the Map side by side, two by two or one under
+  another, as chosen in Options (or `?panes=` / `?layout=` in the address for OBS). Double-click
+  a check: it shows on the Dashboard's map; click a dungeon: its map opens there.
+- Resting the pointer on a check shows its requirement beside it (no click needed).
 - **Map** in Locations (sub-tabs Checks / Map / Checks + Map): the map of the stage Link is in,
   drawn from the game's own map data, with Link's position and facing, following him between
   rooms and floors. Overworld maps are teal, dungeon maps green with the room Link is in glowing.

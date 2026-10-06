@@ -156,6 +156,10 @@ English: [README.md](README.md)
 | オプション | 効果 |
 |---|---|
 | `?view=items`、`?view=dungeons`、`?view=locations` | 1 つのタブだけを表示 |
+| `?view=dashboard` | Dashboard を表示 |
+| `?panes=items,map` | Dashboard に並べる画面(`items`、`dungeons`、`checks`、`map` を順に) |
+| `?layout=columns`、`?layout=grid`、`?layout=rows` | Dashboard の並べ方(横並び、2×2、縦並び) |
+| `?mode=simple`、`?mode=advanced` | Simple / Advanced 表示(指定がなければ Options の設定) |
 | `?header=0` | タブのバーを隠す |
 | `?transparent=1` | 背景を透明にする |
 | `?size=<px>` | 枠の大きさ(初期値 64) |

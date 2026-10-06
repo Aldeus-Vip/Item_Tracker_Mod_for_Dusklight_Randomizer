@@ -162,7 +162,10 @@ Add a Browser Source with the tracker URL. These URL options can be combined:
 
 | Option | Effect |
 |---|---|
-| `?view=items`, `?view=dungeons`, `?view=locations` | Show one tab |
+| `?view=items`, `?view=dungeons`, `?view=locations`, `?view=dashboard` | Show one tab |
+| `?panes=items,map` | The Dashboard's panes (any of `items`, `dungeons`, `checks`, `map`, in order) |
+| `?layout=columns`, `?layout=grid`, `?layout=rows` | How the Dashboard's panes are laid out |
+| `?mode=simple`, `?mode=advanced` | Simple or advanced display (else as set in Options) |
 | `?header=0` | Hide the tab bar |
 | `?transparent=1` | Transparent background |
 | `?size=<px>` | Tile size (default 64) |

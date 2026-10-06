@@ -659,6 +659,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   // the map.
   function checkRow(loc, overrides) {
     const r = results.get(loc.name) ?? "unknown";
+    const row = checkRowNode(loc, overrides, r);
+    hoverRow(row, loc.name);
+    return row;
+  }
+  function checkRowNode(loc, overrides, r) {
     return el("button", {
       type: "button",
       className: `loc-row plate ${r}` + (loc.name === focused ? " selected" : ""),
@@ -972,6 +977,60 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     if (!parts.length) return [el("p", { className: "loc-note", textContent: "Not in the logic graph." })];
     return parts.flatMap((p, i) => (i ? [el("div", { className: "req-op req-op-block", textContent: "or" }), p] : [p]));
   }
+
+  // A check's status and requirement (under the map, and over a row the pointer rests on).
+  function requirementPanel(name) {
+    if (!world) return null;
+    const status = results.get(name) ?? "unknown";
+    const custom = getOverrides()[name];
+    const access = world.locationAccess.get(name) ?? [];
+    const panel = el("div", { className: "loc-req map-req-body" });
+    panel.append(el("div", { className: "loc-detail-head" },
+      el("h3", { textContent: name }),
+      el("span", { className: `loc-status ${status}`, textContent: { obtained: "Obtained", checked: "Marked checked", reachable: "Reachable", blocked: "Not reachable", excluded: "Excluded", unknown: "Logic off" }[status] })));
+    if (custom) {
+      panel.append(el("h4", {}, "Requirement ", el("span", { className: "loc-tag", textContent: "custom" })),
+        el("div", { className: "req-tree" }, renderReq(routesTree(custom))));
+    } else {
+      panel.append(el("h4", { textContent: "Requirement" }), ...randomizerReq(access));
+    }
+    return panel;
+  }
+
+  // Resting the pointer on a check's row shows its requirement beside it (no click needed).
+  const hoverCapable = typeof matchMedia === "function" && matchMedia("(hover: hover)").matches;
+  let hoverTimer = null;
+  let hoverPop = null;
+  function hideHover() {
+    clearTimeout(hoverTimer);
+    hoverPop?.remove();
+    hoverPop = null;
+  }
+  function hoverRow(row, name) {
+    if (!hoverCapable) return;
+    row.addEventListener("mouseenter", () => {
+      clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(() => {
+        if (!row.isConnected || editing?.name === name) return;
+        const panel = requirementPanel(name);
+        if (!panel) return;
+        hideHover();
+        hoverPop = el("div", { className: "loc-hover-req" }, panel);
+        document.body.append(hoverPop);
+        const r = row.getBoundingClientRect();
+        const w = hoverPop.offsetWidth;
+        const h = hoverPop.offsetHeight;
+        const right = r.right + 8 + w <= innerWidth;
+        const left = right ? r.right + 8 : Math.max(8, r.left - 8 - w);
+        const top = Math.max(8, Math.min(innerHeight - h - 8, r.top));
+        hoverPop.style.left = `${right || r.left - 8 - w >= 8 ? left : Math.max(8, r.left)}px`;
+        hoverPop.style.top = `${right || r.left - 8 - w >= 8 ? top : Math.min(innerHeight - h - 8, r.bottom + 6)}px`;
+      }, 350);
+    });
+    row.addEventListener("mouseleave", hideHover);
+    row.addEventListener("mousedown", hideHover);
+  }
+  addEventListener("scroll", hideHover, { passive: true, capture: true });
 
   function renderDetail() {
     const { name } = editing;
@@ -1704,23 +1763,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       return out;
     },
     // A check's status and requirement, for showing under the map.
-    requirementView(name) {
-      if (!world) return null;
-      const status = results.get(name) ?? "unknown";
-      const custom = getOverrides()[name];
-      const access = world.locationAccess.get(name) ?? [];
-      const panel = el("div", { className: "loc-req map-req-body" });
-      panel.append(el("div", { className: "loc-detail-head" },
-        el("h3", { textContent: name }),
-        el("span", { className: `loc-status ${status}`, textContent: { obtained: "Obtained", checked: "Marked checked", reachable: "Reachable", blocked: "Not reachable", excluded: "Excluded", unknown: "Logic off" }[status] })));
-      if (custom) {
-        panel.append(el("h4", {}, "Requirement ", el("span", { className: "loc-tag", textContent: "custom" })),
-          el("div", { className: "req-tree" }, renderReq(routesTree(custom))));
-      } else {
-        panel.append(el("h4", { textContent: "Requirement" }), ...randomizerReq(access));
-      }
-      return panel;
-    },
+    requirementView: (name) => requirementPanel(name),
     focusedName: () => focused,
     // A check's row as in the list (its own buttons work; the caller may replace the row's clicks).
     rowFor(name) {
