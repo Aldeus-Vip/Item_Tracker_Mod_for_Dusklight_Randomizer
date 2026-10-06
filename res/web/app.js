@@ -491,6 +491,8 @@ const DEFAULT_SETTINGS = {
   font: { family: "default", scope: "titles", rev: 0 },
   // Checks and Map follow each other's region.
   linkMap: true,
+  // The Map's entrance plates moved by hand ({ [plate]: { x, z } }) and entrances added by hand.
+  entranceFixes: { moved: {}, added: [] },
 };
 let settings = structuredClone(DEFAULT_SETTINGS);
 const themeBar = document.getElementById("theme-bar");
@@ -545,6 +547,21 @@ function normalizeSettings(raw) {
   }
   for (const [name, area] of Object.entries(raw?.checkAreas ?? {})) {
     if (name.length <= 200 && typeof area === "string" && area.length <= 80) out.checkAreas[name] = area;
+  }
+  const ef = raw?.entranceFixes;
+  const stageOk = (v) => typeof v === "string" && /^\w{1,8}$/.test(v);
+  const roomOk = (v) => Number.isInteger(v) && v >= -1 && v < 64;
+  const areaOk = (v) => typeof v === "string" && v.length <= 100;
+  for (const [key, m] of Object.entries(ef?.moved ?? {})) {
+    if (key.length <= 200 && m && Number.isFinite(Number(m.x)) && Number.isFinite(Number(m.z))) out.entranceFixes.moved[key] = { x: Number(m.x), z: Number(m.z) };
+  }
+  for (const a of Array.isArray(ef?.added) ? ef.added.slice(0, 500) : []) {
+    if (!a || typeof a.id !== "string" || a.id.length > 20 || !stageOk(a.stage) || !roomOk(a.room) || !stageOk(a.to?.stage) || !roomOk(a.to?.room)) continue;
+    const entry = { id: a.id, stage: a.stage, room: a.room, x: Number(a.x) || 0, z: Number(a.z) || 0, floor: Number.isInteger(a.floor) ? a.floor : 0,
+      to: { stage: a.to.stage, room: a.to.room } };
+    if (areaOk(a.atArea)) entry.atArea = a.atArea;
+    if (areaOk(a.toArea)) entry.toArea = a.toArea;
+    out.entranceFixes.added.push(entry);
   }
   for (const [id, f] of Object.entries(raw?.placeFixes ?? {})) {
     if (id.length > 140 || !f || typeof f !== "object") continue;
@@ -654,10 +671,25 @@ async function loadSettings() {
   locationsView.refresh();
 }
 
+// Options: a window over the page, opened and closed by its button, closed by a click outside
+// it or Escape.
 themeButton.addEventListener("click", () => {
   themeBar.hidden = !themeBar.hidden;
+  themeButton.setAttribute("aria-expanded", String(!themeBar.hidden));
 });
-document.getElementById("theme-close").addEventListener("click", () => (themeBar.hidden = true));
+const closeOptions = () => {
+  themeBar.hidden = true;
+  themeButton.setAttribute("aria-expanded", "false");
+};
+document.addEventListener("pointerdown", (e) => {
+  if (themeBar.hidden || themeBar.contains(e.target) || themeButton.contains(e.target)) return;
+  // (A file picker or a color picker opened from Options is not a click outside.)
+  if (e.target === document.documentElement) return;
+  closeOptions();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !themeBar.hidden) closeOptions();
+});
 themeBar.addEventListener("click", (e) => {
   const swatch = e.target.closest(".swatch");
   if (!swatch) return;
@@ -1121,6 +1153,10 @@ const locationsView = createLocationsView(locChecks, {
   onRegionPicked(region) {
     if (settings.linkMap) mapView?.showRegion(region);
   },
+  // ... and a check highlighted there is the one picked on the map.
+  onFocus(name) {
+    if (settings.linkMap) mapView?.pickCheck(name);
+  },
   // Areas set by hand for checks of the list (By area, region filter).
   getCheckAreas: () => settings.checkAreas,
   saveCheckArea(name, area) {
@@ -1156,7 +1192,7 @@ mapView = createMapView(locMap, {
     row: (name) => locationsView.rowFor(name),
     unmount: () => locationsView.unmountDetail(),
     focused: () => locationsView.focusedName(),
-    setFocused: (name) => locationsView.setFocused(name),
+    setFocused: (name) => locationsView.setFocused(name, settings.linkMap),
     bothShown: () => locSplit.dataset.tab === "both",
     manualPlaces: () => settings.mapPlaces,
     // Names and provinces of the Map's Other places changed by hand.
@@ -1164,6 +1200,12 @@ mapView = createMapView(locMap, {
     setPlaceFix(id, fix) {
       if (fix) settings.placeFixes[id] = fix;
       else delete settings.placeFixes[id];
+      saveSettings();
+    },
+    // Entrances moved or added on the map by hand.
+    entranceFixes: () => settings.entranceFixes,
+    setEntranceFixes(fixes) {
+      settings.entranceFixes = normalizeSettings({ entranceFixes: fixes }).entranceFixes;
       saveSettings();
     },
     setPlace(name, place) {

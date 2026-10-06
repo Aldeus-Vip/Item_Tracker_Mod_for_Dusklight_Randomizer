@@ -16,6 +16,18 @@
 - **Link Checks and Map** (Options › Display, on by default): picking a region in Checks opens its
   map, and the place the map shows sets Checks to its region.
 - Resting the pointer on a check shows its requirement beside it (no click needed).
+- Options opens as a window over the page: its button opens and closes it, and so does a click
+  outside it (or Escape).
+- With Checks and Map linked, the check highlighted in Checks is the one picked on the map (and
+  above it), and the other way round.
+- Map entrances: plates styled like the game's place names (a dark olive bar edged in gold with a
+  gold scroll), the dungeon entrance icon from the game's map screen. A plate moves with
+  right-click › Move; **+ Entrance** (Advanced) adds one where the randomizer data has none,
+  leading to a place of the mod's maps. An overworld place's count includes the houses, caves and
+  grottos entered from it. An entrance whose other end is on the same map (even a room not
+  visited yet) has no plate. The other parts of an overworld stage the map shows apart (Hyrule
+  Field by province) have a plate each, with their count.
+- Link's House is one place: the house 1F, its basement B1.
 - **Map** in Locations (sub-tabs Checks / Map / Checks + Map): the map of the stage Link is in,
   drawn from the game's own map data, with Link's position and facing, following him between
   rooms and floors. Overworld maps are teal, dungeon maps green with the room Link is in glowing.
@@ -150,6 +162,12 @@
   are gone).
 
 ### Fixed
+- Dungeon maps opened from the Dungeons list (Forest Temple) missed doors: a door's floor is now
+  kept within its room's floors, as the game does.
+- The Sacred Grove's and Lost Woods' maps (drawn from the ground) show when the overworld map data
+  has the room without shapes.
+- Zooming out of an overworld place opened by an entrance goes to its province again (back to
+  where the jump was made only for houses, caves, grottos and dungeons).
 - Forest Temple's doors and small keys did not show from outside: doors and map icons kept for
   one story stage only (layer chunks) are read too.
 - Overworld places opened from a province lost their water and showed a stray square: they are

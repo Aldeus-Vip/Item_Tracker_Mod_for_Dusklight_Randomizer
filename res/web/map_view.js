@@ -257,6 +257,27 @@ export function twilightMotes() {
 
 const floorLabel = (n) => (n >= 0 ? `${n + 1}F` : `B${-n}`);
 
+// Rooms the game keeps apart that the page shows as one place, each room a floor of it (Link's
+// House: its room 1F, the basement B1F). By stage: groups of { room: floor }.
+const MERGED_ROOMS = { R_SP01: [{ 4: 0, 7: -1 }] };
+function mergedGroup(stage, room) {
+  return (MERGED_ROOMS[stage] ?? []).find((g) => g[room] !== undefined) ?? null;
+}
+// A room of such a place on its floor: each of its floors moved to the room's.
+// The room naming such a place (its first).
+function leadRoom(stage, room) {
+  const g = mergedGroup(stage, room);
+  return g ? Number(Object.keys(g)[0]) : room;
+}
+// The floor of a thing in a room on the map (a merged place's room: its floor).
+function roomFloor(stage, room, floor) {
+  return mergedGroup(stage, room)?.[room] ?? floor;
+}
+function onMergedFloor(room, group) {
+  const to = group[room.no];
+  return { ...room, floors: [{ ...room.floors[0], no: to, groups: room.floors.flatMap((f) => f.groups) }] };
+}
+
 // A triangle strip as one path of triangles.
 function stripPath(v, strip) {
   let d = "";
@@ -376,6 +397,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       busy = true;
       try {
         player = await (await fetch("map-player", { cache: "no-store" })).json();
+        // In a place made of several rooms (Link's House), the room is the floor.
+        const merged = mergedGroup(player.stage, player.stayRoom);
+        if (merged) player.stayFloor = merged[player.stayRoom];
         if (!player.loading && (!map || map.stage !== player.stage || Date.now() - mapTime > MAP_MS)) {
           const text = await (await fetch("map", { cache: "no-store" })).text();
           mapTime = Date.now();
@@ -605,6 +629,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // The checks of the grotto shown, when grottos built alike share one map (null: all).
   let checkScope = null;
   function placeAt(at) {
+    if (placingEntrance && scene && (scene.kind === "stage" || scene.kind === "area")) return placeEntrance(at);
     if (!placing || !scene || (scene.kind !== "stage" && scene.kind !== "area")) return false;
     const stage = scene.kind === "area" ? areaPlace?.name : map?.stage;
     if (!stage) return false;
@@ -789,7 +814,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // A room of the overworld the game has no map for (the Sacred Grove's): its ground from the
     // game files (the mod draws it from the room's collision).
     let ground = null;
-    if (!map.stage.startsWith("D_") && !(map.rooms ?? []).some((r) => r.no === player.stayRoom)) {
+    if (!map.stage.startsWith("D_") && !(map.rooms ?? []).some((r) => r.no === player.stayRoom && shaped(r))) {
       ground = stageMap(map.stage)?.rooms?.find((r) => r.no === player.stayRoom && r.ground) ?? null;
     }
     if (!map.exists && !ground) return message("This place has no map.");
@@ -803,8 +828,19 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // room Link is in.
     const interior = !dungeon && isInterior(map.stage);
     if (interior) {
-      const mine = map.rooms.filter((r) => r.no === player.stayRoom);
-      if (mine.length) rooms = extent = mine;
+      const group = mergedGroup(map.stage, player.stayRoom);
+      if (group) {
+        // A place of several rooms: all of them, each on its floor (those not loaded now from the
+        // game files).
+        const own = stageMap(map.stage)?.rooms ?? [];
+        const mine = Object.keys(group).map(Number)
+          .map((no) => map.rooms.find((r) => r.no === no) ?? own.find((r) => r.no === no))
+          .filter(Boolean).map((r) => onMergedFloor({ ...r, visited: true, layer: r.layer ?? 0 }, group));
+        if (mine.length) rooms = extent = mine;
+      } else {
+        const mine = map.rooms.filter((r) => r.no === player.stayRoom);
+        if (mine.length) rooms = extent = mine;
+      }
     }
     // A dungeon or cave Link is in: framed on its whole map from the game files too (rooms not
     // loaded now).
@@ -993,7 +1029,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // Floors, top first, as in the game: Link's face (or the wolf's) beside his floor, outside the
     // button so every floor label lines up.
     const linkIcon = player.wolf ? ["Map_Wolf", "Wolf Link (map)"] : ["Map_Link", "Link (map)"];
-    const floorButtons = dungeon && floors.length > 1 ? el("div", { className: "map-floors" + (floors.length >= 4 ? " compact" : "") },
+    // (A place made of rooms on floors, as Link's House, has floors like a dungeon.)
+    const layered = dungeon || rooms.some((r) => mergedGroup(map.stage, r.no));
+    const floorButtons = layered && floors.length > 1 ? el("div", { className: "map-floors" + (floors.length >= 4 ? " compact" : "") },
       ...floors.map((n) => el("div", { className: "map-floor-row" },
         el("span", { className: "map-floor-marker" }, n === linkFloor ? iconSlot(...linkIcon, "map-floor-face", "◆") : null),
         el("button", {
@@ -1016,9 +1054,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const overlay = el("div", { className: "map-overlay" });
     const boss = d ? bossMark(d, rooms, floor) : null;
     if (boss) overlay.append(boss.node);
-    const checks = buildChecks(dungeon && floors.length > 1 ? floor : null, new Set(rooms.map((r) => r.no)));
-    const icons = buildIcons(rooms, dungeon && floors.length > 1 ? floor : null);
-    const entrances = buildEntrances(rooms, dungeon && floors.length > 1 ? floor : null);
+    // Things on the floor shown only (a dungeon's, a place made of rooms on floors).
+    const byFloor = layered && floors.length > 1 ? floor : null;
+    const checks = buildChecks(byFloor, new Set(rooms.map((r) => r.no)));
+    const icons = buildIcons(rooms, byFloor);
+    const entrances = buildEntrances(rooms, byFloor, extent);
     overlay.append(...entrances.map((c) => c.node), ...icons.map((c) => c.node), ...checks.map((c) => c.node));
     const frame = el("div", { className: "map-frame " + (dungeon ? "parchment" : "field"), title: "Click: zoom in · Right-click: zoom out · Drag: move" }, drawing, overlay, reticle);
     const zoomBar = zoomIndicator();
@@ -1079,7 +1119,19 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       }),
       button("dungeons", "Dungeons", "Every dungeon's map", () => openSelect("dungeons")),
       button("other", "Other", "Houses, caves, grottos and other places", () => openSelect("other")));
-    return el("div", { className: "map-toolbar" }, tabs, checkSource ? filterMenu() : null);
+    // An entrance the randomizer data does not place: put by hand (advanced mode).
+    const addEntrance = checkSource?.setEntranceFixes && (mode === "stage" || mode === "area") ? el("button", {
+      type: "button", className: "map-tab adv-only map-add-entrance" + (placingEntrance?.add ? " selected" : ""), textContent: "+ Entrance",
+      title: "Add an entrance: click where it is on the map, then choose where it leads",
+      onclick: (e) => {
+        e.stopPropagation();
+        placingEntrance = placingEntrance?.add ? null : { add: true };
+        e.currentTarget.classList.toggle("selected", !!placingEntrance);
+        root.querySelector(".map-frame")?.classList.toggle("placing", !!placingEntrance);
+        if (placingEntrance) showNotice("Click where the entrance is on the map.");
+      },
+    }) : null;
+    return el("div", { className: "map-toolbar" }, tabs, addEntrance, checkSource ? filterMenu() : null);
   }
 
   function openSelect(kind) {
@@ -1589,7 +1641,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const place = fieldPlaceOf(side.stage, side.room);
       return (place && fieldTitle(fieldKey(side.stage, place.stage.rooms.map((r) => r.no)))) ?? regionName(side.stage, side.room) ?? area;
     }
-    return roomTitle(side.stage, side.room) ?? area;
+    return roomTitle(side.stage, leadRoom(side.stage, side.room)) ?? area;
   }
   function fieldPlaceOf(stage, room) {
     for (const region of field?.regions ?? []) {
@@ -1605,7 +1657,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const stages = new Set(relatedStages(side.stage));
     let rooms = null; // null: every room
     if (side.stage.startsWith("F_")) rooms = new Set(fieldPlaceOf(side.stage, side.room)?.stage.rooms.map((r) => r.no) ?? [side.room]);
-    else if (side.stage.startsWith("R_")) rooms = new Set([side.room]);
+    else if (side.stage.startsWith("R_")) rooms = new Set(Object.keys(mergedGroup(side.stage, side.room) ?? { [side.room]: 0 }).map(Number));
     const names = new Set();
     for (const c of checkSource?.list() ?? []) {
       const p = placeFor(c.key, c.name);
@@ -1629,8 +1681,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     if (side.stage.startsWith("F_")) {
       const place = fieldPlaceOf(side.stage, side.room);
       if (map?.exists && map.stage === side.stage && place?.stage.rooms.some((r) => r.no === player?.stayRoom)) return switchStage();
-      if (place) return openRemote({ region: place.region, stage: place.stage, ...back });
-      return openRemote({ name: side.stage, rooms: [side.room], title: sideTitle(side, area), ...back });
+      // (The overworld: zooming out goes to its province, as for any place of it.)
+      if (place) return openRemote({ region: place.region, stage: place.stage });
+      return openRemote({ name: side.stage, rooms: [side.room], title: sideTitle(side, area) });
     }
     const variant = (roomVariants?.(side.stage, side.room) ?? []).find((v) => v.area === area);
     const one = variant || side.stage.startsWith("R_");
@@ -1642,15 +1695,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     mode = "stage";
     return switchStage();
   }
-  function buildEntrances(rooms, floor) {
-    if (!checkFilter.has("entrances") || !checkSource) return [];
-    const stages = new Set(relatedStages(map.stage));
-    const drawn = new Set(rooms.map((r) => r.no));
-    const variant = map.area ? areaPlace?.variant ?? null : null;
-    const status = new Map(checkSource.list().map((c) => [c.name, c.status]));
-    const out = [];
-    const seen = new Set();
-    // Both ends of every entrance: [this end, its area, the other end, its area, kind there].
+  // Entrances moved or added by hand (the page's settings): { moved: { [plate]: { x, z } },
+  // added: [{ id, stage, room, x, z, floor, atArea, to: { stage, room }, toArea }] }.
+  const entranceFixes = () => checkSource?.entranceFixes?.() ?? { moved: {}, added: [] };
+  // Both ends of every entrance: [this end, its area, the other end, its area, kind there].
+  function entranceEnds() {
     const ends = [];
     for (const e of entranceList()) {
       // (Boss: the way back out after a boss, not an entrance.)
@@ -1658,41 +1707,274 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       ends.push([e.back, e.from, e.fwd, e.to, sideKind(e.fwd, e.type)]);
       ends.push([e.fwd, e.to, e.back, e.from, sideKind(e.back)]);
     }
-    for (const [at, atArea, to, toArea, kind] of ends) {
-      if (!stages.has(at.stage) || (at.room >= 0 && !drawn.has(at.room))) continue;
-      // A grotto sharing its map: only its own way out.
-      if (variant && atArea !== variant && !atArea?.startsWith(variant + " ")) continue;
-      // Both ends on this map: no need to jump.
-      if (stages.has(to.stage) && (to.room < 0 || drawn.has(to.room))) continue;
-      const spawns = places?.spawns?.[at.stage] ?? [];
-      const sp = spawns.find((s2) => s2[0] === at.room && s2[1] === at.spawn) ?? spawns.find((s2) => s2[0] < 0 && s2[1] === at.spawn);
-      if (!sp || (floor !== null && sp[4] !== floor)) continue;
-      // One plate per place it leads to (a building's two doors: one).
-      const toVariant = (roomVariants?.(to.stage, to.room) ?? []).find((v) => v.area === toArea)?.area ?? "";
-      const id = `${to.stage}/${to.stage.startsWith("F_") || to.stage.startsWith("R_") || toVariant ? to.room : "*"}/${toVariant}`;
-      if (seen.has(id)) continue;
-      seen.add(id);
+    for (const a of entranceFixes().added ?? []) {
+      ends.push([{ stage: a.stage, room: a.room, added: a }, a.atArea ?? null, a.to, a.toArea ?? null, sideKind(a.to, a.toArea ? "Grotto" : null)]);
+    }
+    return ends;
+  }
+  // The checks counted for a side: its map's; an overworld place's also those of the houses, caves
+  // and grottos entered from it (not dungeons').
+  function sideCount(side, area) {
+    const names = sideChecks(side, area);
+    if (!side.stage.startsWith("F_")) return names;
+    const nos = new Set(fieldPlaceOf(side.stage, side.room)?.stage.rooms.map((r) => r.no) ?? [side.room]);
+    for (const [at, , to, toArea, kind] of entranceEnds()) {
+      if (at.stage !== side.stage || !nos.has(at.room) || !["Interior", "Cave", "Grotto"].includes(kind)) continue;
+      for (const n of sideChecks(to, toArea)) names.add(n);
+    }
+    return names;
+  }
+  // The place a side opens, one plate each.
+  function sidePlaceId(to, toArea) {
+    const toVariant = (roomVariants?.(to.stage, to.room) ?? []).find((v) => v.area === toArea)?.area ?? "";
+    if (to.stage.startsWith("F_")) {
+      const place = fieldPlaceOf(to.stage, to.room);
+      if (place) return `${to.stage}/@${place.region.no}:${place.stage.part ?? place.stage.rooms[0]?.no}`;
+    }
+    return `${to.stage}/${to.stage.startsWith("F_") || to.stage.startsWith("R_") || toVariant ? leadRoom(to.stage, to.room) : "*"}/${toVariant}`;
+  }
+  // The overworld place shown (a province's part of a stage), for the plates to its stage's other
+  // parts.
+  function shownFieldPlace() {
+    if (map.area) return areaPlace?.stage && areaPlace.region ? { region: areaPlace.region, stage: areaPlace.stage } : null;
+    return fieldPlace();
+  }
+
+  let placingEntrance = null; // { add: true } or { move: plate key }: the next click on the map
+  function buildEntrances(rooms, floor, extent = rooms) {
+    if (!checkFilter.has("entrances") || !checkSource) return [];
+    const stages = new Set(relatedStages(map.stage));
+    const drawn = new Set(rooms.map((r) => r.no));
+    // The rooms of this map, drawn or to be once visited: an entrance between two of them needs no
+    // plate.
+    const onMap = new Set([...drawn, ...extent.map((r) => r.no)]);
+    const variant = map.area ? areaPlace?.variant ?? null : null;
+    const status = new Map(checkSource.list().map((c) => [c.name, c.status]));
+    const fixes = entranceFixes();
+    const out = [];
+    const seen = new Set();
+    const plate = (key, to, toArea, kind, pos, added = null) => {
+      const moved = fixes.moved?.[key];
+      const at = moved ? { x: moved.x, y: moved.z } : { x: pos.x, y: pos.z };
       const title = sideTitle(to, toArea);
       let left = 0;
       let reachable = 0;
-      for (const name of sideChecks(to, toArea)) {
+      for (const name of sideCount(to, toArea)) {
         const st = status.get(name) ?? "unknown";
         if (st === "reachable" || st === "blocked" || st === "unknown") left++;
         if (st === "reachable") reachable++;
       }
-      const node = el("button", { type: "button", className: `map-entrance ${kind.toLowerCase()}` + (left === 0 ? " done" : ""),
-        title: `${title}\n${reachable} reachable of the ${left} checks left there · Click: its map (right-click there: back here)`, ariaLabel: title },
-      el("span", { className: "map-entrance-icon" }), left ? el("span", { className: "map-entrance-count", textContent: `${reachable}/${left}` }) : null);
-      node.querySelector(".map-entrance-icon").innerHTML = ENTRANCE_GLYPHS[kind] ?? ENTRANCE_GLYPHS.Field;
+      const node = el("button", { type: "button", className: `map-entrance ${kind.toLowerCase()}` + (left === 0 ? " done" : "") + (added ? " added" : ""),
+        title: `${title}\n${reachable} reachable of the ${left} checks left there · Click: its map (right-click there: back here) · Right-click: move${added ? ", change or remove" : ""} this entrance`, ariaLabel: title },
+      el("span", { className: "map-entrance-icon" }),
+      el("span", { className: "map-entrance-name", textContent: title }),
+      left ? el("span", { className: "map-entrance-count", textContent: `${reachable}/${left}` }) : null);
+      const icon = node.querySelector(".map-entrance-icon");
+      if (kind === "Dungeon") {
+        icon.append(iconSlot("Map_Dungeon_Enter", "Dungeon entrance", "map-entrance-img", el("span", { innerHTML: ENTRANCE_GLYPHS.Dungeon })));
+      } else {
+        icon.innerHTML = ENTRANCE_GLYPHS[kind] ?? ENTRANCE_GLYPHS.Field;
+      }
       node.addEventListener("pointerdown", (ev) => ev.stopPropagation());
       node.addEventListener("pointerup", (ev) => ev.stopPropagation());
       node.addEventListener("click", (ev) => {
         ev.stopPropagation();
         jumpTo(to, toArea);
       });
-      out.push({ node, at: { x: sp[2], y: sp[3] } });
+      node.addEventListener("contextmenu", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        entranceMenu(node, key, added, !!moved);
+      });
+      out.push({ node, at });
+    };
+    for (const [at, atArea, to, toArea, kind] of entranceEnds()) {
+      if (!stages.has(at.stage) || (at.room >= 0 && !drawn.has(at.room))) continue;
+      // A grotto sharing its map: only its own way out.
+      if (variant && atArea !== variant && !atArea?.startsWith(variant + " ")) continue;
+      // Both ends on this map: no need to jump.
+      if (stages.has(to.stage) && (to.room < 0 || onMap.has(to.room))) continue;
+      let pos;
+      if (at.added) {
+        pos = { x: at.added.x, z: at.added.z, floor: at.added.floor };
+      } else {
+        const spawns = places?.spawns?.[at.stage] ?? [];
+        const sp = spawns.find((s2) => s2[0] === at.room && s2[1] === at.spawn) ?? spawns.find((s2) => s2[0] < 0 && s2[1] === at.spawn);
+        if (!sp) continue;
+        pos = { x: sp[2], z: sp[3], floor: roomFloor(at.stage, sp[0], sp[4]) };
+      }
+      if (floor !== null && pos.floor !== floor) continue;
+      // One plate per place it leads to (a building's two doors: one).
+      const id = sidePlaceId(to, toArea);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      plate(at.added ? `added:${at.added.id}` : `${at.stage}/${at.room}>${id}`, to, toArea, kind, pos, at.added ?? null);
+    }
+    // The other parts of an overworld stage the page shows apart (Hyrule Field by province): a
+    // plate to each, at the edge of this part toward it, as if an entrance.
+    const here = shownFieldPlace();
+    if (here && floor === null) {
+      const box = (rs) => {
+        const b = [...roomBoxes(rs, null).values()];
+        if (!b.length) return null;
+        const minX = Math.min(...b.map((r) => r.x - r.w / 2)), maxX = Math.max(...b.map((r) => r.x + r.w / 2));
+        const minZ = Math.min(...b.map((r) => r.y - r.h / 2)), maxZ = Math.max(...b.map((r) => r.y + r.h / 2));
+        return { minX, maxX, minZ, maxZ, x: (minX + maxX) / 2, z: (minZ + maxZ) / 2 };
+      };
+      const mine = box(rooms);
+      for (const region of field?.regions ?? []) {
+        for (const st of region.stages) {
+          if (st.name !== here.stage.name || st === here.stage || !st.rooms.length) continue;
+          const to = { stage: st.name, room: st.part ?? st.rooms[0].no };
+          const id = sidePlaceId(to, null);
+          if (seen.has(id) || !mine) continue;
+          seen.add(id);
+          const other = box(st.rooms) ?? mine;
+          // Toward the other part, just inside this one's edge.
+          const dx = other.x - mine.x;
+          const dz = other.z - mine.z;
+          const hw = (mine.maxX - mine.minX) / 2 * 0.9;
+          const hh = (mine.maxZ - mine.minZ) / 2 * 0.9;
+          const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dz ? hh / Math.abs(dz) : Infinity, 1);
+          plate(`part:${here.stage.name}/${here.stage.part ?? here.stage.rooms[0]?.no}>${id}`, to, null, "Field",
+            { x: mine.x + dx * (Number.isFinite(t) ? t : 0), z: mine.z + dz * (Number.isFinite(t) ? t : 0) });
+        }
+      }
     }
     return out;
+  }
+
+  // ---- Entrances changed by hand ----
+
+  // A plate's menu (right-click): move it, put it back, change where an added one leads, remove it.
+  function entranceMenu(node, key, added, moved) {
+    closeEntranceMenu();
+    const fixes = entranceFixes();
+    const save = (next) => {
+      checkSource?.setEntranceFixes?.(next);
+      closeEntranceMenu();
+      sceneKey = "";
+      render();
+    };
+    const item = (label, title, go) => el("button", { type: "button", className: "map-place", textContent: label, title, onclick: (e) => { e.stopPropagation(); go(); } });
+    const menu = el("div", { className: "map-entrance-menu" },
+      item("Move", "Then click where it is on the map", () => {
+        closeEntranceMenu();
+        placingEntrance = { move: key };
+        root.querySelector(".map-frame")?.classList.add("placing");
+        showNotice("Click where this entrance is on the map.");
+      }),
+      moved ? item("Reset place", "Back where the game files put it", () => {
+        const next = structuredClone(fixes);
+        delete next.moved[key];
+        save(next);
+      }) : null,
+      added ? item("Leads to…", "Choose the place it leads to", () => {
+        closeEntranceMenu();
+        destinationForm(added.to, added.toArea, (to, toArea) => {
+          const next = structuredClone(fixes);
+          const a = next.added.find((x) => x.id === added.id);
+          if (a) Object.assign(a, { to, toArea: toArea ?? undefined });
+          save(next);
+        });
+      }) : null,
+      added ? item("Remove", "Remove this entrance", () => {
+        const next = structuredClone(fixes);
+        next.added = next.added.filter((x) => x.id !== added.id);
+        delete next.moved[key];
+        save(next);
+      }) : null,
+      item("Cancel", "", () => closeEntranceMenu()));
+    menu.addEventListener("pointerdown", (e) => e.stopPropagation());
+    menu.addEventListener("pointerup", (e) => e.stopPropagation());
+    menu.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); });
+    node.after(menu);
+    menu.style.left = node.style.left;
+    menu.style.top = node.style.top;
+    menu.style.transform = node.style.transform;
+    setTimeout(() => document.addEventListener("pointerdown", closeEntranceMenu, { once: true }), 0);
+  }
+  function closeEntranceMenu() {
+    root.querySelector(".map-entrance-menu")?.remove();
+  }
+
+  // Every place a map opens, for an entrance added by hand: dungeons, the overworld's places, the
+  // Other tab's.
+  function destinations() {
+    const out = [];
+    for (const [label, stage] of DUNGEON_STAGES) out.push({ group: "Dungeons", title: label, to: { stage, room: -1 } });
+    for (const region of field?.regions ?? []) {
+      for (const st of region.stages) {
+        if (!st.rooms.length) continue;
+        const room = st.part ?? st.rooms[0].no;
+        const title = fieldTitle(fieldKey(st.name, st.rooms.map((r) => r.no))) ?? regionName(st.name, room) ?? st.name;
+        out.push({ group: "Field", title, to: { stage: st.name, room } });
+      }
+    }
+    for (const it of otherPlaces()) {
+      out.push({ group: it.province, title: it.title, to: { stage: it.stage, room: it.rooms?.[0] ?? (places?.mapRooms?.[it.stage] ?? [-1])[0] }, toArea: it.variant ?? null });
+    }
+    return out;
+  }
+  function destinationForm(current, currentArea, done) {
+    root.querySelector(".map-dest-form")?.remove();
+    const list = destinations();
+    const groups = [...new Set(list.map((d) => d.group))];
+    const pick = el("select", { className: "plate" },
+      ...groups.map((g) => {
+        const og = document.createElement("optgroup");
+        og.label = g;
+        og.append(...list.map((d, i) => [d, i]).filter(([d]) => d.group === g).map(([d, i]) => el("option", { value: String(i), textContent: d.title,
+          selected: !!current && d.to.stage === current.stage && (d.to.room === current.room || d.to.room < 0) && (d.toArea ?? null) === (currentArea ?? null) })));
+        return og;
+      }));
+    const form = el("div", { className: "map-dest-form map-fix-form" },
+      el("span", { textContent: "Leads to" }), pick,
+      el("button", { type: "button", className: "map-place", textContent: "Save", onclick: () => {
+        const d = list[Number(pick.value)];
+        form.remove();
+        if (d) done(d.to, d.toArea);
+      } }),
+      el("button", { type: "button", className: "map-place", textContent: "Cancel", onclick: () => form.remove() }));
+    root.querySelector(".map-pane")?.prepend(form);
+    pick.focus();
+  }
+
+  // The click after "+ Entrance" or "Move": where the entrance is.
+  function placeEntrance(at) {
+    const task = placingEntrance;
+    placingEntrance = null;
+    root.querySelector(".map-frame")?.classList.remove("placing");
+    const fixes = structuredClone(entranceFixes());
+    fixes.moved ??= {};
+    fixes.added ??= [];
+    const save = () => {
+      checkSource?.setEntranceFixes?.(fixes);
+      sceneKey = "";
+      render();
+    };
+    if (task.move) {
+      fixes.moved[task.move] = { x: Math.round(at.x), z: Math.round(at.y) };
+      save();
+      return true;
+    }
+    const stage = scene.kind === "area" ? areaPlace?.name ?? areaPlace?.stage?.name : map?.stage;
+    if (!stage) return true;
+    let room = -1;
+    let best = Infinity;
+    for (const [no, b] of scene.rooms) {
+      if (Math.abs(at.x - b.x) <= b.w / 2 && Math.abs(at.y - b.y) <= b.h / 2 && b.w * b.h < best) {
+        best = b.w * b.h;
+        room = no;
+      }
+    }
+    if (room < 0) room = [...scene.rooms.keys()][0] ?? 0;
+    destinationForm(null, null, (to, toArea) => {
+      fixes.added.push({ id: Date.now().toString(36), stage, room, x: Math.round(at.x), z: Math.round(at.y),
+        floor: roomFloor(stage, room, scene?.floor ?? 0), atArea: (scene.kind === "area" && areaPlace?.variant) || undefined, to, toArea: toArea ?? undefined });
+      save();
+    });
+    return true;
   }
 
   // ---- Checks on the map ----
@@ -1711,7 +1993,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     for (const place of stageChecks(map.stage, map.checks)) {
       const info = place.name ? byName.get(place.name) : byKey.get(place.key);
       if (info && checkScope && !checkScope.has(info.name)) continue;
-      if (!info || (floor !== null && place.floor !== undefined && place.floor !== floor)) continue;
+      const placeFloor = roomFloor(map.stage, place.room, place.floor);
+      if (!info || (floor !== null && placeFloor !== undefined && placeFloor !== floor)) continue;
       if (place.room >= 0 && !drawn.has(place.room)) continue;
       const node = el("button", { type: "button", className: `map-check ${info.status}`,
         title: `${info.name}\nClick: details under the map · Right-click: highlight · Double-click: show in Checks` },
@@ -2153,9 +2436,19 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     return null;
   }
 
+  // Whether a room's map has anything to draw.
+  const shaped = (r) => (r.floors ?? []).some((f) => (f.groups ?? []).some((g) => g.polys?.length));
+  // Rooms of the overworld with nothing to draw (the Sacred Grove's): their ground from the game
+  // files instead (the mod draws it from the room's collision).
+  function withGround(stageName, rooms) {
+    if (rooms.every(shaped)) return rooms;
+    const own = stageMap(stageName)?.rooms ?? [];
+    return rooms.map((r) => (shaped(r) ? r : own.find((o) => o.no === r.no && o.ground) ?? r));
+  }
+
   function renderArea() {
     const { region, stage, name, rooms: onlyRooms } = areaPlace;
-    let rooms = stage?.rooms ?? null;
+    let rooms = stage?.rooms ? withGround(name, stage.rooms) : null;
     if (!rooms) {
       const m = stageMap(name);
       if (!m) {
@@ -2171,6 +2464,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       if (onlyRooms) {
         const mine = rooms.filter((r) => onlyRooms.includes(r.no));
         if (mine.length) rooms = mine;
+        // A place made of several rooms: all of them, each on its floor.
+        const group = mergedGroup(name, onlyRooms[0]);
+        if (group) rooms = m.rooms.filter((r) => group[r.no] !== undefined).map((r) => onMergedFloor(r, group));
       }
     }
     const key = JSON.stringify(["area", region?.no ?? null, name, stage?.part ?? null, onlyRooms ?? null, areaPlace.variant ?? null, areaFloor, !!places?.done,
@@ -2200,8 +2496,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         floors: stage || name.startsWith("D_MN") ? r.floors : r.floors.map((f) => ({ ...f, groups: f.groups.map((g) => ({ ...g, shown: true })) })) })), bounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 } };
     try {
       const floors = [...new Set(map.rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
-      const floor = areaFloor ?? (floors.includes(0) ? 0 : floors[floors.length - 1] ?? 0);
-      if (!dungeon) for (const c of map.checks) c.floor = floor;
+      const opened = onlyRooms ? mergedGroup(name, onlyRooms[0])?.[onlyRooms[0]] : undefined;
+      const floor = areaFloor ?? opened ?? (floors.includes(0) ? 0 : floors[floors.length - 1] ?? 0);
+      if (!dungeon) for (const c of map.checks) c.floor = roomFloor(name, c.room, floor);
       const d = dungeon ? findDungeon(placeTitle(name)) : null;
       titleKey = stage ? fieldKey(name, stage.rooms.map((r) => r.no)) : null;
       build(dungeon, map.rooms, floors, floor, (titleKey && fieldTitle(titleKey)) ?? areaPlace.title ?? placeTitle(name), d, map.rooms,
@@ -2294,6 +2591,76 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     selectScroll[mode] = { list: list?.scrollTop ?? 0, outer, page: window.scrollY };
   }
 
+  // The Other tab's places (houses, caves, grottos, areas of no province), by province in the
+  // game's order.
+  function otherPlaces(known = new Set(places?.maps ?? [])) {
+    const onField = new Set((field?.regions ?? []).flatMap((r) => r.stages.map((st) => st.name)));
+    const dungeons = new Set(DUNGEON_STAGES.map(([, st]) => st));
+    // A stage of houses holds one house a room: one entry a place (rooms with the same name
+    // together). A cave with one name is one entry, all its rooms. Grottos built alike share a
+    // room: one entry each. Dungeon stages (boss rooms) are not listed: they show when Link is
+    // there.
+    // Rooms of the overworld's stages that no province shows (the Sacred Grove's, drawn from the
+    // ground): "Other areas".
+    const fieldRooms = new Set((field?.regions ?? []).flatMap((r) => r.stages.flatMap((st) => st.rooms.map((rm) => `${st.name}/${rm.no}`))));
+    const areas = [...known].filter((st) => onField.has(st)).flatMap((st) => (places?.mapRooms?.[st] ?? [])
+      .filter((no) => !fieldRooms.has(`${st}/${no}`))
+      .map((no) => {
+        const id = `${st}/${no}`;
+        const fix = placeFixes()[id] ?? {};
+        const title = fix.title || fieldTitle(fieldKey(st, [no])) || regionName(st, no) || `${st} room ${no}`;
+        const region = regionName(st, no) ?? placeTitle(st);
+        return { stage: st, rooms: [no], title, defaultTitle: title, kind: "Area", id, hidden: !!fix.hidden,
+          province: fix.province || provinceOf(region) || "Other" };
+      }));
+    return [...known].filter((st) => !onField.has(st) && !dungeons.has(st) && !st.startsWith("D_MN"))
+      .flatMap((st) => {
+        const roomNos = places?.mapRooms?.[st] ?? [];
+        const out = [];
+        const plain = [];
+        for (const no of roomNos) {
+          const variants = roomVariants?.(st, no) ?? [];
+          if (variants.length) {
+            variants.forEach((v, i) => out.push({ stage: st, rooms: [no], title: v.name, variant: v.area, region: v.region, kind: "Grotto", order: i,
+              id: `${st}/${no}/${v.area}` }));
+          } else {
+            plain.push(no);
+          }
+        }
+        const named = new Set(plain.map((no) => roomName?.(st, no)).filter(Boolean));
+        // A cave (D_ stages) with one name is one place; houses' unnamed rooms stay apart.
+        if (plain.length && (named.size === 0 || (named.size === 1 && st.startsWith("D_")))) {
+          out.push({ stage: st, rooms: out.length ? plain : null, title: [...named][0] ?? roomTitle(st, plain[0]), id: st });
+        } else {
+          const byTitle = new Map();
+          for (const no of plain) {
+            // (A place made of several rooms: under its first room's name.)
+            const title = roomTitle(st, leadRoom(st, no));
+            if (!byTitle.has(title)) byTitle.set(title, []);
+            byTitle.get(title).push(no);
+          }
+          for (const [title, rooms] of byTitle) out.push({ stage: st, rooms, title, id: `${st}/${rooms.join("+")}` });
+        }
+        if (!out.length) out.push({ stage: st, rooms: null, title: placeTitle(st), id: st });
+        return out.map((it) => {
+          const region = it.region || (it.variant && areaRegion?.(it.variant)) || regionName(st, it.rooms?.[0] ?? 0) || placeTitle(st);
+          const fix = placeFixes()[it.id] ?? {};
+          const kind = it.kind ?? roomKind?.(st, it.rooms?.[0] ?? (places?.mapRooms?.[st] ?? [0])[0]) ?? (st.startsWith("R_") ? "Interior" : "Cave");
+          return { ...it, title: fix.title || it.title, defaultTitle: it.title, kind, hidden: fix.hidden ?? (!fix.title && HIDDEN_TITLES.has(it.title)),
+            province: fix.province || provinceOf(region) || provinceOf(it.title) || "Other" };
+        });
+      })
+      .concat(areas)
+      // Places of no province (not in the logic), hidden ones and the overworld's (Castle Town's
+      // streets: on the Field tab) are left out.
+      .filter((it) => it.province !== "Other" && !it.hidden)
+      // In the game's order: provinces as the randomizer's world files list them, then the
+      // stages' and rooms' numbers.
+      .sort((a, b) => provinceRank(a.province) - provinceRank(b.province) || a.province.localeCompare(b.province) ||
+        KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || stageRank(a.stage) - stageRank(b.stage) ||
+        (a.rooms?.[0] ?? 0) - (b.rooms?.[0] ?? 0) || (a.order ?? 0) - (b.order ?? 0));
+  }
+
   // The Dungeons and Other tabs: lists of places whose map can be opened.
   function renderSelect() {
     titleKey = null;
@@ -2326,70 +2693,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       })));
     } else {
       // Every other stage with a map: houses, caves, grottos, ... by province, with a search.
-      const onField = new Set((field?.regions ?? []).flatMap((r) => r.stages.map((st) => st.name)));
-      const dungeons = new Set(DUNGEON_STAGES.map(([, st]) => st));
-      // A stage of houses holds one house a room: one entry a place (rooms with the same name
-      // together). A cave with one name is one entry, all its rooms. Grottos built alike share a
-      // room: one entry each. Dungeon stages (boss rooms) are not listed: they show when Link is
-      // there.
-      // Rooms of the overworld's stages that no province shows (the Sacred Grove's, drawn from the
-      // ground): "Other areas".
-      const fieldRooms = new Set((field?.regions ?? []).flatMap((r) => r.stages.flatMap((st) => st.rooms.map((rm) => `${st.name}/${rm.no}`))));
-      const areas = [...known].filter((st) => onField.has(st)).flatMap((st) => (places?.mapRooms?.[st] ?? [])
-        .filter((no) => !fieldRooms.has(`${st}/${no}`))
-        .map((no) => {
-          const id = `${st}/${no}`;
-          const fix = placeFixes()[id] ?? {};
-          const title = fix.title || fieldTitle(fieldKey(st, [no])) || regionName(st, no) || `${st} room ${no}`;
-          const region = regionName(st, no) ?? placeTitle(st);
-          return { stage: st, rooms: [no], title, defaultTitle: title, kind: "Area", id, hidden: !!fix.hidden,
-            province: fix.province || provinceOf(region) || "Other" };
-        }));
-      const list = [...known].filter((st) => !onField.has(st) && !dungeons.has(st) && !st.startsWith("D_MN"))
-        .flatMap((st) => {
-          const roomNos = places?.mapRooms?.[st] ?? [];
-          const out = [];
-          const plain = [];
-          for (const no of roomNos) {
-            const variants = roomVariants?.(st, no) ?? [];
-            if (variants.length) {
-              variants.forEach((v, i) => out.push({ stage: st, rooms: [no], title: v.name, variant: v.area, region: v.region, kind: "Grotto", order: i,
-                id: `${st}/${no}/${v.area}` }));
-            } else {
-              plain.push(no);
-            }
-          }
-          const named = new Set(plain.map((no) => roomName?.(st, no)).filter(Boolean));
-          // A cave (D_ stages) with one name is one place; houses' unnamed rooms stay apart.
-          if (plain.length && (named.size === 0 || (named.size === 1 && st.startsWith("D_")))) {
-            out.push({ stage: st, rooms: out.length ? plain : null, title: [...named][0] ?? roomTitle(st, plain[0]), id: st });
-          } else {
-            const byTitle = new Map();
-            for (const no of plain) {
-              const title = roomTitle(st, no);
-              if (!byTitle.has(title)) byTitle.set(title, []);
-              byTitle.get(title).push(no);
-            }
-            for (const [title, rooms] of byTitle) out.push({ stage: st, rooms, title, id: `${st}/${rooms.join("+")}` });
-          }
-          if (!out.length) out.push({ stage: st, rooms: null, title: placeTitle(st), id: st });
-          return out.map((it) => {
-            const region = it.region || (it.variant && areaRegion?.(it.variant)) || regionName(st, it.rooms?.[0] ?? 0) || placeTitle(st);
-            const fix = placeFixes()[it.id] ?? {};
-            const kind = it.kind ?? roomKind?.(st, it.rooms?.[0] ?? (places?.mapRooms?.[st] ?? [0])[0]) ?? (st.startsWith("R_") ? "Interior" : "Cave");
-            return { ...it, title: fix.title || it.title, defaultTitle: it.title, kind, hidden: fix.hidden ?? (!fix.title && HIDDEN_TITLES.has(it.title)),
-              province: fix.province || provinceOf(region) || provinceOf(it.title) || "Other" };
-          });
-        })
-        .concat(areas)
-        // Places of no province (not in the logic), hidden ones and the overworld's (Castle Town's
-        // streets: on the Field tab) are left out.
-        .filter((it) => it.province !== "Other" && !it.hidden)
-        // In the game's order: provinces as the randomizer's world files list them, then the
-        // stages' and rooms' numbers.
-        .sort((a, b) => provinceRank(a.province) - provinceRank(b.province) || a.province.localeCompare(b.province) ||
-          KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || stageRank(a.stage) - stageRank(b.stage) ||
-          (a.rooms?.[0] ?? 0) - (b.rooms?.[0] ?? 0) || (a.order ?? 0) - (b.order ?? 0));
+      const list = otherPlaces(known);
       const groups = new Map();
       for (const item of list) {
         if (!groups.has(item.province)) groups.set(item.province, []);
@@ -2604,6 +2908,14 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     showCheck,
     // Where the game places a check (stage and room), once the game files are read.
     placeOf: (key) => placeFor(key),
+    // The check highlighted in Checks (when linked): picked on the map too (null: none).
+    pickCheck(name) {
+      if (!checkSource || reqName === (name ?? null)) return;
+      reqName = name ?? null;
+      if (placing && placing !== reqName) placing = null;
+      updatePick(true);
+      if (scene?.checks) updateChecks();
+    },
     // The map of a region's place (from Checks, when linked): an overworld place, a dungeon or
     // another place whose room is in that region.
     showRegion(region) {

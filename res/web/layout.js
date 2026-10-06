@@ -460,6 +460,8 @@ export const GAME_ICON_IDS = {
   Map_Ooccoo: "dmap/ni_obacyan.bti",
   Map_Yeto: "dmap/st_yuki_M.bti",
   Map_Yeta: "dmap/st_yuki_W.bti",
+  // A dungeon's entrance (ICON_DUNGEON_ENTER_e), for the Map's entrance plates.
+  Map_Dungeon_Enter: "dmap/im_map_icon_enter_ci8_02.bti",
   // Field map marks: the warp portal and, until a boss has an icon of its own, the boss skull.
   Portal: "fmap/#30", // IM_MAP_ICON_PORTAL_4IA_40_05
   ...Object.fromEntries(["Diababa", "Fyrus", "Morpheel", "Stallord", "Blizzeta", "Armogohma", "Argorok", "Zant", "Ganondorf"]

@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 9";
+constexpr const char* kCacheVersion = "check-places 10";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -312,6 +312,9 @@ struct RoomShift {
     float x = 0;
     float z = 0;
     int turn = 0;
+    // The room's lowest and highest floor (dMapInfo_c::calcFloorNo keeps a room's things in them).
+    int minFloor = -128;
+    int maxFloor = 127;
 };
 std::map<std::string, std::map<int, RoomShift>> g_shifts;
 std::map<std::string, FloorSpacing> g_floors;
@@ -477,7 +480,8 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
         // (The stage archive's room files carry the map's FILI, dStage_FileList2_dt_c; a room's own
         // file has another FILI.)
         if (stageArchiveRoom && roomNo >= 0 && std::memcmp(node, "FILI", 4) == 0 && be32(node + 4) > 0 && data + 0x20 <= b + size) {
-            g_shifts[stage][roomNo] = {befloat(data + 0x14), befloat(data + 0x18), static_cast<int16_t>(be16(data + 0x1C))};
+            g_shifts[stage][roomNo] = {befloat(data + 0x14), befloat(data + 0x18), static_cast<int16_t>(be16(data + 0x1C)),
+                                       static_cast<int8_t>(data[0x10]), static_cast<int8_t>(data[0x11])};
         }
         if (stageArchiveRoom && roomNo >= 0 && std::memcmp(node, "TRE", 3) == 0) {
             const uint32_t num = be32(node + 4);
@@ -651,8 +655,8 @@ void step_art() {
 }
 
 // The floor of a height in a stage, as dMapInfo_c::calcFloorNo works it out from the stage's floor
-// spacing (without the room limits only known for the stage being played).
-int floor_of(const std::string& stage, float y) {
+// spacing, kept in the room's floors (its FILI).
+int floor_of(const std::string& stage, float y, int room) {
     const auto it = g_floors.find(stage);
     if (it == g_floors.end() || it->second.gap <= 0) return 0;
     const FloorSpacing& f = it->second;
@@ -664,6 +668,13 @@ int floor_of(const std::string& stage, float y) {
         if (y >= down && y >= 0.5f * (down + up)) floorNo++;
     } else {
         floorNo++;
+    }
+    const auto st = g_shifts.find(stage);
+    if (st != g_shifts.end() && room >= 0) {
+        const auto rm = st->second.find(room);
+        if (rm != st->second.end() && rm->second.minFloor <= rm->second.maxFloor) {
+            floorNo = std::clamp(floorNo, rm->second.minFloor, rm->second.maxFloor);
+        }
     }
     return floorNo;
 }
@@ -688,7 +699,7 @@ void build_json(bool done) {
                 w.key("x").number(x);
                 w.key("y").number(p.y);
                 w.key("z").number(z);
-                w.member("floor", floor_of(stage, p.y));
+                w.member("floor", floor_of(stage, p.y, p.room));
                 w.endObject();
             }
             w.endArray();
@@ -723,7 +734,7 @@ void build_json(bool done) {
                 float x = sp.x;
                 float z = sp.z;
                 if (sp.room >= 0) to_map(stage, sp.room, x, z);
-                w.beginArray().value(sp.room).value(sp.point).number(x, 0).number(z, 0).value(floor_of(stage, sp.y)).endArray();
+                w.beginArray().value(sp.room).value(sp.point).number(x, 0).number(z, 0).value(floor_of(stage, sp.y, sp.room)).endArray();
             }
             w.endArray();
         }
@@ -797,7 +808,7 @@ bool load_cache() {
         } else if (kind == "S") {
             int room = 0;
             RoomShift sh;
-            if (fields >> room >> sh.x >> sh.z >> sh.turn) g_shifts[stage][room] = sh;
+            if (fields >> room >> sh.x >> sh.z >> sh.turn >> sh.minFloor >> sh.maxFloor) g_shifts[stage][room] = sh;
         } else if (kind == "I") {
             Icon i;
             if (fields >> i.type >> i.room >> i.sw >> i.x >> i.y >> i.z) g_icons[stage].push_back(i);
@@ -832,7 +843,7 @@ void save_cache() {
         }
     }
     for (const auto& [stage, rooms] : g_shifts) {
-        for (const auto& [room, sh] : rooms) out << "S\t" << stage << '\t' << room << ' ' << sh.x << ' ' << sh.z << ' ' << sh.turn << "\n";
+        for (const auto& [room, sh] : rooms) out << "S\t" << stage << '\t' << room << ' ' << sh.x << ' ' << sh.z << ' ' << sh.turn << ' ' << sh.minFloor << ' ' << sh.maxFloor << "\n";
     }
     for (const auto& [stage, icons] : g_icons) {
         for (const Icon& i : icons) out << "I\t" << stage << '\t' << i.type << ' ' << i.room << ' ' << i.sw << ' ' << i.x << ' ' << i.y << ' ' << i.z << "\n";
@@ -1140,7 +1151,7 @@ std::string doors_json(const std::string& stage) {
         w.key("x").number(x);
         w.key("z").number(z);
         w.member("angle", d.angleY);
-        w.key("floors").beginArray().value(floor_of(stage, d.y)).value(floor_of(stage, d.y)).endArray();
+        w.key("floors").beginArray().value(floor_of(stage, d.y, front)).value(floor_of(stage, d.y, back)).endArray();
         w.member("kind", kind);
         if (state == 'L' || state == 'U') w.member("locked", state == 'L');
         w.member("state", std::string(1, state));
@@ -1159,7 +1170,7 @@ std::string doors_json(const std::string& stage) {
         w.key("x").number(x);
         w.key("z").number(z);
         w.member("angle", sh.angle);
-        w.key("floors").beginArray().value(floor_of(stage, sh.y)).value(floor_of(stage, sh.y)).endArray();
+        w.key("floors").beginArray().value(floor_of(stage, sh.y, sh.room)).value(floor_of(stage, sh.y, sh.room)).endArray();
         w.member("kind", sh.big ? "boss" : "key");
         if (state != '?') w.member("locked", state == 'L');
         w.member("state", std::string(1, state));
@@ -1192,7 +1203,7 @@ std::string stage_map_json(const std::string& stage) {
             w.member("sw", i.sw);
             w.key("x").number(i.x);
             w.key("z").number(i.z);
-            w.member("floor", floor_of(stage, i.y));
+            w.member("floor", floor_of(stage, i.y, i.room));
             w.endObject();
         }
         w.endArray();

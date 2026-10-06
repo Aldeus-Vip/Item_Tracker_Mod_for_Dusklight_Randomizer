@@ -127,7 +127,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {}, onRegionPicked = () => {} }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {}, onRegionPicked = () => {}, onFocus = () => {} }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -676,6 +676,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         clearTimeout(rowClickTimer);
         rowClickTimer = setTimeout(() => {
           setFocus(loc.name);
+          onFocus(loc.name);
           // Under the map while that is on screen (Checks + Map); otherwise the panel of the list.
           const host = editing?.host?.isConnected && editing.host.offsetParent !== null ? editing.host : null;
           if (host) mountDetail(host, loc.name, { row: editing.withRow });
@@ -685,6 +686,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       oncontextmenu: (e) => {
         e.preventDefault();
         setFocus(focused === loc.name ? null : loc.name);
+        onFocus(focused);
         render();
       },
       ondblclick: showOnMap ? () => {
@@ -1779,9 +1781,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       return mapGroups.find((g) => g.regions.includes(region))?.title ?? null;
     },
     // Highlight a check (null: none), as a right click in the list does.
-    setFocused(name) {
+    setFocused(name, reveal = false) {
       setFocus(name);
       render();
+      // (Picked on the map with Checks and Map linked: its row brought into view.)
+      if (reveal && name) requestAnimationFrame(() => root.querySelector(".loc-row.selected")?.scrollIntoView({ block: "nearest" }));
     },
     mountDetail,
     // Shows the checks of a region (the map's place, when Checks and Map are linked): its province
