@@ -258,9 +258,10 @@ export function twilightMotes() {
 // Overworld places whose map data keeps parts for before and after a story event (Bulblin Camp,
 // before and after it is taken): every part shown on their map.
 const ALL_PARTS = new Set(["F_SP118"]);
-// Overworld stages drawn from the mod's maps of the game files rather than the overworld map data
-// (the Sacred Grove: Past Sacred Grove's own map, the ground of the others).
-const OWN_MAPS = new Set(["F_SP117"]);
+// The only overworld rooms drawn from the mod's maps of the game files instead of the overworld
+// map data: Past Sacred Grove (its own map) and the Lost Woods (their ground). Every other map is
+// drawn as the game's data has it.
+const OWN_MAPS = new Set(["F_SP117/2", "F_SP117/3"]);
 
 const floorLabel = (n) => (n >= 0 ? `${n + 1}F` : `B${-n}`);
 
@@ -826,8 +827,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // A room of the overworld the game has no map for (the Sacred Grove's): its ground from the
     // game files (the mod draws it from the room's collision).
     let ground = null;
-    if (!map.stage.startsWith("D_") && !(map.rooms ?? []).some((r) => r.no === player.stayRoom && shaped(r) && (!partial(r) || ALL_PARTS.has(map.stage)))) {
-      ground = stageMap(map.stage)?.rooms?.find((r) => r.no === player.stayRoom && r.ground) ?? null;
+    if (OWN_MAPS.has(`${map.stage}/${player.stayRoom}`)) {
+      ground = stageMap(map.stage)?.rooms?.find((r) => r.no === player.stayRoom && shaped(r)) ?? null;
     }
     if (!map.exists && !ground) return message("This place has no map.");
     const dungeon = map.stage.startsWith("D_");
@@ -860,23 +861,19 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const own = stageMap(map.stage);
       if (own?.rooms?.length) extent = [...extent, ...own.rooms];
     }
-    let extraNos = new Set(); // rooms added from the ground (not named with the place)
     if (!dungeon && !interior && !map.singleRoom && !ground) {
       const place = fieldPlace();
       const nos = place && new Set(place.stage.rooms.map((r) => r.no));
       const mine = nos ? map.rooms.filter((r) => nos.has(r.no)) : [];
       if (mine.length) {
-        // (With the stage's rooms the overworld map data leaves out, from the ground.)
-        const extra = missingGround(map.stage).filter((o) => !map.rooms.some((r) => r.no === o.no)).map((o) => ({ ...o, visited: true, layer: 0 }));
-        extraNos = new Set(extra.map((r) => r.no));
-        rooms = [...rooms.filter((r) => nos.has(r.no)), ...extra];
-        extent = [...mine, ...extra];
+        rooms = rooms.filter((r) => nos.has(r.no));
+        extent = mine;
       }
     }
     const floors = [...new Set(rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
     const floor = pickedFloor ?? player.stayFloor ?? floors[floors.length - 1] ?? 0;
     // An overworld place's title: named by hand or by the mod (by its rooms), else its region.
-    titleKey = !dungeon && !interior ? fieldKey(map.stage, map.singleRoom || ground ? [player.stayRoom] : extent.map((r) => r.no).filter((no) => !extraNos.has(no))) : null;
+    titleKey = !dungeon && !interior ? fieldKey(map.stage, map.singleRoom || ground ? [player.stayRoom] : extent.map((r) => r.no)) : null;
     const title = (titleKey && fieldTitle(titleKey)) ?? (isInterior(map.stage) ? roomTitle(map.stage, map.stayRoom) : regionName(map.stage, map.stayRoom)) ?? map.stage;
     const d = dungeon ? findDungeon(title) : null;
     const items = getState()?.items ?? {};
@@ -2599,34 +2596,16 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // Whether a room's map has anything to draw.
   // Whether a room's map has anything shown to draw.
   const shaped = (r) => (r.floors ?? []).some((f) => (f.groups ?? []).some((g) => g.shown !== false && g.polys?.length));
-  // Rooms of the overworld with nothing to draw (the Sacred Grove's): their ground from the game
-  // files instead (the mod draws it from the room's collision). With place (a province's part of
-  // a stage), also the stage's rooms the overworld map data leaves out (F_SP118's room 2).
-  // A room drawn only in part (some of its shapes hidden: the Master Sword's clearing) is drawn
-  // from the ground too, when the game files have it.
-  const partial = (r) => (r.floors ?? []).some((f) => (f.groups ?? []).some((g) => g.shown === false && g.polys?.length));
-  function withGround(stageName, rooms, place = null) {
+  // Past Sacred Grove and the Lost Woods: their map from the game files (OWN_MAPS); every other
+  // room as the overworld map data has it.
+  function withGround(stageName, rooms) {
     const own = stageMap(stageName)?.rooms ?? [];
-    const ground = (r) => own.find((o) => o.no === r.no && o.ground);
-    // (A place whose parts are all shown keeps its map data.)
-    const whole = ALL_PARTS.has(stageName);
-    // (The Sacred Grove's rooms: their map from the game files always, Past Sacred Grove's own map
-    // or the ground.)
-    if (OWN_MAPS.has(stageName)) return rooms.map((r) => own.find((o) => o.no === r.no && shaped(o)) ?? r);
-    let out = rooms.map((r) => ((!shaped(r) || (partial(r) && !whole)) && ground(r) ? ground(r) : r));
-    if (place && place.part === undefined) out = [...out, ...missingGround(stageName, own)];
-    return out;
-  }
-  // The stage's rooms the overworld map data leaves out, from their own map in the game files.
-  function missingGround(stageName, own = stageMap(stageName)?.rooms ?? []) {
-    if ((places?.singleRooms ?? []).includes(stageName)) return [];
-    const listed = new Set((field?.regions ?? []).flatMap((r) => r.stages.filter((st) => st.name === stageName).flatMap((st) => st.rooms.map((x) => x.no))));
-    return own.filter((o) => !listed.has(o.no) && !o.ground && shaped(o));
+    return rooms.map((r) => (OWN_MAPS.has(`${stageName}/${r.no}`) ? own.find((o) => o.no === r.no && shaped(o)) ?? r : r));
   }
 
   function renderArea() {
     const { region, stage, name, rooms: onlyRooms } = areaPlace;
-    let rooms = stage?.rooms ? withGround(name, stage.rooms, stage) : null;
+    let rooms = stage?.rooms ? withGround(name, stage.rooms) : null;
     if (!rooms) {
       const m = stageMap(name);
       if (!m) {

@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 14";
+constexpr const char* kCacheVersion = "check-places 15";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -662,7 +662,9 @@ void parse_archive(const Job& job) {
     std::vector<uint8_t> plc;
     for (const ArcFile& f : rarc_files(*arc)) {
         int room = -2;
-        if (f.name == "room.dzb" && job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
+        // The Lost Woods' ground (F_SP117 room 3): the only room drawn from its collision.
+        const bool groundRoom = job.stage == "F_SP117" && job.room == 3;
+        if (f.name == "room.dzb" && groundRoom) {
             // An overworld room's collision: its ground, for a room with no map.
             std::vector<uint8_t> raw(f.data, f.data + f.size);
             std::vector<uint8_t> dzb;
@@ -670,7 +672,7 @@ void parse_archive(const Job& job) {
             read_ground(job.stage, job.room, dzb);
             continue;
         }
-        if ((f.name == "room.kcl" || f.name == "room.plc") && job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
+        if ((f.name == "room.kcl" || f.name == "room.plc") && groundRoom) {
             // ... kept as KCL in some rooms (the Sacred Grove's), with its poly codes: read below.
             std::vector<uint8_t> raw(f.data, f.data + f.size);
             std::vector<uint8_t>& to = f.name == "room.kcl" ? kcl : plc;
