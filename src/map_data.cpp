@@ -459,6 +459,10 @@ std::string build_player_json() {
     const char* stage = dComIfGp_getStartStageName();
     w.member("stage", stage != nullptr ? stage : "");
     w.member("stayRoom", static_cast<int>(dComIfGp_roomControl_getStayNo()));
+    // The story layer the stage was entered with (the entrance's "State") and the one in effect:
+    // grottos sharing a room differ only by it (which enemies, chests and pots load).
+    w.member("startLayer", static_cast<int>(dComIfGp_getStartStageLayer()));
+    if (stage != nullptr && *stage) w.member("layer", dComIfG_play_c::getLayerNo(0));
     if (dMpath_c::mLayerList != nullptr && dMpath_c::isExistMapPathData()) {
         write_player(w);
         if (stage != nullptr && std::strncmp(stage, "D_", 2) == 0) w.member("doors", door_states());

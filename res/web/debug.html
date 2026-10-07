@@ -30,6 +30,11 @@
 <p>Updates every second. <b>clear</b>: one digit per point on the item (above it, higher, toward the camera, farther toward the camera, its eye point, its attention point, 120 above, 200 above); 1 = the camera sees it. Seen needs a 1, <b>inView</b> and a distance up to 3000. <b>No sight</b>: listed in the mod's seen_without_sight.txt — the 1 is not needed.</p>
 <table><thead><tr><th>Check</th><th>Distance</th><th>inView</th><th>clear</th><th>No sight</th><th>Seen</th></tr></thead><tbody id="seen"></tbody></table>
 
+<h2>Checks with no place on the map</h2>
+<p>Every check of the list the map cannot place (not in the game files, not placed by hand, no preset), with why. Kept up to date by the tracker page open in this browser (Locations › Map, once the game files are read).</p>
+<pre id="unplaced-head" class="pos"></pre>
+<table><thead><tr><th>#</th><th>Check</th><th>Key</th><th>Why</th></tr></thead><tbody id="unplaced"></tbody></table>
+
 <h2>Map data of a stage</h2>
 <p>What the mod knows of a stage's map: the map Link is in now, the stage's maps read from the game files (with what was found of an overworld room's ground), and the overworld map's rooms. Leave the stage empty for the one Link is in. <b>Copy</b> and send it when a map does not show.</p>
 <div><input id="md-stage" placeholder="e.g. F_SP117" size="10"> <button type="button" id="md-read">Read</button> <button type="button" id="md-copy">Copy</button></div>
@@ -106,6 +111,31 @@
   }
   setInterval(status, 2000);
   status();
+
+  function unplaced() {
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem("tracker.unplaced") ?? "null"); } catch {}
+    const head = document.getElementById("unplaced-head");
+    const body = document.getElementById("unplaced");
+    if (!data) {
+      head.textContent = "Not known yet: open the tracker page's Map (Locations › Map) in this browser.";
+      body.replaceChildren();
+      return;
+    }
+    head.textContent = `${data.list.length} of ${data.total} checks have no place · updated ${new Date(data.time).toLocaleTimeString()}`;
+    body.replaceChildren(...data.list.map((c, i) => {
+      const tr = document.createElement("tr");
+      for (const v of [i + 1, c.name, c.key, c.why]) {
+        const td = document.createElement("td");
+        td.textContent = String(v);
+        tr.append(td);
+      }
+      return tr;
+    }));
+  }
+  unplaced();
+  window.addEventListener("storage", (e) => { if (e.key === "tracker.unplaced") unplaced(); });
+  setInterval(unplaced, 5000);
 
   // A room's map in a line: its floors and how many shapes each has.
   const roomLine = (r) => `room ${r.no}${r.ground ? " (ground)" : ""}: ` + (r.floors ?? []).map((f) =>

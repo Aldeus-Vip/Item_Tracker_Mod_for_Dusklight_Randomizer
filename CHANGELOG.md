@@ -31,6 +31,10 @@
   where its place comes from (game files, preset, set by hand); its room can be chosen among the
   rooms of the map shown (placing picks the room under the click). Under the map (Advanced), every
   check placed by hand with its map, room and coordinates, to show or remove.
+- Map: resting the pointer on a check shows its name on a plate like the entrances' (opening
+  inward near the map's edges).
+- Debug page: **Checks with no place on the map**, how many and which (with why), kept up to date
+  by the tracker page.
 - Debug page: **Map data of a stage**, what the mod knows of a stage's map (rooms, shapes, doors by
   floor, what was found of an overworld room's ground, the overworld map's rooms), to copy and send.
 - Map entrances: an icon on the entrance's point (the dungeon entrance icon from the game's map
@@ -177,8 +181,11 @@
 
 ### Fixed
 - In a grotto that shares its room's map with other grottos, the map showed every one of their
-  checks: the grotto Link entered is found from the place he came from (the randomizer's
-  entrances), and only its checks and name are shown.
+  checks: the grotto Link is in is found from the story layer the game loaded it with (the
+  entrance's State, which decides its enemies and chests; the mod now gives it with Link's
+  place), and only its checks and name are shown.
+- Checks + Map: a check's requirement shows in Checks only, not over the map too.
+- Past Sacred Grove falls back to its ground when its own map is not found.
 - The Lost Woods (F_SP117 room 3) are drawn from their collision's triangles, with straight edges
   and outlines like the game's maps; water (from the room's poly codes) is shown on the ground
   under the water's surface, in the color of Lake Hylia's. Every other overworld map is drawn from

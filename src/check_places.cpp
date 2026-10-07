@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 15";
+constexpr const char* kCacheVersion = "check-places 16";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -633,6 +633,11 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
         const char layer = static_cast<char>(node[3]);
         const bool layered = stage == "F_SP117" && roomNo == 2 && std::memcmp(node, "MPA", 3) == 0 &&
                              ((layer >= '1' && layer <= '9') || (layer >= 'a' && layer <= 'e'));
+        // (The Sacred Grove's map chunks, for the debug page.)
+        if (stage == "F_SP117" && roomNo >= 0 && std::memcmp(node, "MPA", 3) == 0) {
+            g_groundInfo[stage][roomNo] += std::string(stageArchiveRoom ? "stage file " : "room file ") + std::string(reinterpret_cast<const char*>(node), 4) +
+                                           (g_maps[stage].count(roomNo) ? " (a map is already read); " : "; ");
+        }
         if (roomNo < 0 || (std::memcmp(node, "MPAT", 4) != 0 && std::memcmp(node, "MPA0", 4) != 0 && !layered)) continue;
         if (g_maps[stage].count(roomNo)) continue;
         // The chunk's data is the room's map itself (dStage_mapPathInit: the node's count and
@@ -641,6 +646,7 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
         for (const uint8_t* room : {data, data + 8, b + off, data + 4 + off}) {
             std::string json = room_map_json(roomNo, b, size, room);
             if (!json.empty()) {
+                if (stage == "F_SP117") g_groundInfo[stage][roomNo] += "read as its map; ";
                 g_maps[stage][roomNo] = std::move(json);
                 break;
             }
@@ -656,14 +662,15 @@ void parse_archive(const Job& job) {
     if (job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
         std::string names;
         for (const ArcFile& f : rarc_files(*arc)) names += (names.empty() ? "" : " ") + f.name;
-        g_groundInfo[job.stage][job.room] = "files: " + names + "; ";
+        g_groundInfo[job.stage][job.room] += "files: " + names + "; ";
     }
     std::vector<uint8_t> kcl;
     std::vector<uint8_t> plc;
     for (const ArcFile& f : rarc_files(*arc)) {
         int room = -2;
         // The Lost Woods' ground (F_SP117 room 3): the only room drawn from its collision.
-        const bool groundRoom = job.stage == "F_SP117" && job.room == 3;
+        // (Past Sacred Grove's too, when its own map is not found: finish_ground_maps keeps a map.)
+        const bool groundRoom = job.stage == "F_SP117" && (job.room == 2 || job.room == 3);
         if (f.name == "room.dzb" && groundRoom) {
             // An overworld room's collision: its ground, for a room with no map.
             std::vector<uint8_t> raw(f.data, f.data + f.size);

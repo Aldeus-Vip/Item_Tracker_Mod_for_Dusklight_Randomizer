@@ -263,7 +263,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         roomName = names.name;
         roomVariants = names.variants;
         roomKind = names.kind;
-        const side = (x) => (x && STAGE_NAMES[x.Stage] ? { stage: STAGE_NAMES[x.Stage], room: Number(x.Room), spawn: Number(x.Spawn) } : null);
+        const side = (x) => (x && STAGE_NAMES[x.Stage] ? { stage: STAGE_NAMES[x.Stage], room: Number(x.Room), spawn: Number(x.Spawn), state: Number(x.State ?? -1) } : null);
         entranceList = (entrances ?? []).map((e) => {
           const [from, to] = String(e?.Forward?.Connection ?? "").split(" -> ");
           return { type: e?.Type ?? "", from, to, fwd: side(e?.Forward), back: side(e?.Return) };

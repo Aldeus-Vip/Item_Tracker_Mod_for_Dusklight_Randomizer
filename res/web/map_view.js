@@ -424,6 +424,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         }
         await fetchField();
         await fetchPlaces();
+        publishUnplaced();
         if (player.stayFloor !== undefined && player.stayFloor !== lastStayFloor) {
           lastStayFloor = player.stayFloor;
           pickedFloor = null;
@@ -928,9 +929,18 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     if (!e) return;
     try { localStorage.setItem(GROTTO_KEY, JSON.stringify({ stage: p.stage, room: p.stayRoom, area: e.to })); } catch { /* not kept */ }
   }
-  // The grotto (its logic area) Link is in, when his room is one several grottos share.
+  // The grotto (its logic area) Link is in, when his room is one several grottos share: the one
+  // whose entrance loads the story layer the game has now (its "State"), else the one he was seen
+  // entering.
   function linkVariant() {
-    if (!map?.stage || (roomVariants?.(map.stage, player?.stayRoom) ?? []).length < 2) return null;
+    const variants = map?.stage ? roomVariants?.(map.stage, player?.stayRoom) ?? [] : [];
+    if (variants.length < 2) return null;
+    for (const layer of [player?.startLayer, player?.layer]) {
+      if (!Number.isInteger(layer) || layer < 0) continue;
+      const e = entranceList().find((x) => x.fwd?.stage === map.stage && x.fwd.room === player.stayRoom && x.fwd.state === layer &&
+        variants.some((v) => v.area === x.to));
+      if (e) return e.to;
+    }
     try {
       const v = JSON.parse(localStorage.getItem(GROTTO_KEY) ?? "null");
       if (v && v.stage === map.stage && v.room === player.stayRoom) return v.area;
@@ -1520,6 +1530,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       if (mirrored()) x = rect.width - x;
       const y = (at.y - vb.y) / k + (rect.height - vb.height / k) / 2;
       Object.assign(node.style, { width: `${px}px`, height: `${px}px`, transform: `translate(${off + x - px / 2}px, ${offY + y - px / 2}px)` });
+      // (Near an edge, its name plate opens inward.)
+      node.dataset.edge = off + x < rect.width / 3 ? "left" : off + x > (rect.width * 2) / 3 ? "right" : "";
     };
     if (scene.boss) place(scene.boss.node, scene.boss.at, 26 + 4 * Math.log2(view.zoom));
     const checkPx = 16 + 2 * Math.log2(view.zoom);
@@ -1531,6 +1543,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       if (mirrored()) x = rect.width - x;
       const y = (c.at.y - vb.y) / k + (rect.height - vb.height / k) / 2;
       c.node.style.transform = `translate(${off + x}px, ${offY + y}px) translate(-50%, -50%)`;
+      c.node.dataset.edge = off + x < rect.width / 3 ? "left" : off + x > (rect.width * 2) / 3 ? "right" : "";
     }
   }
 
@@ -2137,9 +2150,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       if (!info || (floor !== null && placeFloor !== undefined && placeFloor !== floor)) continue;
       if (place.room >= 0 && !drawn.has(place.room)) continue;
       const leftReq = (checkSource.clickMode?.() ?? "left-req") === "left-req";
-      const node = el("button", { type: "button", className: `map-check ${info.status}`,
-        title: `${info.name}\n${leftReq ? "Click: requirement · Right-click: highlight" : "Click: highlight · Right-click: requirement"} · Double-click: show in Checks` },
-        el("span", { className: "loc-dot" }));
+      // On hover, a plate with its name (as an entrance's), and what the clicks do.
+      const node = el("button", { type: "button", className: `map-check ${info.status}`, ariaLabel: info.name },
+        el("span", { className: "loc-dot" }),
+        el("span", { className: "map-entrance-card map-check-card" },
+          el("span", { className: "map-entrance-name", textContent: info.name })));
       node.addEventListener("pointerdown", (e) => e.stopPropagation());
       node.addEventListener("pointerup", (e) => e.stopPropagation());
       // Highlighted (picked) here and in Checks, again to unhighlight; or its requirement shown too
@@ -2241,6 +2256,17 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       section("Not found in the game files", groups.missing));
   }
 
+  // Every check with no place on any map (not in the game files, not placed by hand, no preset),
+  // for the debug page (debug.html reads it from this browser's storage).
+  let unplacedTime = 0;
+  function publishUnplaced() {
+    if (!places?.done || !checkSource || Date.now() - unplacedTime < 5000) return;
+    unplacedTime = Date.now();
+    const list = checkSource.list().filter((c) => !placeFor(c.key, c.name)?.stage)
+      .map((c) => ({ name: c.name, key: c.key, why: missingWhy(c.key) }));
+    try { localStorage.setItem("tracker.unplaced", JSON.stringify({ time: unplacedTime, total: checkSource.list().length, list })); } catch { /* not kept */ }
+  }
+
   // Why a check of this place is not on its map.
   function missingWhy(key) {
     const [kind, stage, a, b] = key.split(":");
@@ -2279,6 +2305,12 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const box = root.querySelector(".map-detail-pop");
     if (!box || !checkSource || !reqName) return;
     if (!checkSource.linked?.()) return checkSource.mount(box, reqName, { row: false });
+    // Checks beside the map (Checks + Map): the requirement there only.
+    if (checkSource.bothShown?.()) {
+      hideReqView();
+      if (fromMap) checkSource.showDetail?.(reqName);
+      return;
+    }
     const panel = checkSource.reqView?.(reqName);
     if (!panel) return;
     const name = reqName;
