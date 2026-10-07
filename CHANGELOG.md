@@ -185,7 +185,8 @@
 - Overworld rooms the overworld map data leaves out (F_SP118's room 2) are drawn from the ground
   with their place; a room whose map data shows nothing (only hidden parts) is drawn from the
   ground too.
-- A check whose Area was set by hand is listed under that Area's province, and the region filter
+- A check whose Area was set by hand is listed under that Area's province (the province most of
+  that Area's checks are in, also when the Area's name is not a province's), and the region filter
   and its list follow the Area set (not the automatic one). With Checks and Map linked, a check
   picked in Checks keeps Checks on its Area when the map moves to it.
 - Dungeon maps opened from the Dungeons list (Forest Temple) missed doors: a door's floor is now

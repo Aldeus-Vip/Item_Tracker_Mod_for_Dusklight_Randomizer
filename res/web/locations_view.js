@@ -994,8 +994,35 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const byName = (title) => REGION_GROUPS.find((g) => g.name.toLowerCase() === title.toLowerCase() || g.categories.some((c) => c.toLowerCase() === title.toLowerCase()));
     const direct = byName(low);
     if (direct) return direct.name;
+    // The province most of that area's checks are in (an area's name rarely is a province's).
+    const counted = areaProvinces().get(low);
+    if (counted) return counted;
     const province = mapGroups.find((g) => g.regions.some((r) => r.toLowerCase() === low))?.title;
     return (province && byName(province)?.name) ?? loc.group;
+  }
+  // Each area (logic region, or the area a check's room is in) → the province (list group) most of
+  // its checks are in, by the randomizer's grouping; "Other" only when nothing else is.
+  let areaProvinceCache = null;
+  function areaProvinces() {
+    if (areaProvinceCache?.locations === locations && areaProvinceCache.world === world) return areaProvinceCache.map;
+    const counts = new Map();
+    const add = (area, group) => {
+      if (!area || area === "Other" || area === "Elsewhere") return;
+      const key = area.toLowerCase();
+      if (!counts.has(key)) counts.set(key, new Map());
+      const c = counts.get(key);
+      c.set(group, (c.get(group) ?? 0) + (group === OTHER_GROUP.name ? 0.001 : 1));
+    };
+    const saved = getCheckAreas();
+    for (const l of locations) {
+      const accessArea = world?.locationAccess.get(l.name)?.[0]?.area;
+      add(accessArea ? world.areas.get(accessArea)?.region : null, l.group);
+      // (The room's area, without the one set by hand.)
+      if (!saved[l.name]) add(areaOf(l), l.group);
+    }
+    const map = new Map([...counts].map(([area, c]) => [area, [...c].sort((a, b) => b[1] - a[1])[0][0]]));
+    areaProvinceCache = { locations, world, map };
+    return map;
   }
 
   // A check's status and requirement (under the map, and over a row the pointer rests on).
@@ -1102,7 +1129,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       choices.delete("Elsewhere");
       const current = getCheckAreas()[name] ?? "";
       panel.append(el("label", { className: "loc-area-pick" }, "Area ",
-        el("select", { onchange: (e) => { saveCheckArea(name, e.target.value || null); render(); } },
+        el("select", { onchange: (e) => { saveCheckArea(name, e.target.value || null); areaProvinceCache = null; render(); } },
           el("option", { value: "", textContent: `Automatic (${auto})`, selected: !current }),
           ...[...choices].sort().map((a) => el("option", { value: a, textContent: a, selected: a === current })))));
     }
@@ -1754,6 +1781,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       render();
     },
     refresh() {
+      // (The checks' places may be known now: areas' provinces counted again.)
+      areaProvinceCache = null;
       evaluate();
       render();
     },
