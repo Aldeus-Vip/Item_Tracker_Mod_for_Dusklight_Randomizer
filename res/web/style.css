@@ -1499,7 +1499,12 @@ select option:checked { background: #5c5230; color: #fff; }
 #view-locations .loc-map-pane .loc-banner { position: static; box-shadow: none; }
 .loc-split[data-tab="both"] .loc-map-pane { overflow-x: hidden; }
 .loc-split[data-tab="both"] .map-frame { max-height: calc(100vh - var(--bar-h, 0px) - var(--loc-sub-h, 0px) - 230px); }
-.map-pick-actions { display: flex; gap: 6px; margin-top: 4px; }
+.map-pick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.map-place-line { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font: 12px/1.4 ui-monospace, monospace; color: var(--muted); }
+.map-place-room { font: 12px ui-monospace, monospace; padding: 0 4px; }
+.map-placed-list table { border-collapse: collapse; margin-top: 4px; font-size: 12px; }
+.map-placed-list th, .map-placed-list td { padding: 2px 8px; border-bottom: 1px solid var(--line); text-align: left; font-variant-numeric: tabular-nums; }
+.map-placed-list th { color: var(--gold); }
 .map-place { font-size: 12px; padding: 2px 8px; border: 1px solid var(--gold-dim); border-radius: 4px; background: rgba(0, 0, 0, 0.35); color: inherit; cursor: pointer; }
 .map-place.active { border-color: var(--gold); background: rgba(214, 169, 44, 0.3); }
 .map-frame.placing { cursor: copy; }

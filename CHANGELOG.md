@@ -27,6 +27,10 @@
   over the map. Map: clicking a check highlights it in Checks (no requirement); clicking the picked
   check above the map shows its requirement on both sides. Closing the requirement or the
   highlight on one side closes it on the other.
+- Checks placed by hand: above the map, the picked check's map, room, coordinates, floor and
+  where its place comes from (game files, preset, set by hand); its room can be chosen among the
+  rooms of the map shown (placing picks the room under the click). Under the map (Advanced), every
+  check placed by hand with its map, room and coordinates, to show or remove.
 - Debug page: **Map data of a stage**, what the mod knows of a stage's map (rooms, shapes, doors by
   floor, what was found of an overworld room's ground, the overworld map's rooms), to copy and send.
 - Map entrances: an icon on the entrance's point (the dungeon entrance icon from the game's map
@@ -172,6 +176,9 @@
   are gone).
 
 ### Fixed
+- Overworld rooms the overworld map data leaves out (F_SP118's room 2) are drawn from the ground
+  with their place; a room whose map data shows nothing (only hidden parts) is drawn from the
+  ground too.
 - A check whose Area was set by hand is listed under that Area's province, and the region filter
   and its list follow the Area set (not the automatic one). With Checks and Map linked, a check
   picked in Checks keeps Checks on its Area when the map moves to it.

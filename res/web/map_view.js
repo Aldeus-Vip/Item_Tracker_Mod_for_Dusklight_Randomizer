@@ -633,15 +633,13 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     if (!placing || !scene || (scene.kind !== "stage" && scene.kind !== "area")) return false;
     const stage = scene.kind === "area" ? areaPlace?.name : map?.stage;
     if (!stage) return false;
-    // Its room: the smallest drawn room around the point (none in a dungeon: floors tell them apart).
+    // Its room: the smallest drawn room around the point (it can be changed above the map).
     let room = -1;
-    if (!stage.startsWith("D_")) {
-      let best = Infinity;
-      for (const [no, b] of scene.rooms) {
-        if (Math.abs(at.x - b.x) <= b.w / 2 && Math.abs(at.y - b.y) <= b.h / 2 && b.w * b.h < best) {
-          best = b.w * b.h;
-          room = no;
-        }
+    let best = Infinity;
+    for (const [no, b] of scene.rooms) {
+      if (Math.abs(at.x - b.x) <= b.w / 2 && Math.abs(at.y - b.y) <= b.h / 2 && b.w * b.h < best) {
+        best = b.w * b.h;
+        room = no;
       }
     }
     const variant = scene.kind === "area" ? areaPlace?.variant : undefined;
@@ -855,19 +853,23 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const own = stageMap(map.stage);
       if (own?.rooms?.length) extent = [...extent, ...own.rooms];
     }
+    let extraNos = new Set(); // rooms added from the ground (not named with the place)
     if (!dungeon && !interior && !map.singleRoom && !ground) {
       const place = fieldPlace();
       const nos = place && new Set(place.stage.rooms.map((r) => r.no));
       const mine = nos ? map.rooms.filter((r) => nos.has(r.no)) : [];
       if (mine.length) {
-        rooms = rooms.filter((r) => nos.has(r.no));
-        extent = mine;
+        // (With the stage's rooms the overworld map data leaves out, from the ground.)
+        const extra = missingGround(map.stage).filter((o) => !map.rooms.some((r) => r.no === o.no)).map((o) => ({ ...o, visited: true, layer: 0 }));
+        extraNos = new Set(extra.map((r) => r.no));
+        rooms = [...rooms.filter((r) => nos.has(r.no)), ...extra];
+        extent = [...mine, ...extra];
       }
     }
     const floors = [...new Set(rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
     const floor = pickedFloor ?? player.stayFloor ?? floors[floors.length - 1] ?? 0;
     // An overworld place's title: named by hand or by the mod (by its rooms), else its region.
-    titleKey = !dungeon && !interior ? fieldKey(map.stage, map.singleRoom || ground ? [player.stayRoom] : extent.map((r) => r.no)) : null;
+    titleKey = !dungeon && !interior ? fieldKey(map.stage, map.singleRoom || ground ? [player.stayRoom] : extent.map((r) => r.no).filter((no) => !extraNos.has(no))) : null;
     const title = (titleKey && fieldTitle(titleKey)) ?? (isInterior(map.stage) ? roomTitle(map.stage, map.stayRoom) : regionName(map.stage, map.stayRoom)) ?? map.stage;
     const d = dungeon ? findDungeon(title) : null;
     const items = getState()?.items ?? {};
@@ -1079,6 +1081,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         d ? dungeonItems(d) : null),
       caption ? el("div", { className: "map-caption", textContent: caption }) : null,
       checkSource ? checkNote() : null,
+      checkSource ? placedList() : null,
       noticeBox()));
     if (view) view = clampView(view);
     applyView();
@@ -1241,6 +1244,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         Object.keys(userPlaces()).length ? el("button", { type: "button", className: "map-place", textContent: "Copy my places",
           title: "Copy every check you placed (JSON), to send for the mod's presets",
           onclick: (e) => copyPlaces(e.currentTarget) }) : null);
+      const where = placeLine(name, info);
+      if (where) actions.append(where);
     }
     if (placing && placing !== reqName) placing = null;
     root.querySelector(".map-frame")?.classList.toggle("placing", !!placing);
@@ -1249,6 +1254,55 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     if (!force && html === pickShown) return;
     pickShown = html;
     slot.replaceChildren(row, ...(actions ? [actions] : []));
+  }
+
+  // Where the picked check is: its map, room, coordinates and floor, and where that comes from;
+  // its room can be changed to another room of the map shown (a cave's checks are in a room of
+  // their own).
+  function placeLine(name, info) {
+    const at = placeFor(info.key, info.name);
+    if (!at || !at.stage) return null;
+    const from = userPlaces()[name] ? "set by hand" : placeIndex.has(info.key) ? "game files" : "preset";
+    const shownStage = scene?.kind === "area" ? areaPlace?.name ?? areaPlace?.stage?.name : scene?.kind === "stage" ? map?.stage : null;
+    const roomNos = new Set([at.room ?? -1, -1]);
+    if (shownStage && relatedStages(shownStage).includes(at.stage) && scene?.rooms) for (const no of scene.rooms.keys()) roomNos.add(no);
+    const pick = el("select", { className: "plate map-place-room", title: "The room it is in (only checks of the rooms drawn show on a map)",
+      onchange: (e) => {
+        const { key, ...rest } = at;
+        checkSource.setPlace(name, { stage: rest.stage, room: Number(e.target.value), x: Math.round(rest.x), z: Math.round(rest.z), floor: rest.floor ?? 0,
+          ...(rest.variant ? { variant: rest.variant } : {}) });
+        sceneKey = "";
+        render();
+        updatePick(true);
+      } },
+      ...[...roomNos].sort((a, b) => a - b).map((no) => el("option", { value: String(no), textContent: no < 0 ? "any room" : `room ${no}`, selected: no === (at.room ?? -1) })));
+    return el("div", { className: "map-place-line" },
+      el("span", { textContent: `${at.stage} · ` }), pick,
+      el("span", { textContent: ` · x ${Math.round(at.x)}, z ${Math.round(at.z)} · floor ${at.floor ?? 0} · ${from}` }));
+  }
+
+  // Every check placed by hand, with its map, room and coordinates (under the map, Advanced).
+  function placedList() {
+    const mine = Object.entries(userPlaces());
+    if (!mine.length) return null;
+    mine.sort(([a, p], [b, q]) => p.stage.localeCompare(q.stage) || (p.room ?? -1) - (q.room ?? -1) || a.localeCompare(b));
+    return el("details", { className: "map-check-note map-placed-list adv-only" },
+      el("summary", { textContent: `${mine.length} check${mine.length > 1 ? "s" : ""} placed by hand ▾` }),
+      el("table", {},
+        el("thead", {}, el("tr", {}, ...["Check", "Map", "Room", "x", "z", "Floor", ""].map((h) => el("th", { textContent: h })))),
+        el("tbody", {}, ...mine.map(([name, p]) => el("tr", {},
+          el("td", {}, el("button", { type: "button", className: "map-note-item", textContent: name, title: "Show it on its map", onclick: () => showCheck(name, false) })),
+          el("td", { textContent: p.stage + (p.variant ? ` (${p.variant})` : "") }),
+          el("td", { textContent: (p.room ?? -1) < 0 ? "any" : String(p.room) }),
+          el("td", { textContent: String(Math.round(p.x)) }),
+          el("td", { textContent: String(Math.round(p.z)) }),
+          el("td", { textContent: String(p.floor ?? 0) }),
+          el("td", {}, el("button", { type: "button", className: "map-place", textContent: "Remove", onclick: () => {
+            checkSource.setPlace(name, null);
+            sceneKey = "";
+            render();
+            updatePick(true);
+          } })))))));
   }
 
   // Every check placed in the page, as JSON for the mod's presets (map_presets.json).
@@ -2514,18 +2568,26 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   }
 
   // Whether a room's map has anything to draw.
-  const shaped = (r) => (r.floors ?? []).some((f) => (f.groups ?? []).some((g) => g.polys?.length));
+  // Whether a room's map has anything shown to draw.
+  const shaped = (r) => (r.floors ?? []).some((f) => (f.groups ?? []).some((g) => g.shown !== false && g.polys?.length));
   // Rooms of the overworld with nothing to draw (the Sacred Grove's): their ground from the game
-  // files instead (the mod draws it from the room's collision).
-  function withGround(stageName, rooms) {
-    if (rooms.every(shaped)) return rooms;
+  // files instead (the mod draws it from the room's collision). With place (a province's part of
+  // a stage), also the stage's rooms the overworld map data leaves out (F_SP118's room 2).
+  function withGround(stageName, rooms, place = null) {
     const own = stageMap(stageName)?.rooms ?? [];
-    return rooms.map((r) => (shaped(r) ? r : own.find((o) => o.no === r.no && o.ground) ?? r));
+    let out = rooms.every(shaped) ? rooms : rooms.map((r) => (shaped(r) ? r : own.find((o) => o.no === r.no && o.ground) ?? r));
+    if (place && place.part === undefined) out = [...out, ...missingGround(stageName, own)];
+    return out;
+  }
+  function missingGround(stageName, own = stageMap(stageName)?.rooms ?? []) {
+    if ((places?.singleRooms ?? []).includes(stageName)) return [];
+    const listed = new Set((field?.regions ?? []).flatMap((r) => r.stages.filter((st) => st.name === stageName).flatMap((st) => st.rooms.map((x) => x.no))));
+    return own.filter((o) => o.ground && !listed.has(o.no));
   }
 
   function renderArea() {
     const { region, stage, name, rooms: onlyRooms } = areaPlace;
-    let rooms = stage?.rooms ? withGround(name, stage.rooms) : null;
+    let rooms = stage?.rooms ? withGround(name, stage.rooms, stage) : null;
     if (!rooms) {
       const m = stageMap(name);
       if (!m) {
