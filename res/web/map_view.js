@@ -688,9 +688,13 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
 
   // Shows a check of the check list on the map (double-click in Checks): its map, centered on it,
   // highlighted, with its details under the map.
+  // The check the map was last moved to (showCheck), and the place it showed it on: while that
+  // place is shown, Checks is told the check's region (its Area as set by hand), not the place's.
+  let shownFor = null;
   function showCheck(name, req = true) {
     const info = checkSource?.list().find((c) => c.name === name);
     if (!info) return;
+    shownFor = { name, place: null };
     const known = placeFor(info.key, info.name);
     const byHand = !!userPlaces()[info.name] || (!placeIndex.has(info.key) && !!manualPlaces()[info.name]);
     const stageName = byHand ? known.stage : info.key.startsWith("manual:") ? null : info.key.split(":")[1];
@@ -778,6 +782,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       later();
       return pick();
     }
+    shownFor = null;
     pick();
     showNotice(`${name} is in another place (${stageName}); its map shows here when Link is there.`);
   }
@@ -1081,7 +1086,12 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     updatePick(true);
     // The region shown, for Checks (when linked).
     const shownRoom = remote ? areaPlace?.rooms?.[0] ?? areaPlace?.stage?.part ?? areaPlace?.stage?.rooms?.[0]?.no ?? rooms[0]?.no : player.stayRoom;
-    const region = (remote && areaPlace?.variant && areaRegion?.(areaPlace.variant)) || regionName(map.stage, shownRoom ?? 0);
+    const placeId = JSON.stringify(remote ? [map.stage, areaPlace?.rooms ?? null, areaPlace?.variant ?? null, areaPlace?.stage?.part ?? null, areaPlace?.region?.no ?? null]
+      : [map.stage, player.stayRoom]);
+    if (shownFor && shownFor.place === null) shownFor.place = placeId;
+    else if (shownFor && shownFor.place !== placeId) shownFor = null;
+    const region = (shownFor && checkSource?.listedRegion?.(shownFor.name)) ||
+      (remote && areaPlace?.variant && areaRegion?.(areaPlace.variant)) || regionName(map.stage, shownRoom ?? 0);
     if (region) onShown(region);
   }
 

@@ -1212,6 +1212,8 @@ mapView = createMapView(locMap, {
     // Checks and Map linked: the requirement shown on both sides.
     linked: () => settings.linkMap,
     clickMode: () => settings.clickMode,
+    // The region a check is listed under in Checks (its Area set by hand counts).
+    listedRegion: (name) => locationsView.listedRegion(name),
     reqView: (name) => locationsView.requirementView(name),
     showDetail: (name) => locationsView.showDetail(name),
     closeDetail: (name) => locationsView.closeDetail(name),

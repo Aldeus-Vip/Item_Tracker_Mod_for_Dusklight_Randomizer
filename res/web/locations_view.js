@@ -566,7 +566,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     let remaining = 0;
     let obtained = 0;
     for (const loc of locations) {
-      if (group && loc.group !== group) continue;
+      if (group && groupOf(loc) !== group) continue;
       const r = results.get(loc.name);
       if (r === "reachable") reachable++;
       if (r === "reachable" || r === "blocked" || r === "unknown") remaining++;
@@ -843,7 +843,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
 
     const overrides = getOverrides();
     const list = el("div", { className: "loc-list" });
-    let shown = locations.filter((l) => l.group === selectedGroup);
+    // (The province of a check's Area when it was set by hand: filtered as changed.)
+    let shown = locations.filter((l) => groupOf(l) === selectedGroup);
     // The logic regions of this province's checks, to show only one of them.
 
     // In the order of the randomizer's world files (about the order of the game), then by name.
@@ -984,6 +985,19 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     return parts.flatMap((p, i) => (i ? [el("div", { className: "req-op req-op-block", textContent: "or" }), p] : [p]));
   }
 
+  // The province (group of the list) a check is listed under: the one of the area set for it by
+  // hand (Area), else the randomizer's.
+  function groupOf(loc) {
+    const fixed = getCheckAreas()[loc.name];
+    if (!fixed) return loc.group;
+    const low = fixed.toLowerCase();
+    const byName = (title) => REGION_GROUPS.find((g) => g.name.toLowerCase() === title.toLowerCase() || g.categories.some((c) => c.toLowerCase() === title.toLowerCase()));
+    const direct = byName(low);
+    if (direct) return direct.name;
+    const province = mapGroups.find((g) => g.regions.some((r) => r.toLowerCase() === low))?.title;
+    return (province && byName(province)?.name) ?? loc.group;
+  }
+
   // A check's status and requirement (under the map, and over a row the pointer rests on).
   // The region a check is listed under (set by hand, else its logic area's).
   function regionOfLoc(loc) {
@@ -1077,10 +1091,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         return a;
       })();
       const choices = new Set();
-      for (const l of locations) if (l.group === loc.group) choices.add(areaOf(l));
+      const sameProvince = (l) => l.group === loc.group || groupOf(l) === groupOf(loc);
+      for (const l of locations) if (sameProvince(l)) choices.add(areaOf(l));
       // ... and the logic regions of the province's checks.
       for (const l of locations) {
-        if (l.group !== loc.group) continue;
+        if (!sameProvince(l)) continue;
         const region = world.areas.get(world.locationAccess.get(l.name)?.[0]?.area)?.region;
         if (region && region !== "None") choices.add(region);
       }
@@ -1752,6 +1767,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     provinceOrder: () => mapGroups.map((g) => g.title),
     // Grottos built alike that share one room: [{ name, area }].
     roomVariants: (stage, room) => roomVariants(stage, room),
+    // The region a check is listed under (its Area set by hand, else its logic region's).
+    listedRegion(name) {
+      const loc = locations.find((l) => l.name === name);
+      return loc ? regionOfLoc(loc) : null;
+    },
     // The logic region a check is in (its area's region), or null.
     checkRegion(name) {
       const area = world?.locationAccess.get(name)?.[0]?.area;
@@ -1809,10 +1829,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       if (!region || !world) return;
       const loc = locations.find((l) => regionOfLoc(l) === region);
       if (!loc) return;
-      if (selectedGroup === loc.group && regionFilter.region === region) return;
-      selectedGroup = loc.group;
-      highlightedGroup = loc.group;
-      regionFilter = { group: loc.group, region };
+      const group = groupOf(loc);
+      if (selectedGroup === group && regionFilter.region === region) return;
+      selectedGroup = group;
+      highlightedGroup = group;
+      regionFilter = { group, region };
       showChecks = true;
       render();
     },
@@ -1840,8 +1861,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     jumpTo(name, open = false) {
       const loc = locations.find((l) => l.name === name);
       if (!loc) return;
-      selectedGroup = loc.group;
-      highlightedGroup = loc.group;
+      selectedGroup = groupOf(loc);
+      highlightedGroup = selectedGroup;
       showChecks = true;
       setFocus(name);
       if (open) openDetail(name);

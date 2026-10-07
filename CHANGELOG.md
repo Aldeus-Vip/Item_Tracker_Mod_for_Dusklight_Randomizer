@@ -172,6 +172,9 @@
   are gone).
 
 ### Fixed
+- A check whose Area was set by hand is listed under that Area's province, and the region filter
+  and its list follow the Area set (not the automatic one). With Checks and Map linked, a check
+  picked in Checks keeps Checks on its Area when the map moves to it.
 - Dungeon maps opened from the Dungeons list (Forest Temple) missed doors: a door's floor is now
   kept within its room's floors, as the game does.
 - The Sacred Grove's, Past Sacred Grove's and Lost Woods' maps: their rooms keep their collision
