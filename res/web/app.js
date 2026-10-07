@@ -1154,8 +1154,11 @@ const locationsView = createLocationsView(locChecks, {
     if (settings.linkMap) mapView?.showRegion(region);
   },
   // ... and a check highlighted there is the one picked on the map.
-  onFocus(name) {
-    if (settings.linkMap) mapView?.pickCheck(name);
+  onFocus(name, req) {
+    if (settings.linkMap) mapView?.pickCheck(name, req);
+  },
+  onReqClosed(name) {
+    if (settings.linkMap) mapView?.hideReq(name);
   },
   // Areas set by hand for checks of the list (By area, region filter).
   getCheckAreas: () => settings.checkAreas,
@@ -1193,6 +1196,11 @@ mapView = createMapView(locMap, {
     unmount: () => locationsView.unmountDetail(),
     focused: () => locationsView.focusedName(),
     setFocused: (name) => locationsView.setFocused(name, settings.linkMap),
+    // Checks and Map linked: the requirement shown on both sides.
+    linked: () => settings.linkMap,
+    reqView: (name) => locationsView.requirementView(name),
+    showDetail: (name) => locationsView.showDetail(name),
+    closeDetail: (name) => locationsView.closeDetail(name),
     bothShown: () => locSplit.dataset.tab === "both",
     manualPlaces: () => settings.mapPlaces,
     // Names and provinces of the Map's Other places changed by hand.

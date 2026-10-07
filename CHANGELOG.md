@@ -18,8 +18,11 @@
 - Resting the pointer on a check shows its requirement beside it (no click needed).
 - Options opens as a window over the page: its button opens and closes it, and so does a click
   outside it (or Escape).
-- With Checks and Map linked, the check highlighted in Checks is the one picked on the map (and
-  above it; the map goes to its place), and the other way round.
+- With Checks and Map linked, a check is highlighted on both sides. Checks: right-click highlights
+  it and the map goes to its place (centered, zoomed in), left-click also shows its requirement
+  over the map. Map: clicking a check highlights it in Checks (no requirement); clicking the picked
+  check above the map shows its requirement on both sides. Closing the requirement or the
+  highlight on one side closes it on the other.
 - Debug page: **Map data of a stage**, what the mod knows of a stage's map (rooms, shapes, doors by
   floor, what was found of an overworld room's ground, the overworld map's rooms), to copy and send.
 - Map entrances: an icon on the entrance's point (the dungeon entrance icon from the game's map
@@ -167,8 +170,9 @@
 ### Fixed
 - Dungeon maps opened from the Dungeons list (Forest Temple) missed doors: a door's floor is now
   kept within its room's floors, as the game does.
-- The Sacred Grove's and Lost Woods' maps (drawn from the ground) show when the overworld map data
-  or the room's own map has no shapes.
+- The Sacred Grove's, Past Sacred Grove's and Lost Woods' maps: their rooms keep their collision
+  as KCL (room.kcl), not room.dzb; their ground is read from it now. They also show when the
+  overworld map data or the room's own map has no shapes.
 - A map asked for while the game files were still being read (Forest Temple from the Dungeons
   list) stayed "not known yet": it is asked again.
 - Zooming out of an overworld place opened by an entrance goes to its province again (back to

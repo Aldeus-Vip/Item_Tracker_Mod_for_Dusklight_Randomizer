@@ -127,7 +127,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {}, onRegionPicked = () => {}, onFocus = () => {} }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {}, onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {} }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -676,7 +676,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         clearTimeout(rowClickTimer);
         rowClickTimer = setTimeout(() => {
           setFocus(loc.name);
-          onFocus(loc.name);
+          onFocus(loc.name, true);
           // Under the map while that is on screen (Checks + Map); otherwise the panel of the list.
           const host = editing?.host?.isConnected && editing.host.offsetParent !== null ? editing.host : null;
           if (host) mountDetail(host, loc.name, { row: editing.withRow });
@@ -686,7 +686,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       oncontextmenu: (e) => {
         e.preventDefault();
         setFocus(focused === loc.name ? null : loc.name);
-        onFocus(focused);
+        onFocus(focused, false);
         render();
       },
       ondblclick: showOnMap ? () => {
@@ -1047,7 +1047,13 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     panel.append(el("div", { className: "loc-detail-head" },
       el("h3", { textContent: name }),
       el("span", { className: `loc-status ${status}`, textContent: { obtained: "Obtained", checked: "Marked checked", reachable: "Reachable", blocked: "Not reachable", excluded: "Excluded", unknown: "Logic off" }[status] }),
-      el("button", { className: "tool", type: "button", textContent: "Close", onclick: () => { closePopup(); editing = null; render(); } })));
+      el("button", { className: "tool", type: "button", textContent: "Close", onclick: () => {
+        const shown = editing?.host ? null : editing?.name;
+        closePopup();
+        editing = null;
+        render();
+        if (shown) onReqClosed(shown);
+      } })));
 
     // The area the check is listed under (By area, the region filter): automatic, or set by hand
     // (people's and events' checks the game files do not place go to "Elsewhere").
@@ -1799,6 +1805,20 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       highlightedGroup = loc.group;
       regionFilter = { group: loc.group, region };
       showChecks = true;
+      render();
+    },
+    // Checks and Map linked: a check's requirement asked on the map, shown here too (its row
+    // highlighted and brought into view); and closed from the map.
+    showDetail(name) {
+      setFocus(name);
+      if (editing && !editing.host && editing.name === name) render();
+      else openDetail(name);
+      requestAnimationFrame(() => root.querySelector(".loc-row.selected")?.scrollIntoView({ block: "nearest" }));
+    },
+    closeDetail(name = null) {
+      if (!editing || editing.host || (name && editing.name !== name)) return;
+      closePopup();
+      editing = null;
       render();
     },
     // Closes a check shown under the map.

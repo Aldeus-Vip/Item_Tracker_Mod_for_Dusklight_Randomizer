@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 11";
+constexpr const char* kCacheVersion = "check-places 12";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -169,58 +169,26 @@ std::map<std::string, std::map<int, std::vector<std::array<float, 4>>>> g_ground
 // debug page.
 std::map<std::string, std::map<int, std::string>> g_groundInfo;
 
-// The walkable ground of a room's collision (cBgD_t: vertices, triangles): triangles facing up,
-// filled into a grid of up to 160 cells across, each row's runs of cells as rectangles.
-void read_ground(const std::string& stage, int room, const std::vector<uint8_t>& dzb) {
-    std::string& info = g_groundInfo[stage][room];
-    info += "room.dzb " + std::to_string(dzb.size()) + " bytes";
-    if (dzb.size() < 0x34) return;
-    const uint8_t* b = dzb.data();
-    const uint32_t vNum = be32(b);
-    const uint32_t vOff = be32(b + 4);
-    const uint32_t tNum = be32(b + 8);
-    const uint32_t tOff = be32(b + 0xC);
-    info += ", " + std::to_string(vNum) + " vertices, " + std::to_string(tNum) + " triangles";
-    if (vNum == 0 || tNum == 0 || vOff + vNum * 12 > dzb.size() || tOff + tNum * 10 > dzb.size()) {
-        info += " (out of the file)";
-        return;
-    }
-    const auto vtx = [&](uint32_t i, float out[3]) {
-        const uint8_t* v = b + vOff + i * 12;
-        out[0] = befloat(v);
-        out[1] = befloat(v + 4);
-        out[2] = befloat(v + 8);
-    };
-    struct Tri {
-        float x[3];
-        float z[3];
-    };
-    std::vector<Tri> tris;
-    float minX = 1e30f, minZ = 1e30f, maxX = -1e30f, maxZ = -1e30f;
-    for (uint32_t i = 0; i < tNum; i++) {
-        const uint8_t* t = b + tOff + i * 10;
-        const uint32_t ia = be16(t), ib = be16(t + 2), ic = be16(t + 4);
-        if (ia >= vNum || ib >= vNum || ic >= vNum) continue;
-        float a[3], c1[3], c2[3];
-        vtx(ia, a);
-        vtx(ib, c1);
-        vtx(ic, c2);
-        const float ux = c1[0] - a[0], uy = c1[1] - a[1], uz = c1[2] - a[2];
-        const float vx = c2[0] - a[0], vy = c2[1] - a[1], vz = c2[2] - a[2];
-        const float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-        const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
-        if (len < 1e-3f || std::fabs(ny) / len < 0.55f) continue;  // walls and ceilings
-        Tri tr{{a[0], c1[0], c2[0]}, {a[2], c1[2], c2[2]}};
-        for (int k = 0; k < 3; k++) {
-            minX = std::min(minX, tr.x[k]);
-            maxX = std::max(maxX, tr.x[k]);
-            minZ = std::min(minZ, tr.z[k]);
-            maxZ = std::max(maxZ, tr.z[k]);
-        }
-        tris.push_back(tr);
-    }
+// A triangle of a room's ground, on the map's plane.
+struct GroundTri {
+    float x[3];
+    float z[3];
+};
+
+// The ground triangles into a grid of up to 160 cells across, each row's runs of cells as
+// rectangles (the room's ground map).
+void ground_from_tris(const std::string& stage, int room, const std::vector<GroundTri>& tris, std::string& info) {
     info += ", " + std::to_string(tris.size()) + " ground";
     if (tris.empty()) return;
+    float minX = 1e30f, minZ = 1e30f, maxX = -1e30f, maxZ = -1e30f;
+    for (const GroundTri& t : tris) {
+        for (int k = 0; k < 3; k++) {
+            minX = std::min(minX, t.x[k]);
+            maxX = std::max(maxX, t.x[k]);
+            minZ = std::min(minZ, t.z[k]);
+            maxZ = std::max(maxZ, t.z[k]);
+        }
+    }
     const float cell = std::max(40.0f, std::max(maxX - minX, maxZ - minZ) / 160.0f);
     const int cols = static_cast<int>((maxX - minX) / cell) + 1;
     const int rows = static_cast<int>((maxZ - minZ) / cell) + 1;
@@ -229,7 +197,7 @@ void read_ground(const std::string& stage, int room, const std::vector<uint8_t>&
         return;
     }
     std::vector<uint8_t> grid(static_cast<size_t>(cols) * rows, 0);
-    for (const Tri& t : tris) {
+    for (const GroundTri& t : tris) {
         const int c0 = std::max(0, static_cast<int>((std::min({t.x[0], t.x[1], t.x[2]}) - minX) / cell));
         const int c1 = std::min(cols - 1, static_cast<int>((std::max({t.x[0], t.x[1], t.x[2]}) - minX) / cell));
         const int r0 = std::max(0, static_cast<int>((std::min({t.z[0], t.z[1], t.z[2]}) - minZ) / cell));
@@ -261,6 +229,89 @@ void read_ground(const std::string& stage, int room, const std::vector<uint8_t>&
     }
     info += ", " + std::to_string(rects.size()) + " rectangles";
     if (!rects.empty()) g_ground[stage][room] = std::move(rects);
+}
+
+// The walkable ground of a room's collision (cBgD_t: vertices, triangles): triangles facing up.
+void read_ground(const std::string& stage, int room, const std::vector<uint8_t>& dzb) {
+    std::string& info = g_groundInfo[stage][room];
+    info += "room.dzb " + std::to_string(dzb.size()) + " bytes";
+    if (dzb.size() < 0x34) return;
+    const uint8_t* b = dzb.data();
+    const uint32_t vNum = be32(b);
+    const uint32_t vOff = be32(b + 4);
+    const uint32_t tNum = be32(b + 8);
+    const uint32_t tOff = be32(b + 0xC);
+    info += ", " + std::to_string(vNum) + " vertices, " + std::to_string(tNum) + " triangles";
+    if (vNum == 0 || tNum == 0 || vOff + vNum * 12 > dzb.size() || tOff + tNum * 10 > dzb.size()) {
+        info += " (out of the file)";
+        return;
+    }
+    const auto vtx = [&](uint32_t i, float out[3]) {
+        const uint8_t* v = b + vOff + i * 12;
+        out[0] = befloat(v);
+        out[1] = befloat(v + 4);
+        out[2] = befloat(v + 8);
+    };
+    std::vector<GroundTri> tris;
+    for (uint32_t i = 0; i < tNum; i++) {
+        const uint8_t* t = b + tOff + i * 10;
+        const uint32_t ia = be16(t), ib = be16(t + 2), ic = be16(t + 4);
+        if (ia >= vNum || ib >= vNum || ic >= vNum) continue;
+        float a[3], c1[3], c2[3];
+        vtx(ia, a);
+        vtx(ib, c1);
+        vtx(ic, c2);
+        const float ux = c1[0] - a[0], uy = c1[1] - a[1], uz = c1[2] - a[2];
+        const float vx = c2[0] - a[0], vy = c2[1] - a[1], vz = c2[2] - a[2];
+        const float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (len < 1e-3f || std::fabs(ny) / len < 0.55f) continue;  // walls and ceilings
+        tris.push_back({{a[0], c1[0], c2[0]}, {a[2], c1[2], c2[2]}});
+    }
+    ground_from_tris(stage, room, tris, info);
+}
+
+// The same from a room's KCL collision (room.kcl, KC_Header: the Sacred Grove's rooms), its
+// prisms made into triangles as dBgWKCol::GetTriPnt does.
+void read_ground_kcl(const std::string& stage, int room, const std::vector<uint8_t>& kcl) {
+    std::string& info = g_groundInfo[stage][room];
+    info += "room.kcl " + std::to_string(kcl.size()) + " bytes";
+    if (kcl.size() < 0x38) return;
+    const uint8_t* b = kcl.data();
+    const uint32_t posOff = be32(b), nrmOff = be32(b + 4), prismOff = be32(b + 8), blockOff = be32(b + 0xC);
+    const auto count = [&](uint32_t from, uint32_t to, uint32_t each) {
+        return from < to && to <= kcl.size() ? (to - from) / each : from < kcl.size() ? static_cast<uint32_t>((kcl.size() - from) / each) : 0u;
+    };
+    const uint32_t posNum = count(posOff, nrmOff, 12);
+    const uint32_t nrmNum = count(nrmOff, prismOff, 12);
+    const uint32_t prismNum = count(prismOff, blockOff, 0x10);
+    info += ", " + std::to_string(posNum) + " points, " + std::to_string(prismNum) + " prisms";
+    using V = std::array<float, 3>;
+    const auto vec = [&](uint32_t off, uint32_t i) { const uint8_t* p = b + off + i * 12; return V{befloat(p), befloat(p + 4), befloat(p + 8)}; };
+    const auto cross = [](const V& a, const V& c) { return V{a[1] * c[2] - a[2] * c[1], a[2] * c[0] - a[0] * c[2], a[0] * c[1] - a[1] * c[0]}; };
+    const auto dot = [](const V& a, const V& c) { return a[0] * c[0] + a[1] * c[1] + a[2] * c[2]; };
+    std::vector<GroundTri> tris;
+    for (uint32_t i = 0; i < prismNum; i++) {
+        const uint8_t* pd = b + prismOff + i * 0x10;
+        const float height = befloat(pd);
+        const uint32_t pi = be16(pd + 4), fi = be16(pd + 6), e1 = be16(pd + 8), e2 = be16(pd + 0xA), e3 = be16(pd + 0xC);
+        if (pi >= posNum || fi >= nrmNum || e1 >= nrmNum || e2 >= nrmNum || e3 >= nrmNum) continue;
+        const V face = vec(nrmOff, fi);
+        if (!(face[1] >= 0.55f) || std::fabs(dot(face, face) - 1.0f) > 0.1f) continue;  // walls, ceilings
+        const V a = vec(posOff, pi);
+        const V n3 = vec(nrmOff, e3);
+        const V c1 = cross(face, vec(nrmOff, e1));
+        const V c2 = cross(vec(nrmOff, e2), face);
+        const float d1 = dot(c1, n3);
+        const float d2 = dot(c2, n3);
+        if (std::fabs(d1) < 1e-6f || std::fabs(d2) < 1e-6f || !std::isfinite(height)) continue;
+        const float s1 = height / d1, s2 = height / d2;
+        const V p2{a[0] + c1[0] * s1, a[1] + c1[1] * s1, a[2] + c1[2] * s1};
+        const V p1{a[0] + c2[0] * s2, a[1] + c2[1] * s2, a[2] + c2[2] * s2};
+        if (!std::isfinite(p1[0]) || !std::isfinite(p2[0]) || !std::isfinite(p1[2]) || !std::isfinite(p2[2])) continue;
+        tris.push_back({{a[0], p1[0], p2[0]}, {a[2], p1[2], p2[2]}});
+    }
+    ground_from_tris(stage, room, tris, info);
 }
 
 // The ground maps of the rooms with no map of their own, in the map's coordinates (by the rooms'
@@ -555,6 +606,14 @@ void parse_archive(const Job& job) {
             std::vector<uint8_t> dzb;
             if (!yaz0_decode(raw, dzb)) dzb = std::move(raw);
             read_ground(job.stage, job.room, dzb);
+            continue;
+        }
+        if (f.name == "room.kcl" && job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
+            // ... kept as KCL in some rooms (the Sacred Grove's).
+            std::vector<uint8_t> raw(f.data, f.data + f.size);
+            std::vector<uint8_t> kcl;
+            if (!yaz0_decode(raw, kcl)) kcl = std::move(raw);
+            read_ground_kcl(job.stage, job.room, kcl);
             continue;
         }
         if (f.name == "room.dzr" && job.room >= 0) {

@@ -688,7 +688,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
 
   // Shows a check of the check list on the map (double-click in Checks): its map, centered on it,
   // highlighted, with its details under the map.
-  function showCheck(name) {
+  function showCheck(name, req = true) {
     const info = checkSource?.list().find((c) => c.name === name);
     if (!info) return;
     const known = placeFor(info.key, info.name);
@@ -696,6 +696,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const stageName = byHand ? known.stage : info.key.startsWith("manual:") ? null : info.key.split(":")[1];
     reqName = name;
     checkSource.setFocused(name);
+    // Its requirement over the map too, or none (a check only highlighted).
+    const reqAfter = () => (req ? showReq(false) : hideReqView());
     const center = (x, z) => {
       level = Math.max(level, 2);
       saveLevel();
@@ -704,7 +706,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     };
     if (!stageName) {
       updatePick(true);
-      showReq();
+      reqAfter();
       return;
     }
     const sameMap = map?.exists && relatedStages(map.stage).includes(stageName);
@@ -718,14 +720,14 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       render();
       if (p) center(p.x, p.z);
       updatePick(true);
-      showReq();
+      reqAfter();
       return;
     }
     if (here === null && byHand && map?.exists && map.stage === stageName && !isInterior(stageName)) {
       if (mode !== "stage") switchStage();
       render();
       updatePick(true);
-      showReq();
+      reqAfter();
       return;
     }
     // Another place: its map from the overworld map data, when it is there.
@@ -739,7 +741,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     }
     const pick = () => {
       updatePick(true);
-      showReq();
+      reqAfter();
     };
     if (found && p) {
       openRemote({ region: found.region, stage: found.stage, back: "region",
@@ -1262,7 +1264,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
 
   function unpick() {
     if (reqName && checkSource.focused() === reqName) checkSource.setFocused(null);
+    if (reqName && checkSource.linked?.()) checkSource.closeDetail?.(reqName);
     reqName = null;
+    hideReqView();
     checkSource.unmount();
     updatePick(true);
     updateChecks();
@@ -2008,6 +2012,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       node.addEventListener("click", (e) => {
         e.stopPropagation();
         if (reqName !== info.name) checkSource.unmount();
+        // Linked: only highlighted, here and in Checks (no requirement).
+        if (checkSource.linked?.()) {
+          hideReqView();
+          if (reqName !== info.name) checkSource.closeDetail?.();
+        }
         reqName = info.name;
         checkSource.setFocused(info.name);
         updatePick(true);
@@ -2109,10 +2118,32 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   }
 
   // The picked check's requirement over the map (its panel from the check list, with its buttons).
-  function showReq() {
+  // With Checks and Map linked, Checks keeps the requirement's editor and the map shows the
+  // requirement beside it (fromMap: asked on the map, so Checks shows it too).
+  function showReq(fromMap = true) {
     const box = root.querySelector(".map-detail-pop");
     if (!box || !checkSource || !reqName) return;
-    checkSource.mount(box, reqName, { row: false });
+    if (!checkSource.linked?.()) return checkSource.mount(box, reqName, { row: false });
+    const panel = checkSource.reqView?.(reqName);
+    if (!panel) return;
+    const name = reqName;
+    panel.querySelector(".loc-detail-head")?.append(el("button", { type: "button", className: "tool", textContent: "Close", onclick: (e) => {
+      e.stopPropagation();
+      hideReqView();
+      checkSource.closeDetail?.(name);
+    } }));
+    box.replaceChildren(panel);
+    box.dataset.view = name;
+    box.hidden = false;
+    if (fromMap) checkSource.showDetail?.(name);
+  }
+  // The requirement shown beside Checks' (linked), closed.
+  function hideReqView(name = null) {
+    const box = root.querySelector(".map-detail-pop");
+    if (!box?.dataset.view || (name && box.dataset.view !== name)) return;
+    delete box.dataset.view;
+    box.replaceChildren();
+    box.hidden = true;
   }
 
   // A short message under the map (why it cannot zoom out yet).
@@ -2923,12 +2954,26 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     showCheck,
     // Where the game places a check (stage and room), once the game files are read.
     placeOf: (key) => placeFor(key),
+    // Checks closed the requirement it showed: the map's goes too.
+    hideReq(name) {
+      hideReqView(name);
+    },
     // The check highlighted in Checks (when linked): picked on the map too (null: none).
-    pickCheck(name) {
-      if (!checkSource || reqName === (name ?? null)) return;
-      // The map on screen goes to the check's place (as a double-click does).
-      if (name && visible && getState()?.inGame && map && player) return showCheck(name);
-      reqName = name ?? null;
+    // req: its requirement shown too (picked with a left click in Checks).
+    pickCheck(name, req = false) {
+      if (!checkSource) return;
+      if (!name) {
+        if (!reqName) return;
+        reqName = null;
+        hideReqView();
+        checkSource.unmount();
+        updatePick(true);
+        if (scene?.checks) updateChecks();
+        return;
+      }
+      // The map on screen goes to the check's place, centered on it.
+      if (visible && getState()?.inGame && map && player) return showCheck(name, req);
+      reqName = name;
       if (placing && placing !== reqName) placing = null;
       updatePick(true);
       if (scene?.checks) updateChecks();
