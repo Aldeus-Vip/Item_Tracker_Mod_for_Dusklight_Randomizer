@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 13";
+constexpr const char* kCacheVersion = "check-places 14";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -168,6 +168,7 @@ struct GroundTri {
     float x[3];
     float z[3];
     bool water = false;
+    float y = 0;  // its height (the middle)
 };
 std::map<std::string, std::map<int, std::vector<GroundTri>>> g_ground;
 // What was found for each overworld room's ground (its files, triangles), shown on the debug page.
@@ -208,7 +209,7 @@ void read_ground(const std::string& stage, int room, const std::vector<uint8_t>&
         const float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
         const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
         if (len < 1e-3f || std::fabs(ny) / len < 0.55f) continue;  // walls and ceilings
-        tris.push_back({{a[0], c1[0], c2[0]}, {a[2], c1[2], c2[2]}});
+        tris.push_back({{a[0], c1[0], c2[0]}, {a[2], c1[2], c2[2]}, false, (a[1] + c1[1] + c2[1]) / 3});
     }
     info += ", " + std::to_string(tris.size()) + " ground";
     if (!tris.empty()) g_ground[stage][room] = std::move(tris);
@@ -259,12 +260,52 @@ void read_ground_kcl(const std::string& stage, int room, const std::vector<uint8
         const V p2{a[0] + c1[0] * s1, a[1] + c1[1] * s1, a[2] + c1[2] * s1};
         const V p1{a[0] + c2[0] * s2, a[1] + c2[1] * s2, a[2] + c2[2] * s2};
         if (!std::isfinite(p1[0]) || !std::isfinite(p2[0]) || !std::isfinite(p1[2]) || !std::isfinite(p2[2])) continue;
-        GroundTri t{{a[0], p1[0], p2[0]}, {a[2], p1[2], p2[2]}};
+        GroundTri t{{a[0], p1[0], p2[0]}, {a[2], p1[2], p2[2]}, false, (a[1] + p1[1] + p2[1]) / 3};
         if (codes && attr < codeNum) t.water = (be32(plc.data() + 8 + attr * codeSize + 0x10) & (1u << 8)) != 0;
         water += t.water ? 1 : 0;
         tris.push_back(t);
     }
-    info += ", " + std::to_string(tris.size()) + " ground (" + std::to_string(water) + " water)";
+    // Water surfaces reach under the banks: the water is shown on the ground under them (the
+    // riverbed), which follows the land's shape, and the surfaces themselves are left out.
+    std::vector<GroundTri> surfaces;
+    std::vector<GroundTri> ground;
+    for (GroundTri& t : tris) (t.water ? surfaces : ground).push_back(t);
+    if (!surfaces.empty()) {
+        const float cell = 1000.0f;
+        std::map<std::pair<int, int>, std::vector<int>> buckets;
+        for (int i = 0; i < static_cast<int>(surfaces.size()); i++) {
+            const GroundTri& w = surfaces[i];
+            const int c0 = static_cast<int>(std::floor(std::min({w.x[0], w.x[1], w.x[2]}) / cell));
+            const int c1 = static_cast<int>(std::floor(std::max({w.x[0], w.x[1], w.x[2]}) / cell));
+            const int r0 = static_cast<int>(std::floor(std::min({w.z[0], w.z[1], w.z[2]}) / cell));
+            const int r1 = static_cast<int>(std::floor(std::max({w.z[0], w.z[1], w.z[2]}) / cell));
+            if ((c1 - c0 + 1) * (r1 - r0 + 1) > 4096) continue;
+            for (int c = c0; c <= c1; c++) for (int r = r0; r <= r1; r++) buckets[{c, r}].push_back(i);
+        }
+        const auto inside = [](const GroundTri& w, float px, float pz) {
+            const float d = (w.z[1] - w.z[2]) * (w.x[0] - w.x[2]) + (w.x[2] - w.x[1]) * (w.z[0] - w.z[2]);
+            if (std::fabs(d) < 1e-6f) return false;
+            const float l1 = ((w.z[1] - w.z[2]) * (px - w.x[2]) + (w.x[2] - w.x[1]) * (pz - w.z[2])) / d;
+            const float l2 = ((w.z[2] - w.z[0]) * (px - w.x[2]) + (w.x[0] - w.x[2]) * (pz - w.z[2])) / d;
+            return l1 >= 0 && l2 >= 0 && 1 - l1 - l2 >= 0;
+        };
+        int wet = 0;
+        for (GroundTri& g : ground) {
+            const float cx = (g.x[0] + g.x[1] + g.x[2]) / 3, cz = (g.z[0] + g.z[1] + g.z[2]) / 3;
+            const auto it = buckets.find({static_cast<int>(std::floor(cx / cell)), static_cast<int>(std::floor(cz / cell))});
+            if (it == buckets.end()) continue;
+            for (int i : it->second) {
+                if (surfaces[i].y > g.y + 1.0f && inside(surfaces[i], cx, cz)) {
+                    g.water = true;
+                    wet++;
+                    break;
+                }
+            }
+        }
+        info += ", " + std::to_string(wet) + " under water";
+    }
+    tris = std::move(ground);
+    info += ", " + std::to_string(tris.size()) + " ground (" + std::to_string(water) + " water surfaces)";
     if (!tris.empty()) g_ground[stage][room] = std::move(tris);
 }
 
@@ -587,9 +628,12 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
                 if (!known) g_icons[stage].push_back(icon);
             }
         }
-        // The map: MPAT, or one of its story layers (MPA0..MPA9, MPAa..MPAe: dStage_setLayerTagName).
+        // The map (MPAT, MPA0); for Past Sacred Grove (F_SP117 room 2) also its other story layers
+        // (MPA1..MPAe: dStage_setLayerTagName), where its map is kept.
         const char layer = static_cast<char>(node[3]);
-        if (roomNo < 0 || std::memcmp(node, "MPA", 3) != 0 || !(layer == 'T' || (layer >= '0' && layer <= '9') || (layer >= 'a' && layer <= 'e'))) continue;
+        const bool layered = stage == "F_SP117" && roomNo == 2 && std::memcmp(node, "MPA", 3) == 0 &&
+                             ((layer >= '1' && layer <= '9') || (layer >= 'a' && layer <= 'e'));
+        if (roomNo < 0 || (std::memcmp(node, "MPAT", 4) != 0 && std::memcmp(node, "MPA0", 4) != 0 && !layered)) continue;
         if (g_maps[stage].count(roomNo)) continue;
         // The chunk's data is the room's map itself (dStage_mapPathInit: the node's count and
         // offset read as a map_path_class); other layouts are tried in case.

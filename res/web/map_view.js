@@ -255,6 +255,13 @@ export function twilightMotes() {
   return box;
 }
 
+// Overworld places whose map data keeps parts for before and after a story event (Bulblin Camp,
+// before and after it is taken): every part shown on their map.
+const ALL_PARTS = new Set(["F_SP118"]);
+// Overworld stages drawn from the mod's maps of the game files rather than the overworld map data
+// (the Sacred Grove: Past Sacred Grove's own map, the ground of the others).
+const OWN_MAPS = new Set(["F_SP117"]);
+
 const floorLabel = (n) => (n >= 0 ? `${n + 1}F` : `B${-n}`);
 
 // Rooms the game keeps apart that the page shows as one place, each room a floor of it (Link's
@@ -819,7 +826,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // A room of the overworld the game has no map for (the Sacred Grove's): its ground from the
     // game files (the mod draws it from the room's collision).
     let ground = null;
-    if (!map.stage.startsWith("D_") && !(map.rooms ?? []).some((r) => r.no === player.stayRoom && shaped(r) && !partial(r))) {
+    if (!map.stage.startsWith("D_") && !(map.rooms ?? []).some((r) => r.no === player.stayRoom && shaped(r) && (!partial(r) || ALL_PARTS.has(map.stage)))) {
       ground = stageMap(map.stage)?.rooms?.find((r) => r.no === player.stayRoom && r.ground) ?? null;
     }
     if (!map.exists && !ground) return message("This place has no map.");
@@ -916,7 +923,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     "F_SP121/1+6+15": "Faron Field",
     "F_SP121/0+2+3+4+5+7": "Eldin Field",
     "F_SP121/9+10+11+12+13+14": "Lanayru Field",
-    "F_SP117/1": "Master Sword Pedestal",
+    "F_SP117/1": "Sacred Grove",
     "F_SP117/2": "Past Sacred Grove",
     "F_SP117/3": "Lost Woods",
   };
@@ -2601,16 +2608,20 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   function withGround(stageName, rooms, place = null) {
     const own = stageMap(stageName)?.rooms ?? [];
     const ground = (r) => own.find((o) => o.no === r.no && o.ground);
-    let out = rooms.map((r) => ((!shaped(r) || partial(r)) && ground(r) ? ground(r) : r));
+    // (A place whose parts are all shown keeps its map data.)
+    const whole = ALL_PARTS.has(stageName);
+    // (The Sacred Grove's rooms: their map from the game files always, Past Sacred Grove's own map
+    // or the ground.)
+    if (OWN_MAPS.has(stageName)) return rooms.map((r) => own.find((o) => o.no === r.no && shaped(o)) ?? r);
+    let out = rooms.map((r) => ((!shaped(r) || (partial(r) && !whole)) && ground(r) ? ground(r) : r));
     if (place && place.part === undefined) out = [...out, ...missingGround(stageName, own)];
     return out;
   }
-  // The stage's rooms the overworld map data leaves out (Bulblin Camp in F_SP118), from the game
-  // files: their own map, or their ground.
+  // The stage's rooms the overworld map data leaves out, from their own map in the game files.
   function missingGround(stageName, own = stageMap(stageName)?.rooms ?? []) {
     if ((places?.singleRooms ?? []).includes(stageName)) return [];
     const listed = new Set((field?.regions ?? []).flatMap((r) => r.stages.filter((st) => st.name === stageName).flatMap((st) => st.rooms.map((x) => x.no))));
-    return own.filter((o) => !listed.has(o.no) && shaped(o));
+    return own.filter((o) => !listed.has(o.no) && !o.ground && shaped(o));
   }
 
   function renderArea() {
@@ -2660,7 +2671,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       // rooms), as this view is for finding and placing checks. The overworld's places as the field
       // map data shows them (water and bridges by the save's switches), dungeons as the game does.
       rooms: rooms.map((r) => ({ ...r, layer: 0, visited: true,
-        floors: stage || name.startsWith("D_MN") ? r.floors : r.floors.map((f) => ({ ...f, groups: f.groups.map((g) => ({ ...g, shown: true })) })) })), bounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 } };
+        floors: (stage && !ALL_PARTS.has(name)) || name.startsWith("D_MN") ? r.floors : r.floors.map((f) => ({ ...f, groups: f.groups.map((g) => ({ ...g, shown: true })) })) })), bounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 } };
     try {
       const floors = [...new Set(map.rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
       const opened = onlyRooms ? mergedGroup(name, onlyRooms[0])?.[onlyRooms[0]] : undefined;
