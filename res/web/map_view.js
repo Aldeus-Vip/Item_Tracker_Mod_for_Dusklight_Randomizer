@@ -828,7 +828,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // game files (the mod draws it from the room's collision).
     let ground = null;
     if (OWN_MAPS.has(`${map.stage}/${player.stayRoom}`)) {
-      ground = stageMap(map.stage)?.rooms?.find((r) => r.no === player.stayRoom && shaped(r)) ?? null;
+      ground = ownMap(map.stage, player.stayRoom);
     }
     if (!map.exists && !ground) return message("This place has no map.");
     const dungeon = map.stage.startsWith("D_");
@@ -1898,9 +1898,10 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         pos = { x: sp[2], z: sp[3], floor: roomFloor(at.stage, sp[0], sp[4]) };
       }
       if (floor !== null && pos.floor !== floor) continue;
-      // One plate per place it leads to (a building's two doors: one).
+      // One plate per place it leads to (a building's two doors: one); an entrance added by hand
+      // always has its own.
       const id = sidePlaceId(to, toArea);
-      if (seen.has(id)) continue;
+      if (seen.has(id) && !at.added) continue;
       seen.add(id);
       plate(at.added ? `added:${at.added.id}` : `${at.stage}/${at.room}>${id}`, to, toArea, kind, pos, at.added ?? null);
     }
@@ -2599,8 +2600,14 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // Past Sacred Grove and the Lost Woods: their map from the game files (OWN_MAPS); every other
   // room as the overworld map data has it.
   function withGround(stageName, rooms) {
-    const own = stageMap(stageName)?.rooms ?? [];
-    return rooms.map((r) => (OWN_MAPS.has(`${stageName}/${r.no}`) ? own.find((o) => o.no === r.no && shaped(o)) ?? r : r));
+    return rooms.map((r) => (OWN_MAPS.has(`${stageName}/${r.no}`) ? ownMap(stageName, r.no) ?? r : r));
+  }
+  // Such a room's map from the game files, every part shown (Past Sacred Grove's parts are tied to
+  // switches the page does not follow).
+  const hasShapes = (r) => (r.floors ?? []).some((f) => (f.groups ?? []).some((g) => g.polys?.length));
+  function ownMap(stageName, no) {
+    const own = (stageMap(stageName)?.rooms ?? []).find((o) => o.no === no && hasShapes(o));
+    return own ? { ...own, floors: own.floors.map((f) => ({ ...f, groups: f.groups.map((g) => ({ ...g, shown: true })) })) } : null;
   }
 
   function renderArea() {

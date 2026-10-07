@@ -180,7 +180,10 @@
   and outlines like the game's maps; water (from the room's poly codes) is shown on the ground
   under the water's surface, in the color of Lake Hylia's. Every other overworld map is drawn from
   the game's map data as before.
-- Past Sacred Grove is drawn from its own map (kept in a story layer of its room file).
+- Past Sacred Grove is drawn from its own map (kept in a story layer of its room file), every
+  part of it shown.
+- An entrance added by hand always has its own plate, also when another entrance on the map
+  leads to the same place.
 - Bulblin Camp's place shows every part of its map data (before and after the camp is taken).
 - Overworld rooms the overworld map data leaves out (F_SP118's room 2) are drawn from the ground
   with their place; a room whose map data shows nothing (only hidden parts) is drawn from the
