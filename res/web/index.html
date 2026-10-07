@@ -46,6 +46,13 @@
           <label title="The map shows the region picked in Checks, and Checks the region of the place the map shows"><input type="checkbox" id="link-map"> Link Checks and Map</label>
         </div>
         <div class="opt-row">
+          <span class="opt-label">Clicks on a check</span>
+          <select id="click-mode" aria-label="Clicks on a check" title="In Checks and on the map: which mouse button shows a check's requirement and which only highlights it">
+            <option value="left-req">Click: requirement · Right-click: highlight</option>
+            <option value="left-highlight">Click: highlight · Right-click: requirement</option>
+          </select>
+        </div>
+        <div class="opt-row">
           <span class="opt-label">Font</span>
           <select id="font-family" aria-label="Font">
             <option value="default">Standard</option>

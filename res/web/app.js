@@ -491,6 +491,9 @@ const DEFAULT_SETTINGS = {
   font: { family: "default", scope: "titles", rev: 0 },
   // Checks and Map follow each other's region.
   linkMap: true,
+  // Clicks on a check (Checks and Map): "left-req" (click: requirement, right-click: highlight)
+  // or "left-highlight" (the other way round).
+  clickMode: "left-req",
   // The Map's entrance plates moved by hand ({ [plate]: { x, z } }) and entrances added by hand.
   entranceFixes: { moved: {}, added: [] },
 };
@@ -539,6 +542,7 @@ function normalizeSettings(raw) {
   }
   if (ff && typeof ff === "object") out.frameFill.glow = Math.max(0, Math.min(1, Number.isFinite(Number(ff.glow)) ? Number(ff.glow) : 1));
   out.linkMap = raw?.linkMap !== false;
+  out.clickMode = raw?.clickMode === "left-highlight" ? "left-highlight" : "left-req";
   const fo = raw?.font;
   if (fo && typeof fo === "object") {
     out.font.family = ["default", "oldenglish", "custom"].includes(fo.family) ? fo.family : "default";
@@ -629,6 +633,7 @@ function applySettings() {
   document.getElementById("font-scope").disabled = !face;
   document.getElementById("font-upload").hidden = fo.family !== "custom";
   document.getElementById("link-map").checked = settings.linkMap;
+  document.getElementById("click-mode").value = settings.clickMode;
 }
 
 let renderedIcons = null; // icon source the views were last drawn with
@@ -729,6 +734,12 @@ document.getElementById("font-family").addEventListener("change", (e) => {
 document.getElementById("link-map").addEventListener("change", (e) => {
   settings.linkMap = e.target.checked;
   saveSettings();
+});
+document.getElementById("click-mode").addEventListener("change", (e) => {
+  settings.clickMode = e.target.value === "left-highlight" ? "left-highlight" : "left-req";
+  saveSettings();
+  locationsView.refresh();
+  mapView?.redraw();
 });
 document.getElementById("font-scope").addEventListener("change", (e) => {
   settings.font.scope = e.target.value;
@@ -1169,8 +1180,10 @@ const locationsView = createLocationsView(locChecks, {
   },
   showOnMap(name) {
     if (locSplit.dataset.tab === "checks") showLocTab("map");
-    mapView?.showCheck(name);
+    // (Only shown and highlighted: no requirement.)
+    mapView?.showCheck(name, false);
   },
+  clickMode: () => settings.clickMode,
 });
 mapView = createMapView(locMap, {
   getState: () => state,
@@ -1198,6 +1211,7 @@ mapView = createMapView(locMap, {
     setFocused: (name) => locationsView.setFocused(name, settings.linkMap),
     // Checks and Map linked: the requirement shown on both sides.
     linked: () => settings.linkMap,
+    clickMode: () => settings.clickMode,
     reqView: (name) => locationsView.requirementView(name),
     showDetail: (name) => locationsView.showDetail(name),
     closeDetail: (name) => locationsView.closeDetail(name),

@@ -18,6 +18,10 @@
 - Resting the pointer on a check shows its requirement beside it (no click needed).
 - Options opens as a window over the page: its button opens and closes it, and so does a click
   outside it (or Escape).
+- **Clicks on a check** (Options › Display), the same in Checks and on the map: click shows its
+  requirement and right-click highlights it (the default), or the other way round. A
+  double-click (to the map, or to Checks) only shows and highlights the check, without its
+  requirement.
 - With Checks and Map linked, a check is highlighted on both sides. Checks: right-click highlights
   it and the map goes to its place (centered, zoomed in), left-click also shows its requirement
   over the map. Map: clicking a check highlights it in Checks (no requirement); clicking the picked

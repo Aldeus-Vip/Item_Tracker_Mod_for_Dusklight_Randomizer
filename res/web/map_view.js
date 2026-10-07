@@ -2004,33 +2004,54 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const placeFloor = roomFloor(map.stage, place.room, place.floor);
       if (!info || (floor !== null && placeFloor !== undefined && placeFloor !== floor)) continue;
       if (place.room >= 0 && !drawn.has(place.room)) continue;
+      const leftReq = (checkSource.clickMode?.() ?? "left-req") === "left-req";
       const node = el("button", { type: "button", className: `map-check ${info.status}`,
-        title: `${info.name}\nClick: details under the map · Right-click: highlight · Double-click: show in Checks` },
+        title: `${info.name}\n${leftReq ? "Click: requirement · Right-click: highlight" : "Click: highlight · Right-click: requirement"} · Double-click: show in Checks` },
         el("span", { className: "loc-dot" }));
       node.addEventListener("pointerdown", (e) => e.stopPropagation());
       node.addEventListener("pointerup", (e) => e.stopPropagation());
-      node.addEventListener("click", (e) => {
-        e.stopPropagation();
+      // Highlighted (picked) here and in Checks, again to unhighlight; or its requirement shown too
+      // (Options › Display › Clicks on a check: which button does which).
+      const highlight = () => {
+        if (reqName === info.name && !root.querySelector(".map-detail-pop:not([hidden])")) return unpick();
         if (reqName !== info.name) checkSource.unmount();
-        // Linked: only highlighted, here and in Checks (no requirement).
         if (checkSource.linked?.()) {
           hideReqView();
-          if (reqName !== info.name) checkSource.closeDetail?.();
+          checkSource.closeDetail?.();
+        } else {
+          checkSource.unmount();
         }
         reqName = info.name;
         checkSource.setFocused(info.name);
         updatePick(true);
         updateChecks();
+      };
+      const requirement = () => {
+        if (reqName !== info.name) checkSource.unmount();
+        reqName = info.name;
+        checkSource.setFocused(info.name);
+        updatePick(true);
+        updateChecks();
+        showReq(true);
+      };
+      let clickTimer = null;
+      node.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // A moment later, so a double-click (the check in Checks) does not do it first.
+        if (e.detail > 1) return;
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(leftReq ? requirement : highlight, 250);
       });
       node.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (reqName === info.name) return unpick();
-        checkSource.setFocused(checkSource.focused() === info.name ? null : info.name);
-        updateChecks();
+        (leftReq ? highlight : requirement)();
       });
       node.addEventListener("dblclick", (e) => {
         e.stopPropagation();
+        clearTimeout(clickTimer);
+        // Picked here too, without its requirement.
+        if (reqName !== info.name) highlight();
         checkSource.jump(info.name);
       });
       node.hidden = !checkFilter.has(info.status);
@@ -2951,6 +2972,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   return {
     setVisible,
     render,
+    // Drawn again (a setting its markers use changed).
+    redraw() {
+      sceneKey = "";
+      render();
+    },
     showCheck,
     // Where the game places a check (stage and room), once the game files are read.
     placeOf: (key) => placeFor(key),

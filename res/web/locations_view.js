@@ -127,7 +127,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {}, onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {} }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {}, onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {}, clickMode = () => "left-req" }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -668,26 +668,19 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       type: "button",
       className: `loc-row plate ${r}` + (loc.name === focused ? " selected" : ""),
       title: { obtained: "Obtained", checked: "Marked as checked", reachable: "Reachable now", blocked: "Not reachable yet", excluded: "Excluded location", unknown: "Not obtained" }[r]
+        + (clickMode() === "left-req" ? " · Click: requirement · Right-click: highlight" : " · Click: highlight · Right-click: requirement")
         + (showOnMap ? " · Double-click: show on the map" : ""),
       onclick: (e) => {
-        // Shown a moment later, so a double-click (the check on the map) is not taken by the
+        // Done a moment later, so a double-click (the check on the map) is not taken by the
         // requirement panel opening over the row.
         if (e.detail > 1) return;
         clearTimeout(rowClickTimer);
-        rowClickTimer = setTimeout(() => {
-          setFocus(loc.name);
-          onFocus(loc.name, true);
-          // Under the map while that is on screen (Checks + Map); otherwise the panel of the list.
-          const host = editing?.host?.isConnected && editing.host.offsetParent !== null ? editing.host : null;
-          if (host) mountDetail(host, loc.name, { row: editing.withRow });
-          else openDetail(loc.name);
-        }, showOnMap ? 280 : 0);
+        rowClickTimer = setTimeout(() => (clickMode() === "left-req" ? showRequirement(loc) : toggleHighlight(loc)), showOnMap ? 280 : 0);
       },
       oncontextmenu: (e) => {
         e.preventDefault();
-        setFocus(focused === loc.name ? null : loc.name);
-        onFocus(focused, false);
-        render();
+        if (clickMode() === "left-req") toggleHighlight(loc);
+        else showRequirement(loc);
       },
       ondblclick: showOnMap ? () => {
         clearTimeout(rowClickTimer);
@@ -699,6 +692,22 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       return item ? el("span", { className: "loc-found", textContent: item, title: `Holds: ${item}` }) : null;
     })(),
     overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null);
+  }
+
+  // A check highlighted (again: no longer), and the map told (Checks and Map linked).
+  function toggleHighlight(loc) {
+    setFocus(focused === loc.name ? null : loc.name);
+    onFocus(focused, false);
+    render();
+  }
+  // A check highlighted with its requirement shown.
+  function showRequirement(loc) {
+    setFocus(loc.name);
+    onFocus(loc.name, true);
+    // Under the map while that is on screen (Checks + Map); otherwise the panel of the list.
+    const host = editing?.host?.isConnected && editing.host.offsetParent !== null ? editing.host : null;
+    if (host) mountDetail(host, loc.name, { row: editing.withRow });
+    else openDetail(loc.name);
   }
 
   // The area a check is in: the logic region of the room the game places it in (or its shop's).
