@@ -36,7 +36,7 @@
 - Map entrances: an icon on the entrance's point (the dungeon entrance icon from the game's map
   screen) with its count of checks above; on hover, a plate like the game's place names (a dark
   olive bar edged in gold with a gold scroll) with the place's name and count. A plate moves with
-  right-click › Move; **+ Entrance** (Advanced) adds one where the randomizer data has none,
+  right-click › Move or Remove (removed ones can be brought back under the map); **+ Entrance** (Advanced) adds one where the randomizer data has none,
   leading to a place of the mod's maps. An overworld place's count includes the houses, caves and
   grottos entered from it. An entrance whose other end is on the same map (even a room not
   visited yet) has no plate. The other parts of an overworld stage the map shows apart (Hyrule
@@ -176,6 +176,12 @@
   are gone).
 
 ### Fixed
+- Maps drawn from the ground (Sacred Grove, Past Sacred Grove, Lost Woods) are drawn from the
+  collision's own triangles, with straight edges and outlines like the game's maps, and water in
+  the color of Lake Hylia's (from the rooms' poly codes). A room the overworld map data draws only
+  in part (the Master Sword's clearing) is drawn from the ground.
+- Rooms whose map is kept in a story layer of the room file (Bulblin Camp, F_SP118 room 2) are read
+  and drawn with their place.
 - Overworld rooms the overworld map data leaves out (F_SP118's room 2) are drawn from the ground
   with their place; a room whose map data shows nothing (only hidden parts) is drawn from the
   ground too.

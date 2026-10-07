@@ -495,7 +495,7 @@ const DEFAULT_SETTINGS = {
   // or "left-highlight" (the other way round).
   clickMode: "left-req",
   // The Map's entrance plates moved by hand ({ [plate]: { x, z } }) and entrances added by hand.
-  entranceFixes: { moved: {}, added: [] },
+  entranceFixes: { moved: {}, added: [], hidden: [] },
 };
 let settings = structuredClone(DEFAULT_SETTINGS);
 const themeBar = document.getElementById("theme-bar");
@@ -558,6 +558,9 @@ function normalizeSettings(raw) {
   const areaOk = (v) => typeof v === "string" && v.length <= 100;
   for (const [key, m] of Object.entries(ef?.moved ?? {})) {
     if (key.length <= 200 && m && Number.isFinite(Number(m.x)) && Number.isFinite(Number(m.z))) out.entranceFixes.moved[key] = { x: Number(m.x), z: Number(m.z) };
+  }
+  for (const key of Array.isArray(ef?.hidden) ? ef.hidden.slice(0, 1000) : []) {
+    if (typeof key === "string" && key.length <= 200 && !out.entranceFixes.hidden.includes(key)) out.entranceFixes.hidden.push(key);
   }
   for (const a of Array.isArray(ef?.added) ? ef.added.slice(0, 500) : []) {
     if (!a || typeof a.id !== "string" || a.id.length > 20 || !stageOk(a.stage) || !roomOk(a.room) || !stageOk(a.to?.stage) || !roomOk(a.to?.room)) continue;

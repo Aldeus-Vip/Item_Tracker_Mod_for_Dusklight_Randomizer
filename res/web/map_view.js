@@ -819,7 +819,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // A room of the overworld the game has no map for (the Sacred Grove's): its ground from the
     // game files (the mod draws it from the room's collision).
     let ground = null;
-    if (!map.stage.startsWith("D_") && !(map.rooms ?? []).some((r) => r.no === player.stayRoom && shaped(r))) {
+    if (!map.stage.startsWith("D_") && !(map.rooms ?? []).some((r) => r.no === player.stayRoom && shaped(r) && !partial(r))) {
       ground = stageMap(map.stage)?.rooms?.find((r) => r.no === player.stayRoom && r.ground) ?? null;
     }
     if (!map.exists && !ground) return message("This place has no map.");
@@ -1082,6 +1082,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       caption ? el("div", { className: "map-caption", textContent: caption }) : null,
       checkSource ? checkNote() : null,
       checkSource ? placedList() : null,
+      checkSource ? removedEntrances() : null,
       noticeBox()));
     if (view) view = clampView(view);
     applyView();
@@ -1279,6 +1280,21 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     return el("div", { className: "map-place-line" },
       el("span", { textContent: `${at.stage} · ` }), pick,
       el("span", { textContent: ` · x ${Math.round(at.x)}, z ${Math.round(at.z)} · floor ${at.floor ?? 0} · ${from}` }));
+  }
+
+  // Entrances removed from the maps by hand: brought back (under the map, Advanced).
+  function removedEntrances() {
+    const hidden = entranceFixes().hidden ?? [];
+    if (!hidden.length) return null;
+    return el("div", { className: "map-check-note adv-only" },
+      `${hidden.length} entrance${hidden.length > 1 ? "s" : ""} removed by hand · `,
+      el("button", { type: "button", className: "map-place", textContent: "Bring them back", onclick: () => {
+        const next = structuredClone(entranceFixes());
+        next.hidden = [];
+        checkSource?.setEntranceFixes?.(next);
+        sceneKey = "";
+        render();
+      } }));
   }
 
   // Every check placed by hand, with its map, room and coordinates (under the map, Advanced).
@@ -1822,6 +1838,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const out = [];
     const seen = new Set();
     const plate = (key, to, toArea, kind, pos, added = null) => {
+      // (Removed by hand.)
+      if (!added && fixes.hidden?.includes(key)) return;
       const moved = fixes.moved?.[key];
       const at = moved ? { x: moved.x, y: moved.z } : { x: pos.x, y: pos.z };
       const title = sideTitle(to, toArea);
@@ -1950,12 +1968,16 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
           save(next);
         });
       }) : null,
-      added ? item("Remove", "Remove this entrance", () => {
+      item("Remove", added ? "Remove this entrance" : "Remove this entrance from the map (it can be brought back under the map)", () => {
         const next = structuredClone(fixes);
-        next.added = next.added.filter((x) => x.id !== added.id);
+        next.moved ??= {};
+        next.added ??= [];
+        next.hidden ??= [];
+        if (added) next.added = next.added.filter((x) => x.id !== added.id);
+        else if (!next.hidden.includes(key)) next.hidden.push(key);
         delete next.moved[key];
         save(next);
-      }) : null,
+      }),
       item("Cancel", "", () => closeEntranceMenu()));
     menu.addEventListener("pointerdown", (e) => e.stopPropagation());
     menu.addEventListener("pointerup", (e) => e.stopPropagation());
@@ -2573,16 +2595,22 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // Rooms of the overworld with nothing to draw (the Sacred Grove's): their ground from the game
   // files instead (the mod draws it from the room's collision). With place (a province's part of
   // a stage), also the stage's rooms the overworld map data leaves out (F_SP118's room 2).
+  // A room drawn only in part (some of its shapes hidden: the Master Sword's clearing) is drawn
+  // from the ground too, when the game files have it.
+  const partial = (r) => (r.floors ?? []).some((f) => (f.groups ?? []).some((g) => g.shown === false && g.polys?.length));
   function withGround(stageName, rooms, place = null) {
     const own = stageMap(stageName)?.rooms ?? [];
-    let out = rooms.every(shaped) ? rooms : rooms.map((r) => (shaped(r) ? r : own.find((o) => o.no === r.no && o.ground) ?? r));
+    const ground = (r) => own.find((o) => o.no === r.no && o.ground);
+    let out = rooms.map((r) => ((!shaped(r) || partial(r)) && ground(r) ? ground(r) : r));
     if (place && place.part === undefined) out = [...out, ...missingGround(stageName, own)];
     return out;
   }
+  // The stage's rooms the overworld map data leaves out (Bulblin Camp in F_SP118), from the game
+  // files: their own map, or their ground.
   function missingGround(stageName, own = stageMap(stageName)?.rooms ?? []) {
     if ((places?.singleRooms ?? []).includes(stageName)) return [];
     const listed = new Set((field?.regions ?? []).flatMap((r) => r.stages.filter((st) => st.name === stageName).flatMap((st) => st.rooms.map((x) => x.no))));
-    return own.filter((o) => o.ground && !listed.has(o.no));
+    return own.filter((o) => !listed.has(o.no) && shaped(o));
   }
 
   function renderArea() {

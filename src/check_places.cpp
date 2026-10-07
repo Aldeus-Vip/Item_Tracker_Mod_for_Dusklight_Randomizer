@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 12";
+constexpr const char* kCacheVersion = "check-places 13";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -162,74 +162,16 @@ struct Spawn {
 };
 std::map<std::string, std::vector<Spawn>> g_spawns;
 // Overworld rooms the game has no map for (the Sacred Grove's): their ground from the room's
-// collision (room.dzb), as rectangles of a grid in room coordinates (x0, z0, x1, z1), made into a
-// map once all is read (finish_ground_maps).
-std::map<std::string, std::map<int, std::vector<std::array<float, 4>>>> g_ground;
-// What was found for each overworld room's ground (its files, triangles, rectangles), shown on the
-// debug page.
-std::map<std::string, std::map<int, std::string>> g_groundInfo;
-
-// A triangle of a room's ground, on the map's plane.
+// collision (room.dzb or room.kcl), its triangles facing up in room coordinates (x, z; water marked),
+// made into a map once all is read (finish_ground_maps).
 struct GroundTri {
     float x[3];
     float z[3];
+    bool water = false;
 };
-
-// The ground triangles into a grid of up to 160 cells across, each row's runs of cells as
-// rectangles (the room's ground map).
-void ground_from_tris(const std::string& stage, int room, const std::vector<GroundTri>& tris, std::string& info) {
-    info += ", " + std::to_string(tris.size()) + " ground";
-    if (tris.empty()) return;
-    float minX = 1e30f, minZ = 1e30f, maxX = -1e30f, maxZ = -1e30f;
-    for (const GroundTri& t : tris) {
-        for (int k = 0; k < 3; k++) {
-            minX = std::min(minX, t.x[k]);
-            maxX = std::max(maxX, t.x[k]);
-            minZ = std::min(minZ, t.z[k]);
-            maxZ = std::max(maxZ, t.z[k]);
-        }
-    }
-    const float cell = std::max(40.0f, std::max(maxX - minX, maxZ - minZ) / 160.0f);
-    const int cols = static_cast<int>((maxX - minX) / cell) + 1;
-    const int rows = static_cast<int>((maxZ - minZ) / cell) + 1;
-    if (cols > 400 || rows > 400) {
-        info += " (too large)";
-        return;
-    }
-    std::vector<uint8_t> grid(static_cast<size_t>(cols) * rows, 0);
-    for (const GroundTri& t : tris) {
-        const int c0 = std::max(0, static_cast<int>((std::min({t.x[0], t.x[1], t.x[2]}) - minX) / cell));
-        const int c1 = std::min(cols - 1, static_cast<int>((std::max({t.x[0], t.x[1], t.x[2]}) - minX) / cell));
-        const int r0 = std::max(0, static_cast<int>((std::min({t.z[0], t.z[1], t.z[2]}) - minZ) / cell));
-        const int r1 = std::min(rows - 1, static_cast<int>((std::max({t.z[0], t.z[1], t.z[2]}) - minZ) / cell));
-        const float d = (t.z[1] - t.z[2]) * (t.x[0] - t.x[2]) + (t.x[2] - t.x[1]) * (t.z[0] - t.z[2]);
-        if (std::fabs(d) < 1e-6f) continue;
-        for (int r = r0; r <= r1; r++) {
-            for (int c = c0; c <= c1; c++) {
-                const float px = minX + (c + 0.5f) * cell;
-                const float pz = minZ + (r + 0.5f) * cell;
-                const float l1 = ((t.z[1] - t.z[2]) * (px - t.x[2]) + (t.x[2] - t.x[1]) * (pz - t.z[2])) / d;
-                const float l2 = ((t.z[2] - t.z[0]) * (px - t.x[2]) + (t.x[0] - t.x[2]) * (pz - t.z[2])) / d;
-                if (l1 >= -0.02f && l2 >= -0.02f && 1 - l1 - l2 >= -0.02f) grid[static_cast<size_t>(r) * cols + c] = 1;
-            }
-        }
-    }
-    std::vector<std::array<float, 4>> rects;
-    for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < cols;) {
-            if (!grid[static_cast<size_t>(r) * cols + c]) {
-                c++;
-                continue;
-            }
-            int e = c;
-            while (e < cols && grid[static_cast<size_t>(r) * cols + e]) e++;
-            rects.push_back({minX + c * cell, minZ + r * cell, minX + e * cell, minZ + (r + 1) * cell});
-            c = e;
-        }
-    }
-    info += ", " + std::to_string(rects.size()) + " rectangles";
-    if (!rects.empty()) g_ground[stage][room] = std::move(rects);
-}
+std::map<std::string, std::map<int, std::vector<GroundTri>>> g_ground;
+// What was found for each overworld room's ground (its files, triangles), shown on the debug page.
+std::map<std::string, std::map<int, std::string>> g_groundInfo;
 
 // The walkable ground of a room's collision (cBgD_t: vertices, triangles): triangles facing up.
 void read_ground(const std::string& stage, int room, const std::vector<uint8_t>& dzb) {
@@ -268,12 +210,14 @@ void read_ground(const std::string& stage, int room, const std::vector<uint8_t>&
         if (len < 1e-3f || std::fabs(ny) / len < 0.55f) continue;  // walls and ceilings
         tris.push_back({{a[0], c1[0], c2[0]}, {a[2], c1[2], c2[2]}});
     }
-    ground_from_tris(stage, room, tris, info);
+    info += ", " + std::to_string(tris.size()) + " ground";
+    if (!tris.empty()) g_ground[stage][room] = std::move(tris);
 }
 
-// The same from a room's KCL collision (room.kcl, KC_Header: the Sacred Grove's rooms), its
-// prisms made into triangles as dBgWKCol::GetTriPnt does.
-void read_ground_kcl(const std::string& stage, int room, const std::vector<uint8_t>& kcl) {
+// The same from a room's KCL collision (room.kcl, KC_Header: the Sacred Grove's rooms), its prisms
+// made into triangles as dBgWKCol::GetTriPnt does; water from the room's poly codes (room.plc,
+// sBgPlc: dBgPc::getWtr).
+void read_ground_kcl(const std::string& stage, int room, const std::vector<uint8_t>& kcl, const std::vector<uint8_t>& plc) {
     std::string& info = g_groundInfo[stage][room];
     info += "room.kcl " + std::to_string(kcl.size()) + " bytes";
     if (kcl.size() < 0x38) return;
@@ -285,16 +229,22 @@ void read_ground_kcl(const std::string& stage, int room, const std::vector<uint8
     const uint32_t posNum = count(posOff, nrmOff, 12);
     const uint32_t nrmNum = count(nrmOff, prismOff, 12);
     const uint32_t prismNum = count(prismOff, blockOff, 0x10);
-    info += ", " + std::to_string(posNum) + " points, " + std::to_string(prismNum) + " prisms";
+    // The poly codes: "SPLC", entry size, count, then 0x14-byte entries.
+    const uint32_t codeSize = plc.size() >= 8 ? be16(plc.data() + 4) : 0;
+    const uint32_t codeNum = plc.size() >= 8 ? be16(plc.data() + 6) : 0;
+    const bool codes = codeSize >= 0x14 && 8 + codeSize * codeNum <= plc.size();
+    info += ", " + std::to_string(posNum) + " points, " + std::to_string(prismNum) + " prisms" + (codes ? ", " + std::to_string(codeNum) + " codes" : ", no room.plc");
     using V = std::array<float, 3>;
     const auto vec = [&](uint32_t off, uint32_t i) { const uint8_t* p = b + off + i * 12; return V{befloat(p), befloat(p + 4), befloat(p + 8)}; };
     const auto cross = [](const V& a, const V& c) { return V{a[1] * c[2] - a[2] * c[1], a[2] * c[0] - a[0] * c[2], a[0] * c[1] - a[1] * c[0]}; };
     const auto dot = [](const V& a, const V& c) { return a[0] * c[0] + a[1] * c[1] + a[2] * c[2]; };
     std::vector<GroundTri> tris;
+    int water = 0;
     for (uint32_t i = 0; i < prismNum; i++) {
         const uint8_t* pd = b + prismOff + i * 0x10;
         const float height = befloat(pd);
         const uint32_t pi = be16(pd + 4), fi = be16(pd + 6), e1 = be16(pd + 8), e2 = be16(pd + 0xA), e3 = be16(pd + 0xC);
+        const uint32_t attr = be16(pd + 0xE);
         if (pi >= posNum || fi >= nrmNum || e1 >= nrmNum || e2 >= nrmNum || e3 >= nrmNum) continue;
         const V face = vec(nrmOff, fi);
         if (!(face[1] >= 0.55f) || std::fabs(dot(face, face) - 1.0f) > 0.1f) continue;  // walls, ceilings
@@ -309,16 +259,21 @@ void read_ground_kcl(const std::string& stage, int room, const std::vector<uint8
         const V p2{a[0] + c1[0] * s1, a[1] + c1[1] * s1, a[2] + c1[2] * s1};
         const V p1{a[0] + c2[0] * s2, a[1] + c2[1] * s2, a[2] + c2[2] * s2};
         if (!std::isfinite(p1[0]) || !std::isfinite(p2[0]) || !std::isfinite(p1[2]) || !std::isfinite(p2[2])) continue;
-        tris.push_back({{a[0], p1[0], p2[0]}, {a[2], p1[2], p2[2]}});
+        GroundTri t{{a[0], p1[0], p2[0]}, {a[2], p1[2], p2[2]}};
+        if (codes && attr < codeNum) t.water = (be32(plc.data() + 8 + attr * codeSize + 0x10) & (1u << 8)) != 0;
+        water += t.water ? 1 : 0;
+        tris.push_back(t);
     }
-    ground_from_tris(stage, room, tris, info);
+    info += ", " + std::to_string(tris.size()) + " ground (" + std::to_string(water) + " water)";
+    if (!tris.empty()) g_ground[stage][room] = std::move(tris);
 }
 
 // The ground maps of the rooms with no map of their own, in the map's coordinates (by the rooms'
-// offsets), in the format of the game's maps (one floor, one group of rectangles).
+// offsets), in the format of the game's maps: one floor; water (type 5) under the ground (type
+// 0), each triangle a strip of three; the ground's outline (edges of one triangle only) as lines.
 void finish_ground_maps() {
     for (auto& [stage, rooms] : g_ground) {
-        for (auto& [room, rects] : rooms) {
+        for (auto& [room, tris] : rooms) {
             // A room with a map of its own keeps it, unless that map has nothing to draw.
             const auto own = g_maps[stage].find(room);
             if (own != g_maps[stage].end() && own->second.find(R"("polys":[{)") != std::string::npos) {
@@ -326,6 +281,62 @@ void finish_ground_maps() {
                 continue;
             }
             if (own != g_maps[stage].end()) g_groundInfo[stage][room] += "; its own map (MPAT) has no shapes: the ground is drawn";
+            // Shared points (rounded to a unit), so triangles meet and outlines can be found.
+            std::map<std::pair<int, int>, int> index;
+            std::vector<std::pair<float, float>> points;
+            const auto point = [&](float x, float z) {
+                const std::pair<int, int> k{static_cast<int>(std::lround(x)), static_cast<int>(std::lround(z))};
+                const auto it = index.find(k);
+                if (it != index.end()) return it->second;
+                const int i = static_cast<int>(points.size());
+                index.emplace(k, i);
+                float mx = x, mz = z;
+                to_map(stage, room, mx, mz);
+                points.emplace_back(mx, mz);
+                return i;
+            };
+            struct Tri { int v[3]; bool water; };
+            std::vector<Tri> out;
+            for (const GroundTri& t : tris) {
+                Tri o{{point(t.x[0], t.z[0]), point(t.x[1], t.z[1]), point(t.x[2], t.z[2])}, t.water};
+                if (o.v[0] == o.v[1] || o.v[1] == o.v[2] || o.v[0] == o.v[2]) continue;
+                out.push_back(o);
+            }
+            std::stable_sort(out.begin(), out.end(), [](const Tri& l, const Tri& r) { return l.water > r.water; });
+            // The outline: edges of the ground (not water) used by one triangle only, joined into lines.
+            std::map<std::pair<int, int>, int> edges;
+            for (const Tri& t : out) {
+                if (t.water) continue;
+                for (int k = 0; k < 3; k++) {
+                    const int a = t.v[k], c = t.v[(k + 1) % 3];
+                    edges[{std::min(a, c), std::max(a, c)}]++;
+                }
+            }
+            std::multimap<int, int> next;
+            for (const auto& [e, n] : edges) {
+                if (n != 1) continue;
+                next.emplace(e.first, e.second);
+                next.emplace(e.second, e.first);
+            }
+            std::vector<std::vector<int>> lines;
+            while (!next.empty()) {
+                std::vector<int> line{next.begin()->first};
+                for (;;) {
+                    const auto it = next.find(line.back());
+                    if (it == next.end()) break;
+                    const int to = it->second;
+                    next.erase(it);
+                    for (auto r = next.equal_range(to); r.first != r.second; ++r.first) {
+                        if (r.first->second == line.back()) {
+                            next.erase(r.first);
+                            break;
+                        }
+                    }
+                    line.push_back(to);
+                }
+                if (line.size() >= 2) lines.push_back(std::move(line));
+            }
+            g_groundInfo[stage][room] += "; map: " + std::to_string(out.size()) + " triangles, " + std::to_string(lines.size()) + " outlines";
             JsonWriter w;
             w.beginObject();
             w.member("no", room);
@@ -337,27 +348,30 @@ void finish_ground_maps() {
             w.member("swType", 1);
             w.member("shown", true);
             w.key("polys").beginArray();
-            for (size_t i = 0; i < rects.size(); i++) {
-                const int v = static_cast<int>(i * 4);
+            for (const Tri& t : out) {
                 w.beginObject();
-                w.member("type", 0);
-                w.key("strip").beginArray().value(v).value(v + 1).value(v + 2).value(v + 3).endArray();
+                w.member("type", t.water ? 5 : 0);
+                w.key("strip").beginArray().value(t.v[0]).value(t.v[1]).value(t.v[2]).endArray();
                 w.endObject();
             }
             w.endArray();
-            w.key("lines").beginArray().endArray();
+            w.key("lines").beginArray();
+            for (const auto& line : lines) {
+                w.beginObject();
+                w.member("type", 0);
+                w.member("width", 1);
+                w.key("strip").beginArray();
+                for (int v : line) w.value(v);
+                w.endArray();
+                w.endObject();
+            }
+            w.endArray();
             w.endObject().endArray();
             w.endObject().endArray();
             w.key("vertices").beginArray();
-            for (const auto& r : rects) {
-                const float pts[4][2] = {{r[0], r[1]}, {r[2], r[1]}, {r[0], r[3]}, {r[2], r[3]}};
-                for (const auto& p : pts) {
-                    float x = p[0];
-                    float z = p[1];
-                    to_map(stage, room, x, z);
-                    w.number(x, 0);
-                    w.number(z, 0);
-                }
+            for (const auto& [x, z] : points) {
+                w.number(x, 0);
+                w.number(z, 0);
             }
             w.endArray();
             w.endObject();
@@ -573,7 +587,9 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
                 if (!known) g_icons[stage].push_back(icon);
             }
         }
-        if (roomNo < 0 || (std::memcmp(node, "MPAT", 4) != 0 && std::memcmp(node, "MPA0", 4) != 0)) continue;
+        // The map: MPAT, or one of its story layers (MPA0..MPA9, MPAa..MPAe: dStage_setLayerTagName).
+        const char layer = static_cast<char>(node[3]);
+        if (roomNo < 0 || std::memcmp(node, "MPA", 3) != 0 || !(layer == 'T' || (layer >= '0' && layer <= '9') || (layer >= 'a' && layer <= 'e'))) continue;
         if (g_maps[stage].count(roomNo)) continue;
         // The chunk's data is the room's map itself (dStage_mapPathInit: the node's count and
         // offset read as a map_path_class); other layouts are tried in case.
@@ -598,6 +614,8 @@ void parse_archive(const Job& job) {
         for (const ArcFile& f : rarc_files(*arc)) names += (names.empty() ? "" : " ") + f.name;
         g_groundInfo[job.stage][job.room] = "files: " + names + "; ";
     }
+    std::vector<uint8_t> kcl;
+    std::vector<uint8_t> plc;
     for (const ArcFile& f : rarc_files(*arc)) {
         int room = -2;
         if (f.name == "room.dzb" && job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
@@ -608,12 +626,11 @@ void parse_archive(const Job& job) {
             read_ground(job.stage, job.room, dzb);
             continue;
         }
-        if (f.name == "room.kcl" && job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
-            // ... kept as KCL in some rooms (the Sacred Grove's).
+        if ((f.name == "room.kcl" || f.name == "room.plc") && job.room >= 0 && job.stage.rfind("F_", 0) == 0) {
+            // ... kept as KCL in some rooms (the Sacred Grove's), with its poly codes: read below.
             std::vector<uint8_t> raw(f.data, f.data + f.size);
-            std::vector<uint8_t> kcl;
-            if (!yaz0_decode(raw, kcl)) kcl = std::move(raw);
-            read_ground_kcl(job.stage, job.room, kcl);
+            std::vector<uint8_t>& to = f.name == "room.kcl" ? kcl : plc;
+            if (!yaz0_decode(raw, to)) to = std::move(raw);
             continue;
         }
         if (f.name == "room.dzr" && job.room >= 0) {
@@ -632,6 +649,7 @@ void parse_archive(const Job& job) {
         parse_room_file(job.stage, room, file.data(), static_cast<uint32_t>(file.size()), out);
         parse_room_map(job.stage, room, file.data(), static_cast<uint32_t>(file.size()), job.room == -1);
     }
+    if (!kcl.empty()) read_ground_kcl(job.stage, job.room, kcl, plc);
 }
 
 // Reads a little of the current archive; true when the job is finished (read or skipped).
