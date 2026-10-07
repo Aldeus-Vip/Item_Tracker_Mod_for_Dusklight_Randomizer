@@ -405,6 +405,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       busy = true;
       try {
         player = await (await fetch("map-player", { cache: "no-store" })).json();
+        notePlace(player);
         // In a place made of several rooms (Link's House), the room is the floor.
         const merged = mergedGroup(player.stage, player.stayRoom);
         if (merged) player.stayFloor = merged[player.stayRoom];
@@ -636,6 +637,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   let placing = null;
   // The checks of the grotto shown, when grottos built alike share one map (null: all).
   let checkScope = null;
+  let stageVariant = null; // the grotto Link is in (its logic area), when it shares its room
   function placeAt(at) {
     if (placingEntrance && scene && (scene.kind === "stage" || scene.kind === "area")) return placeEntrance(at);
     if (!placing || !scene || (scene.kind !== "stage" && scene.kind !== "area")) return false;
@@ -874,7 +876,10 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const floor = pickedFloor ?? player.stayFloor ?? floors[floors.length - 1] ?? 0;
     // An overworld place's title: named by hand or by the mod (by its rooms), else its region.
     titleKey = !dungeon && !interior ? fieldKey(map.stage, map.singleRoom || ground ? [player.stayRoom] : extent.map((r) => r.no)) : null;
-    const title = (titleKey && fieldTitle(titleKey)) ?? (isInterior(map.stage) ? roomTitle(map.stage, map.stayRoom) : regionName(map.stage, map.stayRoom)) ?? map.stage;
+    // A grotto sharing its room with others: the one Link entered (its name and only its checks).
+    const grotto = linkVariant();
+    const grottoName = grotto ? (roomVariants?.(map.stage, player.stayRoom) ?? []).find((v) => v.area === grotto)?.name : null;
+    const title = grottoName ?? (titleKey && fieldTitle(titleKey)) ?? (isInterior(map.stage) ? roomTitle(map.stage, map.stayRoom) : regionName(map.stage, map.stayRoom)) ?? map.stage;
     const d = dungeon ? findDungeon(title) : null;
     const items = getState()?.items ?? {};
     const key = JSON.stringify(["stage", mapVersion, map.stage, floor, player.stayRoom, player.stayFloor, player.wolf, title,
@@ -889,12 +894,48 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       } else if (scene && scene.kind !== "stage") {
         view = null;
       }
-      build(dungeon, rooms, floors, floor, title, d, extent, mapCaption(map.stage, interior ? [player.stayRoom] : rooms.map((r) => r.no)));
+      checkScope = grotto && areaChecks ? areaChecks(grotto) : null;
+      stageVariant = grotto;
+      try {
+        build(dungeon, rooms, floors, floor, title, d, extent, mapCaption(map.stage, interior ? [player.stayRoom] : rooms.map((r) => r.no)));
+      } finally {
+        checkScope = null;
+      }
     }
     placeLink();
     updateDoors();
     updateChecks();
     follow();
+  }
+
+  // ---- The grotto Link is in ----
+
+  // Grottos built alike share one room's map: which one Link is in comes from where he entered it
+  // (the place he was in just before, matched with the randomizer's entrances), kept until he
+  // leaves it (also over a reload of the page).
+  const GROTTO_KEY = "tracker.mapGrotto";
+  let herePlace = null; // { stage, room } Link is in
+  let lastPlace = null; // the one before
+  function notePlace(p) {
+    if (!p?.stage || p.loading) return;
+    if (herePlace && herePlace.stage === p.stage && herePlace.room === p.stayRoom) return;
+    lastPlace = herePlace;
+    herePlace = { stage: p.stage, room: p.stayRoom };
+    const variants = roomVariants?.(p.stage, p.stayRoom) ?? [];
+    if (variants.length < 2 || !lastPlace) return;
+    const e = entranceList().find((x) => x.fwd?.stage === p.stage && x.fwd.room === p.stayRoom && x.back?.stage === lastPlace.stage &&
+      (x.back.room < 0 || x.back.room === lastPlace.room) && variants.some((v) => v.area === x.to));
+    if (!e) return;
+    try { localStorage.setItem(GROTTO_KEY, JSON.stringify({ stage: p.stage, room: p.stayRoom, area: e.to })); } catch { /* not kept */ }
+  }
+  // The grotto (its logic area) Link is in, when his room is one several grottos share.
+  function linkVariant() {
+    if (!map?.stage || (roomVariants?.(map.stage, player?.stayRoom) ?? []).length < 2) return null;
+    try {
+      const v = JSON.parse(localStorage.getItem(GROTTO_KEY) ?? "null");
+      if (v && v.stage === map.stage && v.room === player.stayRoom) return v.area;
+    } catch { /* none kept */ }
+    return null;
   }
 
   // Whether a stage is a house, a cave, a grotto...: neither a dungeon nor on the overworld.
@@ -1836,7 +1877,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // The rooms of this map, drawn or to be once visited: an entrance between two of them needs no
     // plate.
     const onMap = new Set([...drawn, ...extent.map((r) => r.no)]);
-    const variant = map.area ? areaPlace?.variant ?? null : null;
+    const variant = map.area ? areaPlace?.variant ?? null : stageVariant;
     const status = new Map(checkSource.list().map((c) => [c.name, c.status]));
     const fixes = entranceFixes();
     const out = [];
@@ -2160,6 +2201,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const drawn = new Set(scene?.rooms ? [...scene.rooms.keys()] : map.rooms.map((r) => r.no));
     const mineStages = new Set(relatedStages(map.stage));
     let mine = checkSource.list().filter((c) => mineStages.has(c.key.split(":")[1]));
+    // A grotto sharing its room: only its own checks.
+    if (checkScope) mine = mine.filter((c) => checkScope.has(c.name));
     // A house, cave or grotto: only the checks of the room shown (a shop's room is in its key).
     if (isInterior(map.stage)) {
       mine = mine.filter((c) => {

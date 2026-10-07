@@ -176,6 +176,9 @@
   are gone).
 
 ### Fixed
+- In a grotto that shares its room's map with other grottos, the map showed every one of their
+  checks: the grotto Link entered is found from the place he came from (the randomizer's
+  entrances), and only its checks and name are shown.
 - The Lost Woods (F_SP117 room 3) are drawn from their collision's triangles, with straight edges
   and outlines like the game's maps; water (from the room's poly codes) is shown on the ground
   under the water's surface, in the color of Lake Hylia's. Every other overworld map is drawn from
