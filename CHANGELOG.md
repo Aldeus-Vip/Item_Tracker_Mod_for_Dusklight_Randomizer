@@ -58,7 +58,8 @@
 ### New: Options and look
 - **Options** (was Theme) opens as a window over the page (its button or a click outside closes
   it), each part in a frame: Display, Theme, Background, Item Background.
-- **Simple / Advanced**: Simple (the default) shows the main things only; custom requirements,
+- **Simple / Advanced**: Simple (the default) shows the main things only (the region filter and
+  By area included); custom requirements,
   Reachable Regions, seeds, placing checks and entrances, renaming places and the map's details
   are under Advanced.
 - **Item Background**: the theme's fill or a color of one's own, its opacity (down to transparent,
