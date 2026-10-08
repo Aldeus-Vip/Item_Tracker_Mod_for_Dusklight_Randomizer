@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 16";
+constexpr const char* kCacheVersion = "check-places 17";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -613,10 +613,18 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
             const uint32_t num = be32(node + 4);
             for (uint32_t i = 0; i < num && data + (i + 1) * 0x14 <= b + size && i < 512; i++) {
                 const uint8_t* e = data + i * 0x14;
-                const int type = e[0x11];
-                // dTres type groups the map screen draws as icons (d_menu_dmap.cpp).
-                // Chests (0) and the boss (3) too: a chest's icon tells its room (resolve_duplicates).
-                if (type != 0 && type != 2 && type != 3 && type != 9 && type != 11 && type != 12 && type != 13 && type != 14 && type != 15 &&
+                // The file keeps the icon's type; the map screen draws by type group
+                // (dTres_c::typeToTypeGroup: 0 chest -> 1, 1 small key -> 2, 2 boss -> 3, 0x80.. -> 9..).
+                static const uint8_t kTypeToGroup[][2] = {{0xFF, 0}, {0x00, 1}, {0x01, 2}, {0x02, 3}, {0x03, 4}, {0x04, 5}, {0x05, 6},
+                                                          {0x06, 7}, {0x07, 8}, {0x80, 9}, {0x81, 10}, {0x82, 11}, {0x83, 12},
+                                                          {0x84, 13}, {0x85, 14}, {0x87, 15}, {0x88, 16}};
+                int type = -1;
+                for (const auto& m : kTypeToGroup) {
+                    if (m[0] == e[0x11]) type = m[1];
+                }
+                // The groups drawn as icons (d_menu_dmap.cpp); chests (1) and the boss (3) too: a
+                // chest's icon tells its room (resolve_duplicates).
+                if (type != 1 && type != 2 && type != 3 && type != 9 && type != 11 && type != 12 && type != 13 && type != 14 && type != 15 &&
                     type != 16) {
                     continue;
                 }
@@ -1165,7 +1173,7 @@ void resolve_duplicates() {
                 for (const Place* q : all) {
                     if (chest && marked == nullptr) {
                         for (const Icon& i : g_icons[stage]) {
-                            if (i.type == 0 && i.room == q->room && static_cast<unsigned>(i.sw) == box) marked = q;
+                            if (i.type == 1 && i.room == q->room && static_cast<unsigned>(i.sw) == box) marked = q;
                         }
                     }
                     if (steady == nullptr && !g_layered.count(stage + "/" + q->key + "/" + std::to_string(q->room))) steady = q;

@@ -79,6 +79,9 @@
 - The items lying around being watched for "seen", and the dungeon map backgrounds read.
 
 ### Fixed
+- Dungeon maps opened from the Dungeons list showed a small key where the boss is, and none of
+  the map screen's other icons: the game files' icon types are now turned into the map screen's
+  icon groups as the game does (the boss icon from the Dungeons tab shows in the boss's room).
 - Crashes on reset, on loading a save and on some stage changes (game memory read while a stage
   loads): the map and the seen-item check read it only while the game is plainly playing.
 - Items seen from below or behind an invisible wall (Faron Field's Female Beetle) were not noted;
