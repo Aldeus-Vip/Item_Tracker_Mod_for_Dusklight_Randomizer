@@ -190,13 +190,13 @@ void check_watched() {
         if (actor == nullptr) return true;  // collected or unloaded
         const f32 distance = fopAcM_searchActorDistance(actor, link);
         const cXyz base = actor->current.pos;
-        // Seen means on the screen: in front of the camera, within its view, and with a clear line
-        // from the camera to the item (hidden under a boulder or behind a wall: not seen yet). The
-        // camera, not Link's eyes: standing at the foot of a cliff, Link cannot see over its edge
-        // but the camera above him shows the golden bug on the tree behind it.
-        // A few points on the item: a little above it, higher up, and drawn toward the camera (an
-        // item on a tree trunk or a wall sits in its surface, where a line to its center stops
-        // short).
+        // Seen means on the screen (in front of the camera and within its view) and in sight from
+        // Link's eyes and from the camera (hidden under a boulder or behind a wall: not seen yet).
+        // Pressed into a boulder, Link's eyes are inside it and the line from them misses its
+        // surface, but the camera behind him is still outside: both lines must be clear.
+        // A few points on the item: a little above it, higher up, and drawn toward Link and the
+        // camera (an item on a tree trunk or a wall sits in its surface, where a line to its center
+        // stops short).
         auto toward = [&base](const cXyz& eye, f32 by) {
             cXyz d = eye - base;
             const f32 len = d.abs();
@@ -210,20 +210,17 @@ void check_watched() {
         // Within about 50 degrees of where the camera looks.
         const bool inView = camera == nullptr || lookLen < 1.0f || toLen < 1.0f ||
                             (look.x * to.x + look.y * to.y + look.z * to.z) / (lookLen * toLen) > 0.64f;
-        // Also where the item is drawn and marked (its eye and attention points, which can sit well
-        // above its place, as a golden bug on a tree), and higher up.
         const cXyz probes[] = {base + cXyz(0.0f, 20.0f, 0.0f), base + cXyz(0.0f, 50.0f, 0.0f),
-                               toward(cameraEye, 40.0f), toward(cameraEye, 90.0f) + cXyz(0.0f, 20.0f, 0.0f),
-                               cXyz(actor->eyePos), cXyz(actor->attention_info.position),
-                               base + cXyz(0.0f, 120.0f, 0.0f), base + cXyz(0.0f, 200.0f, 0.0f)};
+                               toward(link->eyePos, 40.0f) + cXyz(0.0f, 20.0f, 0.0f), toward(link->eyePos, 90.0f),
+                               toward(cameraEye, 40.0f), toward(cameraEye, 90.0f)};
         std::string clear;
         bool seen = false;
         for (const cXyz& target : probes) {
-            const bool ok = !blocked(cameraEye, target, link);
+            const bool ok = !blocked(link->eyePos, target, link) && !blocked(cameraEye, target, link);
             clear += ok ? '1' : '0';
             seen = seen || ok;
         }
-        // Listed checks: near enough and in view is enough (an invisible wall blocks the line).
+        // Listed checks: near enough and in view is enough (an invisible wall blocks the lines).
         if (!g_noSightRead) read_no_sight();
         const bool noSight = g_noSight.count(w.check) != 0;
         seen = (seen || noSight) && inView && distance <= kSeeDistance;

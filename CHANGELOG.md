@@ -93,9 +93,10 @@
   icon groups as the game does (the boss icon from the Dungeons tab shows in the boss's room).
 - Crashes on reset, on loading a save and on some stage changes (game memory read while a stage
   loads): the map and the seen-item check read it only while the game is plainly playing.
-- Items seen from below or behind an invisible wall (Faron Field's Female Beetle) were not noted;
-  items are noted as seen from farther away (3000, was 1500). `seen_without_sight.txt` lists items
-  that need no clear line.
+- Items behind an invisible wall (Faron Field's Female Beetle) were not noted:
+  `seen_without_sight.txt` lists items that need no clear line. Items are noted as seen from
+  farther away (3000, was 1500); other items still need a clear line from both Link's eyes and the
+  camera (a rupee under a boulder is not seen before the boulder breaks).
 - Golden bugs and other items the randomizer changes into another kind were not noted when only
   seen.
 - The mod did not build for Windows, macOS, iOS and Android (Mirror Mode read from a setting mods
