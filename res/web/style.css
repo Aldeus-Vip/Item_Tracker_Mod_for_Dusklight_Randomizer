@@ -1716,3 +1716,5 @@ body.font-fancy :is(.opt-title, .twilight-heading, .map-other-kind > h5, .dungeo
   text-transform: none; letter-spacing: 0.04em; font-size: 1.12em; }
 
 .opt-note { font-size: 12px; color: var(--muted); }
+/* Options: drop-downs stay inside their frame */
+.opt-group select { max-width: 100%; min-width: 0; }
