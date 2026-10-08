@@ -2032,8 +2032,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         next.moved ??= {};
         next.added ??= [];
         next.hidden ??= [];
+        // (An added one also by its key, so a preset's stays removed.)
         if (added) next.added = next.added.filter((x) => x.id !== added.id);
-        else if (!next.hidden.includes(key)) next.hidden.push(key);
+        if (!next.hidden.includes(key)) next.hidden.push(key);
         delete next.moved[key];
         save(next);
       }),

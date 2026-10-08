@@ -17,18 +17,22 @@ a Browser Source. You don't need to install any separate application.
   - quiver and bomb bag upgrades
   - Sky Book characters, Hidden Skills, Poe Souls, Golden Bugs, Fused Shadows and Mirror Shards
 - **Dungeons**: for each dungeon, small keys (including keys already used), the big key or key
-  shards, map, compass, boss and dungeon items.
-- **Locations**: every randomizer check, grouped by region and marked as obtained, reachable or
-  not yet reachable.
+  shards, map, compass, boss and dungeon items, on twilight plates with the dungeon's emblem.
+- **Locations**: every randomizer check, grouped by province and region and marked as obtained,
+  reachable or not yet reachable.
   - Reachability follows the randomizer's own logic and settings.
-  - You can give any check your own requirement.
+  - You can give any check your own requirement, and set the area it is listed under.
   - Turn the logic off when it doesn't fit your seed (e.g. entrance randomizer); the tab then
     shows only obtained and not obtained.
-- **Icons from your game**: the mod builds item icons from your own game data while the game
-  runs. The mod ships no game images.
+- **Map**: the map of where Link is, drawn from the game's own map data, with every check,
+  entrance and dungeon door on it (see [Map](#map)). Checks and Map can be shown side by side and
+  follow each other.
+- **Icons from your game**: the mod builds item icons, map icons and dungeon emblems from your own
+  game data while the game runs. The mod ships no game images.
 - **Fitted names**: long item names in the Items tab shrink to fit their tile.
-- **Customizable**: rearrange tiles, pick a theme or a background image, and change any icon.
-  Every open page (browser and OBS) shows the same settings.
+- **Customizable**: rearrange tiles; pick a theme, a background image, the item background and
+  glow, a font (or upload your own); change any icon. **Simple** display shows the main things
+  only, **Advanced** every tool. Every open page (browser and OBS) shows the same settings.
 
 ## Installing
 
@@ -53,22 +57,63 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Items / Dungeons | Right-click an icon | Open the icon editor (see below) |
 | Items | Click **Golden Bugs** | Show every golden bug (male and female of each kind, as on the game's insect screen), with Agitha's butterfly on the bugs given to her; right-click a bug or the butterfly to change its icon |
 | Items | **Edit** | Rearrange tiles: click two slots or drag one onto another to swap them, add or remove rows, then **Confirm** |
-| Any tab | **Theme** | Choose Twilight, Midna, Hyrule or Shadow, or upload a background image |
+| Any tab | **Options** | Display (Simple / Advanced, Link Checks and Map, Clicks on a check, font, Export customizations), Theme (Twilight, Midna, Hyrule, Shadow), Background image, Item Background (color, opacity, glow). Click the button again or outside to close |
 | Locations | Click a region | Show its checks. In a narrow window the region list and the check list are shown one at a time; use **‹ Back** to return |
-| Locations | Click a check | Show its requirement: parts joined by "and" side by side, alternatives stacked, met parts outlined |
+| Locations | Click a check | Show its requirement: parts joined by "and" side by side, alternatives stacked, met parts outlined (Options › Clicks on a check can swap click and right-click) |
+| Locations | Rest the pointer on a check | Its requirement beside it |
+| Locations | **Area** in a check's panel | List the check under another area (and its province) |
 | Locations | **Customize** / **Edit** | Replace the randomizer logic for that check with your own routes (see below) |
 | Locations | Click a **Map** entry in a requirement | Mark that region reachable, or unmark it, for every check |
 | Locations | Select a check, **Ctrl+C**; select another, **Ctrl+V** | Copy a custom requirement to another check. A popup shows it first; OK has the focus, so **Enter** pastes and **Esc** cancels |
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
 | Locations | **Checks / Map / Checks + Map** | Switch between the check list, the map of where Link is, or both side by side (needs a window at least 900 px wide) |
-| Map | — | The map of the stage Link is in, drawn from the game's own map data: rooms by floor (a dungeon shows the visited rooms, or all once you have its map), Link's position and facing, the room he is in glowing. It follows Link from room to room and floor to floor; click a floor button to look at another floor; click the map (or the arrows beside it) to zoom in, right-click to zoom out, drag to move; the map follows the room Link is in (switch **Follow Link** off to look around freely). On the overworld, zooming out further shows the whole province, then all of Hyrule (the places you have been), as on the game's map screen. Dungeon maps show doors, locks on locked doors, barred doors and the boss's room. Chests, items lying around and poes appear on the map with their check marker (filtered by the boxes above the map): click one for its row and requirement under the map, right-click to highlight it, double-click to find it in Checks (and double-click a check in Checks to see it on the map). The mod reads the game files once to find every check's place. Dungeons show on a worn parchment with their small keys, big key (or key shards), map and compass, and Link's face (or the wolf's) beside his floor; the overworld on a dark hand-drawn map. Right-click those icons to change them. **Field / Dungeons / Other** above the map open any place's map; houses and caves show only the room Link is in, and the map loaded is named under the map. Checks the game files do not place (people, shops, golden wolves, events) can be put on the map by hand: pick the check, then **Place on map** and click the map. With Mirror Mode on, the map is flipped like the game's |
+| Map | Click / right-click / drag | Zoom in, zoom out, move; see [Map](#map) |
 | Locations | **Reachable Regions ▾** | The logic regions by province, each marked reachable or not (marked when Link enters it). Switch one, or a whole province with **All on / All off**. Used by Map entries of custom requirements; kept with the game save |
 | Locations | **Requirements ▾** | **Export / Import Custom Requirements** as JSON, **Load Preset Custom Requirements**, or **Use Randomizer Logic for All** (removes every custom requirement) |
 | Locations | **Seed ▾** | Pick the seed whose spoiler log is used for found items; **Reload Data** reads the seeds and the logic data again |
 | Locations | **Show found items** | Off by default. Show what a found check held (see below). Nothing else of the seed is shown |
 | Locations | **Sort** | Game order, or reachable checks first |
 | Locations | Click the marker left of a check | Mark a check you will not take (a shop item not worth buying, an item you can see but not reach): it shows a sold-out sign and counts as done. Click again to undo; kept with the game save |
+
+### Map
+
+**Locations › Map** (or **Checks + Map**, side by side) shows the map of the stage Link is in, as
+the game's map screen draws it.
+
+- **Following Link**: his position and facing, the room he is in glowing; the map follows him
+  between rooms and floors. **Follow Link** beside the title switches this off.
+- **Zoom**: click (or the arrows beside the map) to zoom in, right-click to zoom out, drag to
+  move. Zooming out of the overworld shows the province, then all of Hyrule.
+- **Other places**: **Field / Dungeons / Other** above the map open any province, dungeon, house,
+  cave or grotto. Rename a place, move it to another province or hide it with ✎.
+- **Dungeons**: doors, locks (open once used), barred doors, the boss's room, the map screen's
+  icons, and the dungeon's keys, map and compass beside the map.
+- **Checks**: chests, items lying around, poes, people and golden wolves where the game files put
+  them, with the check list's markers (**Checks Filter ▾** chooses which). Rest the pointer on one
+  for its name; click / right-click as set in Options; double-click to find it in Checks. Under the
+  map, the place's checks that are elsewhere, with why.
+- **Placing checks**: pick a check, **Place on map** (or **Move on map**), click the map. Its map,
+  room (changeable), coordinates and floor show above the map; under it (Advanced) every check
+  placed by hand.
+- **Entrances**: an icon where each entrance is, with *reachable / left* checks of the place it
+  leads to (for an overworld place, also its houses, caves and grottos). Hover for its name; click
+  for its map (right-click there to come back). Right-click to move or remove it; **+ Entrance**
+  adds one (Advanced).
+- **Grottos** sharing one map show only the checks of the grotto Link is in.
+- **Link Checks and Map** (Options): the region and the check picked on one side are shown on the
+  other.
+- With Mirror Mode on, the map is flipped like the game's.
+
+The mod reads the game files once to find every check and entrance (a bar shows the progress); the
+result is kept in its data folder.
+
+#### Sharing your changes
+
+**Options › Export customizations** (Advanced) saves everything you set by hand — checks' places,
+checks' Areas, entrances moved, added or removed, places renamed — as `map_presets.json`, the
+file the mod ships (`res/web/map_presets.json`). The mod's presets apply to everyone; your own
+changes win over them.
 
 ### Icon editor
 

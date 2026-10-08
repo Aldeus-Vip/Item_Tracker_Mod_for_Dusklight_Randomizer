@@ -3,5 +3,5 @@
   "name": "Dusklight Item Tracker",
   "version": "@PROJECT_VERSION@",
   "author": "Aldeus-Vip",
-  "description": "Automatic item tracker for the Dusklight Randomizer. Open the tracker page in a browser or OBS Browser Source. The Shadow Crystal, Fused Shadow and Mirror Shard icons and the field key backgrounds are original art by the author."
+  "description": "Automatic item and location tracker for the Dusklight Randomizer, with a live map of where Link is: every check, entrance and dungeon door, drawn from your own game data. Open the tracker page in a browser or an OBS Browser Source. The Shadow Crystal, Fused Shadow and Mirror Shard icons, the field key backgrounds and the map's backgrounds are original art by the author."
 }

@@ -190,13 +190,17 @@ ModResult build_panel(ModContext*, UiElementHandle panel, void*, ModError*) {
     svc_ui->pane_add_control(mod_ctx, panel, &copy, nullptr);
 
     svc_ui->pane_add_text(mod_ctx, panel,
-        "Item icons are built from your game data. Right-click an icon on the tracker page to "
-        "use your own image instead.", nullptr);
+        "Item icons, map icons and dungeon emblems are built from your game data. Right-click an "
+        "icon on the tracker page to use your own image instead.", nullptr);
 
     svc_ui->pane_add_section(mod_ctx, panel, "Location tracker");
     svc_ui->pane_add_text(mod_ctx, panel,
         "Check lists and logic are downloaded from the randomizer's public repository "
         "(TwilitRealm/dusklight-randomizer) and stored locally.", nullptr);
+    svc_ui->pane_add_text(mod_ctx, panel,
+        "Locations > Map shows where Link is, with every check and entrance. The mod reads their "
+        "places from your game files once (a bar on the page shows the progress) and keeps the "
+        "result in its data folder.", nullptr);
     svc_ui->pane_add_text(mod_ctx, panel, tracker::rando::status().c_str(), &g_logicStatusText);
     UiControlDesc refresh = UI_CONTROL_DESC_INIT;
     refresh.kind = UI_CONTROL_BUTTON;
