@@ -1530,8 +1530,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       if (mirrored()) x = rect.width - x;
       const y = (at.y - vb.y) / k + (rect.height - vb.height / k) / 2;
       Object.assign(node.style, { width: `${px}px`, height: `${px}px`, transform: `translate(${off + x - px / 2}px, ${offY + y - px / 2}px)` });
-      // (Near an edge, its name plate opens inward.)
+      // (Near an edge, its name plate opens inward: sideways, and below it near the top.)
       node.dataset.edge = off + x < rect.width / 3 ? "left" : off + x > (rect.width * 2) / 3 ? "right" : "";
+      node.dataset.vedge = offY + y < 90 ? "top" : "";
     };
     if (scene.boss) place(scene.boss.node, scene.boss.at, 26 + 4 * Math.log2(view.zoom));
     const checkPx = 16 + 2 * Math.log2(view.zoom);
@@ -1544,6 +1545,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const y = (c.at.y - vb.y) / k + (rect.height - vb.height / k) / 2;
       c.node.style.transform = `translate(${off + x}px, ${offY + y}px) translate(-50%, -50%)`;
       c.node.dataset.edge = off + x < rect.width / 3 ? "left" : off + x > (rect.width * 2) / 3 ? "right" : "";
+      c.node.dataset.vedge = offY + y < 90 ? "top" : "";
     }
   }
 

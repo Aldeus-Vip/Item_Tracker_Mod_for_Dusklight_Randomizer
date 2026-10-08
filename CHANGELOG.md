@@ -23,7 +23,8 @@
 - **Checks on the map**: chests, items lying around, poes, people and golden wolves where the game
   files put them (also where the randomizer adds or moves items), with the check list's markers.
   The mod reads the game files once (a bar shows the progress; the result is kept). **Checks
-  Filter ▾** chooses which markers show. Resting the pointer on a check shows its name on a plate.
+  Filter ▾** chooses which markers show. Resting the pointer on a check shows its name on a plate (opening inward near the map's
+  edges: sideways, and below near the top).
   Under the map: how many of the place's checks are on this map and which are elsewhere, with why.
 - **Place checks by hand**: checks the game files do not place (shops, events, some people) — and
   any other check — can be put on the map: pick it, **Place on map** / **Move on map**, click the
