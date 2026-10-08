@@ -82,6 +82,8 @@
 - The items lying around being watched for "seen", and the dungeon map backgrounds read.
 
 ### Fixed
+- The dungeon map screen's icons (Ooccoo, monkeys, statues, ...) showed on overworld maps too
+  (an Ooccoo in the Sacred Grove): they show on dungeon maps only, as in the game.
 - Dungeon maps opened from the Dungeons list showed a small key where the boss is, and none of
   the map screen's other icons: the game files' icon types are now turned into the map screen's
   icon groups as the game does (the boss icon from the Dungeons tab shows in the boss's room).

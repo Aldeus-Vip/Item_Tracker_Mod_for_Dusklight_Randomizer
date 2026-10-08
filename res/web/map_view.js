@@ -1731,7 +1731,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         out.push({ node, at: { x: c.x, y: c.z } });
       }
     }
-    if (!checkFilter.has("icons")) return out;
+    // The dungeon map screen's icons: only on dungeon maps, as the game draws them (the overworld
+    // map screen shows none of them; Sacred Grove's data has an Ooccoo entry it never draws).
+    if (!checkFilter.has("icons") || !map.stage?.startsWith("D_")) return out;
     for (const i of map.icons ?? []) {
       const kind = MAP_ICONS[i.type];
       if (!kind || (floor !== null && i.floor !== floor) || (i.room >= 0 && !drawn.has(i.room))) continue;
