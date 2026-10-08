@@ -1677,7 +1677,9 @@ body.simple .map-pick-actions,
 body.simple .map-other-edit,
 body.simple .map-title-edit,
 body.simple details.map-check-note,
-body.simple .map-caption { display: none !important; }
+body.simple .map-caption,
+body.simple .map-entrance-menu,
+body.simple .map-dest-form { display: none !important; }
 
 /* A check's requirement over the list while the pointer rests on its row */
 .loc-hover-req { position: fixed; z-index: 60; max-width: min(420px, calc(100vw - 16px)); max-height: 60vh; overflow: auto; padding: 10px 12px; pointer-events: none;
