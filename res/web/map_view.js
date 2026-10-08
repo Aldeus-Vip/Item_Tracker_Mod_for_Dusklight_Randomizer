@@ -742,7 +742,16 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const here = sameMap ? stageChecks(map.stage, map.checks).find((c) => (c.name ? c.name === info.name : c.key === info.key)) : null;
     // A house of the stage Link is in, but not his: shown on its own.
     const otherRoom = here && isInterior(stageName) && here.room >= 0 && here.room !== player?.stayRoom;
-    if (sameMap && !otherRoom && (here || map.stage === stageName)) {
+    // A field stage drawn as several maps (the Sacred Grove, Past Sacred Grove, Lost Woods): a check
+    // in another part than Link's is shown on that part's map.
+    const inBoxes = (stage, at) => at && [...roomBoxes(stage.rooms, at.floor ?? 0).values()]
+      .some((b) => Math.abs(at.x - b.x) <= b.w / 2 && Math.abs(at.z - b.y) <= b.h / 2);
+    const inPart = (stage, at) => at && (at.room >= 0 ? stage.rooms.some((r) => r.no === at.room) : inBoxes(stage, at));
+    const livePart = sameMap && map.stage === stageName ? fieldPlace()?.stage : null;
+    const target = here ?? known;
+    const otherPart = !!livePart && !!target && !inPart(livePart, target) && (field?.regions ?? [])
+      .some((region) => region.stages.some((stage) => stage.name === stageName && stage !== livePart && inPart(stage, target)));
+    if (sameMap && !otherRoom && !otherPart && (here || map.stage === stageName)) {
       if (mode !== "stage") switchStage();
       const p = here;
       if (p && map.stage.startsWith("D_") && p.floor !== undefined) pickedFloor = p.floor === player?.stayFloor ? null : p.floor;
@@ -752,7 +761,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       reqAfter();
       return;
     }
-    if (here === null && byHand && map?.exists && map.stage === stageName && !isInterior(stageName)) {
+    if (here === null && !otherPart && byHand && map?.exists && map.stage === stageName && !isInterior(stageName)) {
       if (mode !== "stage") switchStage();
       render();
       updatePick(true);
@@ -764,8 +773,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     let found = null;
     // (A place known by its room; else, as for a check placed in "any room", the part whose
     // rooms hold its point.)
-    const holds = (stage) => p && [...roomBoxes(stage.rooms, p.floor ?? 0).values()]
-      .some((b) => Math.abs(p.x - b.x) <= b.w / 2 && Math.abs(p.z - b.y) <= b.h / 2);
+    const holds = (stage) => inBoxes(stage, p);
     let byPoint = null;
     for (const region of field?.regions ?? []) {
       for (const stage of region.stages) {
