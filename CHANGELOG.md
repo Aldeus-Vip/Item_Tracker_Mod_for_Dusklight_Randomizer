@@ -82,6 +82,9 @@
 - The items lying around being watched for "seen", and the dungeon map backgrounds read.
 
 ### Fixed
+- Double-clicking a check placed by hand in the Past Sacred Grove (F_SP117 room 2) could open the
+  Sacred Grove map instead: a place with no room, or a room no map part has, now goes to the map
+  part its point is in, and a place set by hand takes the room it lies in.
 - The dungeon map screen's icons (Ooccoo, monkeys, statues, ...) showed on overworld maps too
   (an Ooccoo in the Sacred Grove): they show on dungeon maps only, as in the game.
 - Dungeon maps opened from the Dungeons list showed a small key where the boss is, and none of

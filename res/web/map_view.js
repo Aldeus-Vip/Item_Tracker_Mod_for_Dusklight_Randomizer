@@ -639,20 +639,36 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // The checks of the grotto shown, when grottos built alike share one map (null: all).
   let checkScope = null;
   let stageVariant = null; // the grotto Link is in (its logic area), when it shares its room
-  function placeAt(at) {
-    if (placingEntrance && scene && (scene.kind === "stage" || scene.kind === "area")) return placeEntrance(at);
-    if (!placing || !scene || (scene.kind !== "stage" && scene.kind !== "area")) return false;
-    const stage = scene.kind === "area" ? areaPlace?.name : map?.stage;
-    if (!stage) return false;
-    // Its room: the smallest drawn room around the point (it can be changed above the map).
+
+  // The room of a point on the map shown: the smallest room around it, else the nearest one.
+  function roomAt(at) {
     let room = -1;
     let best = Infinity;
-    for (const [no, b] of scene.rooms) {
+    for (const [no, b] of scene?.rooms ?? []) {
       if (Math.abs(at.x - b.x) <= b.w / 2 && Math.abs(at.y - b.y) <= b.h / 2 && b.w * b.h < best) {
         best = b.w * b.h;
         room = no;
       }
     }
+    if (room >= 0) return room;
+    let near = Infinity;
+    for (const [no, b] of scene?.rooms ?? []) {
+      const d = Math.hypot(Math.max(0, Math.abs(at.x - b.x) - b.w / 2), Math.max(0, Math.abs(at.y - b.y) - b.h / 2));
+      if (d < near) {
+        near = d;
+        room = no;
+      }
+    }
+    return room;
+  }
+  function placeAt(at) {
+    if (placingEntrance && scene && (scene.kind === "stage" || scene.kind === "area")) return placeEntrance(at);
+    if (!placing || !scene || (scene.kind !== "stage" && scene.kind !== "area")) return false;
+    const stage = scene.kind === "area" ? areaPlace?.name : map?.stage;
+    if (!stage) return false;
+    // Its room: the smallest drawn room around the point, else the nearest (it can be changed
+    // above the map).
+    const room = roomAt(at);
     const variant = scene.kind === "area" ? areaPlace?.variant : undefined;
     checkSource.setPlace(placing, { stage, room, x: Math.round(at.x), z: Math.round(at.y), floor: scene.floor ?? 0, ...(variant ? { variant } : {}) });
     placing = null;
@@ -746,12 +762,19 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // Another place: its map from the overworld map data, when it is there.
     const p = known;
     let found = null;
+    // (A place known by its room; else, as for a check placed in "any room", the part whose
+    // rooms hold its point.)
+    const holds = (stage) => p && [...roomBoxes(stage.rooms, p.floor ?? 0).values()]
+      .some((b) => Math.abs(p.x - b.x) <= b.w / 2 && Math.abs(p.z - b.y) <= b.h / 2);
+    let byPoint = null;
     for (const region of field?.regions ?? []) {
       for (const stage of region.stages) {
         if (stage.name !== stageName) continue;
         if (!found || (p && stage.rooms.some((r) => r.no === p.room))) found = { region, stage };
+        if (!byPoint && holds(stage)) byPoint = { region, stage };
       }
     }
+    if (p && byPoint && !found.stage.rooms.some((r) => r.no === p.room)) found = byPoint;
     const pick = () => {
       updatePick(true);
       reqAfter();
@@ -2120,14 +2143,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     }
     const stage = scene.kind === "area" ? areaPlace?.name ?? areaPlace?.stage?.name : map?.stage;
     if (!stage) return true;
-    let room = -1;
-    let best = Infinity;
-    for (const [no, b] of scene.rooms) {
-      if (Math.abs(at.x - b.x) <= b.w / 2 && Math.abs(at.y - b.y) <= b.h / 2 && b.w * b.h < best) {
-        best = b.w * b.h;
-        room = no;
-      }
-    }
+    let room = roomAt(at);
     if (room < 0) room = [...scene.rooms.keys()][0] ?? 0;
     destinationForm(null, null, (to, toArea) => {
       fixes.added.push({ id: Date.now().toString(36), stage, room, x: Math.round(at.x), z: Math.round(at.y),
