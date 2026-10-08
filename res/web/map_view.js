@@ -771,9 +771,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       return pick();
     }
     if (p && (places?.maps ?? []).includes(stageName)) {
-      const one = isInterior(stageName) && p.room >= 0;
-      // A grotto sharing its map with others: the one this check is in.
-      const variant = one ? (roomVariants?.(stageName, p.room) ?? []).find((v) => areaChecks?.(v.area).has(name)) : null;
+      // A house, or a grotto sharing its map with others (D_ stages, not interiors): only its room,
+      // and for a grotto the one this check is in.
+      const variants = p.room >= 0 ? roomVariants?.(stageName, p.room) ?? [] : [];
+      const one = (isInterior(stageName) || variants.length > 0) && p.room >= 0;
+      const variant = one ? variants.find((v) => areaChecks?.(v.area).has(name)) : null;
       openRemote({ name: stageName, back: DUNGEON_STAGES.some(([, st]) => st === stageName) ? "dungeons" : "other",
         ...(one ? { rooms: [p.room], title: variant?.name ?? roomTitle(stageName, p.room), variant: variant?.area } : {}) });
       if (stageName.startsWith("D_") && p.floor !== undefined) {

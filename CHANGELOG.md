@@ -36,8 +36,9 @@
   includes the houses, caves and grottos entered from it. Plates show on both ends, and to the
   other parts of an overworld stage the map shows apart (Hyrule Field by province). Right-click a
   plate to move or remove it; **+ Entrance** adds one (Advanced).
-- **Grottos sharing a map**: in the grotto, only its own checks and name show (the mod reads the
-  story layer the game loaded it with).
+- **Grottos sharing a map**: in the grotto, opened from the list or reached from a check in
+  Checks, only its own checks and name show (in the grotto, the mod reads the story layer the game
+  loaded it with).
 - Places the mod names or joins: Lake Hylia and Lanayru Spring apart; Link's House with its
   basement as B1; Hyrule Field's parts (Faron / Eldin / Lanayru Field, around Castle Town); the
   Sacred Grove's rooms. Past Sacred Grove and the Lost Woods (drawn from their collision, water
