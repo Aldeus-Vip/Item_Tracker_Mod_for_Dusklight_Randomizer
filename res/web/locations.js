@@ -24,7 +24,7 @@ export const STAGE_NAMES = [
 // Logic region of each stage room, from the randomizer's entrance data: every entrance names the
 // area it leads to and the stage and room of that area. Returns lookup(stageName, room) -> region
 // or null; a stage whose known rooms all share one region answers for its other rooms too.
-export function buildRoomRegions(entranceData, world) {
+export function buildRoomRegions(entranceData, world, dungeonRegions = new Set()) {
   const rooms = new Map(); // "stage/room" -> region
   const stages = new Map(); // stage -> Set of regions
   for (const entry of entranceData ?? []) {
@@ -38,9 +38,12 @@ export function buildRoomRegions(entranceData, world) {
       const region = regionOf(target) ?? regionOf(from);
       const stage = STAGE_NAMES[side?.Stage];
       if (!region || region === "None" || !stage || typeof side.Room !== "number") continue;
-      rooms.set(`${stage}/${side.Room}`, region);
       if (!stages.has(stage)) stages.set(stage, new Set());
       stages.get(stage).add(region);
+      // An overworld room is not in a dungeon's region (the summit outside Snowpeak Ruins: its
+      // door's outside has no region, and the inside is the dungeon's).
+      if (stage.startsWith("F_") && dungeonRegions.has(region)) continue;
+      rooms.set(`${stage}/${side.Room}`, region);
     }
   }
   return (stage, room) => {

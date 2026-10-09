@@ -114,7 +114,7 @@ export class World {
     const name = node.Name;
     const area = {
       name,
-      region: node.Region ?? "",
+      region: regionTitle(node.Region ?? ""),
       canChangeTime: node["Can Change Time"] === true,
       canTransform: true,
       twilightMacro: null,
@@ -456,7 +456,14 @@ export function itemsFromState(state) {
 // barrier being dispelled). The tracker page decides them through ctx.test.
 export function trackerEntry(item) {
   const m = /^(time|flag|map|boss|cond):(.+)$/.exec(item);
-  return m ? { kind: m[1], name: m[2] } : null;
+  return m ? { kind: m[1], name: m[1] === "map" ? regionTitle(m[2]) : m[2] } : null;
+}
+
+// Regions shown under another name than the randomizer's (the same name as the province and its
+// map). Names saved before (map marks, Areas set by hand, rules) are read as the new one.
+export const REGION_TITLES = { "Snowpeak Mountain": "Snowpeak" };
+export function regionTitle(region) {
+  return REGION_TITLES[region] ?? region;
 }
 
 // Dungeon -> its boss, in vanilla clear order.

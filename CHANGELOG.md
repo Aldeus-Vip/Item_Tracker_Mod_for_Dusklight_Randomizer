@@ -82,6 +82,11 @@
 - The items lying around being watched for "seen", and the dungeon map backgrounds read.
 
 ### Fixed
+- The Snowpeak summit (F_SP114 room 1) was named after Snowpeak Ruins, the dungeon behind its
+  door: an overworld room no longer takes a dungeon's region (the Mirror Chamber's room is named
+  Mirror Chamber, not Palace of Twilight, the same way). The randomizer's Snowpeak Mountain region
+  is shown as Snowpeak, as its province and map are; map marks and Areas saved under the old name
+  still count.
 - Checks and Map linked: some regions could not be picked in Checks, as the map's places and
   Checks' regions are cut differently (Beside Castle Town picked → the map of West/South/East of
   Castle Town → Checks switched to South of Castle Town). The map now goes by the checks placed on

@@ -3,7 +3,7 @@
 // logic for that check.
 
 import yaml from "./vendor/js-yaml.mjs";
-import { World, Search, itemsFromState, routeSatisfied, routeEntrySatisfied, routeEntryLabel, trackerEntry, parseDisplay, atomLabel, BOSS_NAMES } from "./logic.js";
+import { World, Search, itemsFromState, routeSatisfied, routeEntrySatisfied, routeEntryLabel, trackerEntry, parseDisplay, atomLabel, BOSS_NAMES, REGION_TITLES, regionTitle } from "./logic.js";
 import { REGION_GROUPS, OTHER_GROUP, STAGE_NAMES, FlagReader, buildLocationList, buildRoomRegions, buildRoomNames, isObtained } from "./locations.js";
 import { TILE_ITEMS, OTHER_ITEM_GROUPS, DUNGEON_ICONS, isDungeonKey, dungeonKeyIcon } from "./layout.js";
 
@@ -167,7 +167,9 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
 
   // Per-save entries of one kind ("map", "mark"), from the mod's state.
   const entriesOf = (kind) => (state?.found?.entries ?? []).filter((e) => e.startsWith(`${kind}:`)).map((e) => e.slice(kind.length + 1));
-  const getMapFlags = () => entriesOf("map");
+  const getMapFlags = () => entriesOf("map").map(regionTitle);
+  // A region's map mark switched off: under its old names too.
+  const mapOff = (region) => [`-map:${region}`, ...Object.keys(REGION_TITLES).filter((old) => REGION_TITLES[old] === region).map((old) => `-map:${old}`)];
   const markedChecked = () => new Set(entriesOf("mark"));
 
   new ResizeObserver(() => root.classList.toggle("loc-narrow", root.clientWidth > 0 && root.clientWidth < NARROW_WIDTH))
@@ -258,7 +260,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       roomRegion = () => null;
       try {
         const entrances = yaml.load(await fetchText("rando/entrance_shuffle_data.yaml"));
-        roomRegion = buildRoomRegions(entrances, world);
+        roomRegion = buildRoomRegions(entrances, world, dungeonRegionsOf(data));
         const names = buildRoomNames(entrances, world);
         roomName = names.name;
         roomVariants = names.variants;
@@ -447,18 +449,22 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   // Logic regions by province: the overworld files are one province each (Ordona, Faron, Eldin,
   // Lanayru, Gerudo Desert, Snowpeak, as the game numbers its regions), the dungeon files follow in
   // dungeon order. Within a province, regions keep the order they first appear in its file.
+  // The regions of the dungeons' world files.
+  function dungeonRegionsOf(data) {
+    return new Set(DATA_FILES.filter((f) => f.startsWith("world/dungeons/"))
+      .flatMap((f) => (data[f] ?? []).map((a) => a?.Region).filter(Boolean).map(regionTitle)));
+  }
   function regionGroups(data) {
     // A dungeon's region can first appear in an overworld file (its entrance area, e.g. Snowpeak
     // Ruins in Snowpeak Province); dungeons always go to the Dungeons group.
-    const dungeonRegions = new Set(DATA_FILES.filter((f) => f.startsWith("world/dungeons/"))
-      .flatMap((f) => (data[f] ?? []).map((a) => a?.Region).filter(Boolean)));
+    const dungeonRegions = dungeonRegionsOf(data);
     const seen = new Set();
     const groups = [];
     for (const f of DATA_FILES.filter((f) => f.startsWith("world/"))) {
       const title = f.startsWith("world/dungeons/") ? "Dungeons" : f.replace(/^.*\//, "").replace(/\.yaml$/, "").replace(/^Root$/, "Other");
       let group = groups.find((g) => g.title === title);
       for (const area of data[f] ?? []) {
-        const r = area?.Region;
+        const r = area?.Region && regionTitle(area.Region);
         if (!r || r === "None" || seen.has(r)) continue;
         if (dungeonRegions.has(r) && !f.startsWith("world/dungeons/")) continue;
         seen.add(r);
@@ -547,7 +553,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   }
 
   async function toggleMap(region) {
-    await saveEntries([getMapFlags().includes(region) ? `-map:${region}` : `map:${region}`]);
+    await saveEntries(getMapFlags().includes(region) ? mapOff(region) : [`map:${region}`]);
     evaluate();
     render();
   }
@@ -625,7 +631,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         el("span", { className: "loc-count", textContent: `${count} / ${g.regions.length}` }),
         el("button", { type: "button", className: "tool rule-small", textContent: all ? "All off" : "All on", disabled: !inGame,
           onclick: async () => {
-            await saveEntries(g.regions.filter((r) => on.has(r) === all).map((r) => (all ? `-map:${r}` : `map:${r}`)));
+            await saveEntries(g.regions.filter((r) => on.has(r) === all).flatMap((r) => (all ? mapOff(r) : [`map:${r}`])));
             evaluate();
             render();
           } })));
@@ -712,7 +718,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
 
   // The area a check is in: the logic region of the room the game places it in (or its shop's).
   function areaOf(loc) {
-    const fixed = getCheckAreas()[loc.name];
+    const fixed = regionTitle(getCheckAreas()[loc.name] ?? "");
     if (fixed) return fixed;
     const key = checkName(loc);
     const place = key ? placeOf(key) : null;
@@ -988,7 +994,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   // The province (group of the list) a check is listed under: the one of the area set for it by
   // hand (Area), else the randomizer's.
   function groupOf(loc) {
-    const fixed = getCheckAreas()[loc.name];
+    const fixed = regionTitle(getCheckAreas()[loc.name] ?? "");
     if (!fixed) return loc.group;
     const low = fixed.toLowerCase();
     const byName = (title) => REGION_GROUPS.find((g) => g.name.toLowerCase() === title.toLowerCase() || g.categories.some((c) => c.toLowerCase() === title.toLowerCase()));
@@ -1028,7 +1034,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   // A check's status and requirement (under the map, and over a row the pointer rests on).
   // The region a check is listed under (set by hand, else its logic area's).
   function regionOfLoc(loc) {
-    const fixed = getCheckAreas()[loc.name];
+    const fixed = regionTitle(getCheckAreas()[loc.name] ?? "");
     if (fixed) return fixed;
     const area = world?.locationAccess.get(loc.name)?.[0]?.area;
     const region = area ? world.areas.get(area)?.region : null;
@@ -1127,7 +1133,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         if (region && region !== "None") choices.add(region);
       }
       choices.delete("Elsewhere");
-      const current = getCheckAreas()[name] ?? "";
+      const current = regionTitle(getCheckAreas()[name] ?? "");
       panel.append(el("label", { className: "loc-area-pick" }, "Area ",
         el("select", { onchange: (e) => { saveCheckArea(name, e.target.value || null); areaProvinceCache = null; render(); } },
           el("option", { value: "", textContent: `Automatic (${auto})`, selected: !current }),
