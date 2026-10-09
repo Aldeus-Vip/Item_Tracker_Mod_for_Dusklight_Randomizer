@@ -121,17 +121,6 @@ const MAP_ICONS = {
   13: ["Map_Yeto", "Yeto"], 14: ["Map_Yeta", "Yeta"], 15: ["Map_Statue", "Statue"], 16: ["Map_Ooccoo", "Ooccoo"],
 };
 
-// People by their actor names (d_stage.cpp's object table), for the map's markers.
-const NPC_NAMES = {
-  ins: "Agitha", Pouya: "Jovani", Doc: "Borville (doctor)", GWolf: "Golden wolf", Kn: "Hero's Shade", The: "Telma", TheB: "Telma",
-  Seira: "Sera", Seira2: "Sera", Bou: "Bo", BouS: "Bo", Moi: "Rusl", MoiR: "Rusl", Uri: "Uli", Taro: "Talo", Maro: "Malo",
-  sMaro: "Malo", Besu: "Beth", Kolin: "Colin", Kolinb: "Colin", Yelia: "Ilia", Zelda: "Zelda", Zant: "Zant", Rafrel: "Auru",
-  Shad: "Shad", Ash: "Ashei", AshB: "Ashei", Saru: "Monkey", Post: "Postman", Hanjo: "Hanch", Jagar: "Jaggle", Gnd: "Ganondorf",
-  Len: "Renado", Lud: "Luda", Bans: "Barnes", impal: "Impaz", Henna: "Hena", Henna0: "Hena", ykM: "Yeto", ykW: "Yeta",
-  Seirei: "Light Spirit", FSeirei: "Great Fairy", Fairy: "Fairy", Shop0: "Shopkeeper", Coach: "Gengle",
-  grA: "Goron", grC: "Goron", grD: "Goron", grD1: "Goron", grM: "Goron", grMC: "Goron", grO: "Goron", grR: "Goron", grS: "Goron", grZ: "Goron",
-  zrA: "Zora", zrC: "Zora", zrD: "Zora", zrR: "Zora", zrS: "Zora", zrSP: "Zora", zrSPA: "Zora", zrWF: "Zora", zrZ: "Zora",
-};
 // People named in check names, by the actors that stand for them (for placing their checks).
 const PERSON_ACTORS = {
   Agitha: ["ins"], Jovani: ["Pouya"], Sera: ["Seira", "Seira2"], Barnes: ["Bans"], Talo: ["Taro"], Malo: ["Maro", "sMaro"],
@@ -139,10 +128,6 @@ const PERSON_ACTORS = {
   Telma: ["The", "TheB"], Renado: ["Len"], Luda: ["Lud"], Hanch: ["Hanjo"], Jaggle: ["Jagar"], Impaz: ["impal"], Hena: ["Henna", "Henna0"],
   Yeto: ["ykM"], Yeta: ["ykW"], Auru: ["Rafrel"], Ashei: ["Ash", "AshB"], Shad: ["Shad"], Doctor: ["Doc"], Borville: ["Doc"], Postman: ["Post"],
 };
-
-// Original glyphs for people and golden wolves on the map.
-const PERSON_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6.5" r="3.4" fill="currentColor"/><path d="M3.5 18c0-4.2 2.9-7 6.5-7s6.5 2.8 6.5 7z" fill="currentColor"/></svg>`;
-const WOLF_GLYPH = `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3l3.5 4L10 5.5 13.5 7 17 3l-.6 7.2L10 18 3.6 10.2z" fill="currentColor"/><circle cx="7.6" cy="10" r="1" fill="#000"/><circle cx="12.4" cy="10" r="1" fill="#000"/></svg>`;
 
 // The dungeons in the order of the story, with the land each is in (shown under the name).
 // The kinds of Other places, in this order.
@@ -374,12 +359,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       if (Array.isArray(saved)) {
         const out = new Set(saved);
         if (!out.has("noicons")) out.add("icons");
-        if (!out.has("nonpcs")) out.add("npcs");
         if (!out.has("noentrances")) out.add("entrances");
         return out;
       }
     } catch { /* default */ }
-    return new Set(["reachable", "blocked", "unknown", "icons", "npcs", "entrances"]);
+    return new Set(["reachable", "blocked", "unknown", "icons", "entrances"]);
   }
 
   function loadFollow() {
@@ -1266,7 +1250,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
           updateChecks();
         } }),
         el("span", { className: "map-check " + status }, el("span", { className: "loc-dot" })), label)),
-      ...[["icons", "Map icons (monkeys, Sols...)"], ["npcs", "People and golden wolves"], ["entrances", "Entrances"]].map(([kind, label]) =>
+      ...[["icons", "Map icons (monkeys, Sols...)"], ["entrances", "Entrances"]].map(([kind, label]) =>
         el("label", { className: "map-filter-item icons" },
           el("input", { type: "checkbox", checked: checkFilter.has(kind), onchange: (e) => {
             if (e.target.checked) {
@@ -1759,19 +1743,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   function buildIcons(rooms, floor) {
     const drawn = new Set(rooms.map((r) => r.no));
     const out = [];
-    // People and golden wolves where the game places them (their actors in the room files).
-    if (checkFilter.has("npcs")) {
-      for (const c of map.checks ?? []) {
-        if (!c.key.startsWith("npc:")) continue;
-        if ((floor !== null && c.floor !== undefined && c.floor !== floor) || (c.room >= 0 && !drawn.has(c.room))) continue;
-        const actor = c.key.split(":")[1];
-        const who = NPC_NAMES[actor] ?? "Someone";
-        const node = el("div", { className: "map-npc-mark" + (actor === "GWolf" ? " wolf" : ""), title: `${who} (${actor})` });
-        node.innerHTML = actor === "GWolf" ? WOLF_GLYPH : PERSON_GLYPH;
-        node.addEventListener("pointerdown", (e) => e.stopPropagation());
-        out.push({ node, at: { x: c.x, y: c.z } });
-      }
-    }
     // The dungeon map screen's icons: only on dungeon maps, as the game draws them (the overworld
     // map screen shows none of them; Sacred Grove's data has an Ooccoo entry it never draws).
     if (!checkFilter.has("icons") || !map.stage?.startsWith("D_")) return out;
