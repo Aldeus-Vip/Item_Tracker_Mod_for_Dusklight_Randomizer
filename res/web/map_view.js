@@ -2672,7 +2672,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       .then((m) => {
         if (!m) return missing(null);
         stageMaps.set(name, m);
-        if (areaPlace?.name === name || map?.stage === name) {
+        if (areaPlace?.name === name || map?.stage === name || (areaPlace && bossParent(name) === areaPlace.name)) {
           sceneKey = "";
           render();
         }
@@ -2720,8 +2720,16 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         if (group) rooms = m.rooms.filter((r) => group[r.no] !== undefined).map((r) => onMergedFloor(r, group));
       }
     }
+    // A dungeon's boss and miniboss stages (Death Sword's D_MN10B): their rooms the dungeon's own
+    // map has not, from their stage's map (in the dungeon's coordinates), with their checks.
+    const sideStages = name.startsWith("D_MN") && !stage && !onlyRooms ? relatedStages(name).filter((s2) => s2 !== name) : [];
+    for (const s2 of sideStages) {
+      for (const r of stageMap(s2)?.rooms ?? []) {
+        if (hasShapes(r) && !rooms.some((o) => o.no === r.no)) rooms = [...rooms, r];
+      }
+    }
     const key = JSON.stringify(["area", region?.no ?? null, name, stage?.part ?? null, onlyRooms ?? null, areaPlace.variant ?? null, areaFloor, !!places?.done,
-      typeof stageMaps.get(name) === "object", dungeonKey(name)]);
+      typeof stageMaps.get(name) === "object", dungeonKey(name), sideStages.map((s2) => typeof stageMaps.get(s2) === "object")]);
     if (key === sceneKey) {
       updateChecks();
       return;

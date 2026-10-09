@@ -82,6 +82,9 @@
 - The items lying around being watched for "seen", and the dungeon map backgrounds read.
 
 ### Fixed
+- Arbiters Grounds Death Sword Chest was not on the dungeon's map: Death Sword's arena is a stage
+  of its own (D_MN10B, room 51) the dungeon's map files do not hold. A dungeon's map (Dungeons
+  list) now also draws its boss and miniboss stages' rooms it lacks, with their checks.
 - The Snowpeak summit (F_SP114 room 1) was named after Snowpeak Ruins, the dungeon behind its
   door: an overworld room no longer takes a dungeon's region (the Mirror Chamber's room is named
   Mirror Chamber, not Palace of Twilight, the same way). The randomizer's Snowpeak Mountain region
