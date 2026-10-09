@@ -82,6 +82,11 @@
 - The items lying around being watched for "seen", and the dungeon map backgrounds read.
 
 ### Fixed
+- Checks and Map linked: some regions could not be picked in Checks, as the map's places and
+  Checks' regions are cut differently (Beside Castle Town picked → the map of West/South/East of
+  Castle Town → Checks switched to South of Castle Town). The map now goes by the checks placed on
+  it: a region picked in Checks is kept while its checks are on the map, and opens the place most
+  of its checks are placed in; a place opened on the map sets the region most of its checks are in.
 - A Past Sacred Grove check (F_SP117 room 2) opened the Sacred Grove map (room 1) while Link was
   in the Sacred Grove: a check in another part of the stage than Link's now opens that part's map.
   A place with no room goes to the part its point is in, and a place set by hand takes the room it

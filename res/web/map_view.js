@@ -1182,7 +1182,17 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       : [map.stage, player.stayRoom]);
     if (shownFor && shownFor.place === null) shownFor.place = placeId;
     else if (shownFor && shownFor.place !== placeId) shownFor = null;
+    // The regions Checks lists this map's checks under (the map's places and Checks' regions are
+    // cut differently: West, South and East of Castle Town are one map): the region picked in
+    // Checks when its checks are here, else the one most of them are in.
+    shownRegions = new Map();
+    for (const c of checks) {
+      const r = checkSource?.listedRegion?.(c.name);
+      if (r) shownRegions.set(r, (shownRegions.get(r) ?? 0) + 1);
+    }
+    const most = [...shownRegions].sort((a, b) => b[1] - a[1])[0]?.[0];
     const region = (shownFor && checkSource?.listedRegion?.(shownFor.name)) ||
+      (wantedRegion && shownRegions.has(wantedRegion) ? wantedRegion : null) || most ||
       (remote && areaPlace?.variant && areaRegion?.(areaPlace.variant)) || regionName(map.stage, shownRoom ?? 0);
     if (region) onShown(region);
   }
@@ -3172,6 +3182,42 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     return el("div", { className: "map-items" }, ...slots);
   }
 
+  // The region Checks asked for (linked), and the regions of the checks on the map shown.
+  let wantedRegion = null;
+  let shownRegions = new Map();
+  // Where most checks of a region (as Checks lists them) are placed: a part of an overworld
+  // stage, else a stage's map. { live } when it is Link's own map.
+  function regionPlace(region) {
+    if (!checkSource?.listedRegion) return null;
+    const counts = new Map();
+    const userMine = userPlaces();
+    for (const info of checkSource.list()) {
+      if (checkSource.listedRegion(info.name) !== region) continue;
+      const p = placeFor(info.key, info.name);
+      const byHand = !!userMine[info.name] || (!placeIndex.has(info.key) && !!manualPlaces()[info.name]);
+      const stageName = byHand ? p?.stage : info.key.startsWith("manual:") ? null : info.key.split(":")[1];
+      if (!p || !stageName) continue;
+      let id = null;
+      let place = null;
+      for (const r of field?.regions ?? []) {
+        for (const st of r.stages) {
+          if (st.name !== stageName) continue;
+          const inside = p.room >= 0 ? st.rooms.some((rm) => rm.no === p.room)
+            : [...roomBoxes(st.rooms, p.floor ?? 0).values()].some((b) => Math.abs(p.x - b.x) <= b.w / 2 && Math.abs(p.z - b.y) <= b.h / 2);
+          if (!inside || id) continue;
+          id = `${r.no}/${st.name}/${st.part ?? ""}`;
+          place = { region: r, stage: st, back: "region", ...(st.part !== undefined ? { title: regionName(st.name, st.part) ?? undefined } : {}) };
+        }
+      }
+      if (!id) continue;
+      const live = map?.exists && !map.area && map.stage === stageName && place.stage.rooms.some((rm) => rm.no === player?.stayRoom);
+      const c = counts.get(id) ?? { n: 0, place, live };
+      c.n++;
+      counts.set(id, c);
+    }
+    return [...counts.values()].sort((a, b) => b.n - a.n)[0] ?? null;
+  }
+
   return {
     setVisible,
     render,
@@ -3211,6 +3257,12 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // another place whose room is in that region.
     showRegion(region) {
       if (!region) return;
+      wantedRegion = region;
+      // Its checks already on the map shown: kept.
+      if (scene?.kind === "stage" && shownRegions.has(region)) return;
+      // The place most of the checks Checks lists under it are placed in.
+      const target = regionPlace(region);
+      if (target) return target.live ? switchStage() : openRemote(target.place);
       const mine = map?.exists && regionName(map.stage, player?.stayRoom ?? 0) === region;
       if (mine && mode === "stage") return;
       if (mine) return switchStage();
