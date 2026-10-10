@@ -1128,11 +1128,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
 
   function editActions(custom) {
     if (editing.edit && popup) {
-      return el("div", { className: "loc-custom-actions" },
+      return el("div", { className: "loc-custom-actions loc-edit-actions" },
         el("span", { className: "loc-note", textContent: "Editing in the requirement window…" }),
         el("button", { className: "tool", type: "button", textContent: "Show window", onclick: () => popup?.focus() }));
     }
-    return el("div", { className: "loc-custom-actions" },
+    return el("div", { className: "loc-custom-actions loc-edit-actions" },
       el("button", { className: "tool", type: "button", textContent: custom ? "Edit" : "Customize",
         title: "Replace the randomizer logic for this check with your own routes",
         onclick: () => startEdit(custom ? structuredClone(custom) : [[]]) }),

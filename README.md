@@ -32,7 +32,7 @@ a Browser Source. You don't need to install any separate application.
 - **Fitted names**: long item names in the Items tab shrink to fit their tile.
 - **Customizable**: rearrange tiles; pick a theme, a background image, the item background and
   glow, a font (or upload your own); change any icon. **Simple** display shows the main things
-  only, **Advanced** every tool. Every open page (browser and OBS) shows the same settings.
+  only, **Advanced** every tool (writing a check's own requirement and the map's details). Every open page (browser and OBS) shows the same settings.
 
 ## Installing
 

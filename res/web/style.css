@@ -1632,9 +1632,7 @@ body.custom-fill {
 /* ---- Simple mode: the main things only (every tool is under Options › Display › Advanced) ---- */
 body.simple .adv-only,
 body.simple #edit,
-body.simple .loc-menu,
-body.simple .loc-custom-actions,
-body.simple .loc-rando,
+body.simple .loc-edit-actions,
 body.simple .map-caption { display: none !important; }
 
 /* A check's requirement over the list while the pointer rests on its row */

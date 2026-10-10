@@ -194,8 +194,9 @@ ModResult build_panel(ModContext*, UiElementHandle panel, void*, ModError*) {
         "icon on the tracker page to use your own image instead.", nullptr);
     svc_ui->pane_add_text(mod_ctx, panel,
         "The page has two displays (Options > Display): Simple (the default) shows the main things "
-        "only; Advanced shows every tool. Custom requirements, Reachable Regions and seeds (in "
-        "Locations since 1.1.0) are under Advanced: switch to it in Options to use them.", nullptr);
+        "only; Advanced shows every tool. Writing a check's own requirement (Customize / Edit in "
+        "its panel, since 1.1.0) is under Advanced: switch to it in Options to use it. "
+        "Requirements (import, export, preset), Seed and Reachable Regions are in both.", nullptr);
 
     svc_ui->pane_add_section(mod_ctx, panel, "Location tracker");
     svc_ui->pane_add_text(mod_ctx, panel,

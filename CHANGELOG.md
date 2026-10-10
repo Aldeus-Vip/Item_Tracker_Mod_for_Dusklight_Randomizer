@@ -4,8 +4,9 @@
 
 ### Upgrading from 1.1.0
 - Install over 1.1.0: settings, layout, custom requirements and what each save has found are kept.
-- The page opens in **Simple** display: custom requirements, Reachable Regions and seeds are under
-  **Advanced** (Options › Display).
+- The page opens in **Simple** display: writing a check's own requirement (**Customize** / **Edit**
+  in its panel) is under **Advanced** (Options › Display). Requirements ▾ (import, export, preset),
+  Seed ▾ and Reachable Regions ▾ are in both.
 - On the first start the mod reads the game files for the map (a bar shows the progress).
 - 1.1.0's Map tab is now **Locations › Map** (`?view=map` opens it).
 
@@ -66,9 +67,8 @@
 ### New: Options and look
 - **Options** (was Theme) opens as a window over the page (its button or a click outside closes
   it), each part in a frame: Display, Theme, Background, Item Background.
-- **Simple / Advanced**: Simple (the default) shows the main things only (the region filter and
-  By area included); custom requirements, Reachable Regions, seeds and the map's details are
-  under Advanced.
+- **Simple / Advanced**: Simple (the default) shows the main things only; writing a check's own
+  requirement (Customize / Edit) and the map's details are under Advanced.
 - **Item Background**: the theme's fill or a color of one's own, its opacity (down to transparent,
   for a background image or OBS), and how bright the obtained items' glow is.
 - **Font**: standard, Old English (UnifrakturMaguntia, SIL OFL) or one's own uploaded (a Hylian
