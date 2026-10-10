@@ -1113,6 +1113,11 @@ locTabBar.setAttribute("role", "tablist");
 views.locations.append(locTabBar, locSplit);
 let locTab = "checks";
 try { locTab = localStorage.getItem("tracker.locTab") || "checks"; } catch {}
+// 1.1.0's Map tab (kept in this browser, or ?view=map in an OBS source) is now Locations › Map.
+if (initialView === "map") {
+  initialView = "locations";
+  locTab = "map";
+}
 
 function showLocTab(name) {
   const wide = views.locations.clientWidth === 0 || views.locations.clientWidth >= BOTH_MIN_WIDTH;
