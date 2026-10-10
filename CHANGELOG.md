@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1 — 2026-10-10
+
+### Fixed
+- Checks the mod's map data places (people, shops, events, and checks moved from the game files'
+  places) could be missing from the map, or shown where the game files put them: the page asked
+  for that data once, and the mod, busy reading the game files on its first start, could fail to
+  answer. The page now asks again until it comes.
+
 ## 1.2.0 — 2026-10-10
 
 ### Upgrading from 1.1.0

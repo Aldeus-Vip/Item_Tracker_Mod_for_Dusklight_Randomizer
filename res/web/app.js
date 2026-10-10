@@ -27,16 +27,23 @@ let mapView = null; // Map sub-tab of Locations (created with it)
 // Fixed data the mod ships: checks' places the game files do not give, Areas set for checks,
 // entrances moved, added or removed, and places renamed. Not changed in the page.
 let mapPresets = { places: {}, checkAreas: {}, entranceFixes: { moved: {}, added: [], hidden: [] }, placeFixes: {} };
-fetch("map_presets.json", { cache: "no-store" })
-  .then((r) => (r.ok ? r.json() : null))
-  .then((j) => {
-    if (!j) return;
-    const clean = normalizePresets(j);
-    mapPresets = { places: j.places ?? {}, checkAreas: clean.checkAreas, entranceFixes: clean.entranceFixes, placeFixes: clean.placeFixes };
-    locationsView?.refresh();
-    mapView?.redraw();
-  })
-  .catch(() => {});
+// Asked again until it comes: the mod can be too busy to answer at first (reading the game files
+// on its first start), and without it the checks it places are not on the map.
+function loadMapPresets(tries = 0) {
+  fetch("map_presets.json", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    .then((j) => {
+      const clean = normalizePresets(j);
+      mapPresets = { places: j.places ?? {}, checkAreas: clean.checkAreas, entranceFixes: clean.entranceFixes, placeFixes: clean.placeFixes };
+      locationsView?.refresh();
+      mapView?.redraw();
+    })
+    .catch((e) => {
+      console.warn(`map_presets.json: ${e}; asked again`);
+      setTimeout(() => loadMapPresets(tries + 1), Math.min(10000, 1000 * (tries + 1)));
+    });
+}
+loadMapPresets();
 let state = null;          // last state from the mod
 let lastRendered = {};     // tile id -> signature, to flash changed tiles
 let savedLayout = structuredClone(DEFAULT_LAYOUT);
@@ -1225,8 +1232,9 @@ mapView = createMapView(locMap, {
     showDetail: (name) => locationsView.showDetail(name),
     closeDetail: (name) => locationsView.closeDetail(name),
     bothShown: () => locSplit.dataset.tab === "both",
-    // The presets' names and provinces of the Map's Other places, and entrances moved, added or
-    // removed.
+    // The presets' checks' places, names and provinces of the Map's Other places, and entrances
+    // moved, added or removed.
+    presetPlaces: () => mapPresets.places,
     placeFixes: () => mapPresets.placeFixes,
     entranceFixes: () => mapPresets.entranceFixes,
     jump(name) {

@@ -524,18 +524,10 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // floor } }): checks the game files do not place (people, events, shops) or place wrongly; they
   // win over the game files. A preset can give its place in the room's extent (u, v from 0 to 1,
   // left to right and top to bottom) instead of x, z.
-  let presets = {};
-  fetch("map_presets.json", { cache: "no-store" })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((j) => {
-      presets = j?.places ?? {};
-      sceneKey = "";
-      if (visible) render();
-    })
-    .catch(() => {});
+  // (The page loads them, asking again until they come, and redraws the map then.)
   function userPlaces() {
     const out = {};
-    for (const [name, p] of Object.entries(presets)) out[name] = resolvePreset(p);
+    for (const [name, p] of Object.entries(checkSource?.presetPlaces?.() ?? {})) out[name] = resolvePreset(p);
     return out;
   }
   // A preset's x, z from its room's extent (once the stage's rooms are known).
