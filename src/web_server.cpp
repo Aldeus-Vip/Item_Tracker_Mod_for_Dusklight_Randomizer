@@ -167,6 +167,19 @@ void serve_asset(Client& client, std::string_view path) {
     svc_resource->free(mod_ctx, &buffer);
 }
 
+// GET /seen_without_sight.txt: the mod's list of items seen without the line-of-sight test (for
+// the map data editor, editor.html).
+void serve_no_sight_list(Client& client) {
+    ResourceBuffer buffer = RESOURCE_BUFFER_INIT;
+    if (svc_resource->load(mod_ctx, "seen_without_sight.txt", &buffer) != MOD_OK) {
+        send_error(client, "404 Not Found");
+        return;
+    }
+    send_response(client, "200 OK", "text/plain; charset=utf-8",
+        std::string_view{static_cast<const char*>(buffer.data), buffer.size}, "no-store");
+    svc_resource->free(mod_ctx, &buffer);
+}
+
 // Decodes %XX escapes. Returns false on a malformed escape.
 bool percent_decode(std::string_view in, std::string& out) {
     out.clear();
@@ -760,6 +773,10 @@ bool handle_request(Client& client, const Request& req) {
     }
     if (target == "/font") {
         serve_font(client);
+        return false;
+    }
+    if (target == "/seen_without_sight.txt") {
+        serve_no_sight_list(client);
         return false;
     }
     if (target == "/") {

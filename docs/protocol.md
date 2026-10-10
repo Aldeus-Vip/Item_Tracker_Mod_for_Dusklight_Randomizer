@@ -11,6 +11,7 @@ the mod's panel). Only loopback clients can connect, and requests whose `Host` h
 | GET | `/` | `res/web/index.html` |
 | GET | `/<file>` | `res/web/<file>` |
 | GET | `/state` | Current state (JSON) |
+| GET | `/seen_without_sight.txt` | The mod's `res/seen_without_sight.txt` (for the map data editor, `editor.html`) |
 | GET | `/events` | `text/event-stream` |
 | GET / POST / DELETE | `/icons/<name>.png` | Custom icon uploaded in the icon editor, stored as `<mod data dir>/icons/<name>.png` (PNG, JPEG, WebP or GIF, max 4 MB; 404 if absent) |
 | GET | `/game-textures/<archive>/` | JSON list of the `.bti` textures in a game archive: `itemicon` (item icons) or `dmap` (dungeon map) (404 before the game has loaded it) |

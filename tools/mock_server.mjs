@@ -166,6 +166,16 @@ createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end('{"ok":true}');
   }
+  // The mod's list of items seen without the line-of-sight test (res/, not res/web/).
+  if (path === "/seen_without_sight.txt") {
+    try {
+      const text = await readFile(fileURLToPath(new URL("../res/seen_without_sight.txt", import.meta.url)));
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+      return res.end(text);
+    } catch {
+      return res.writeHead(404).end();
+    }
+  }
   // Saved configuration, kept in memory (the mod stores these in its data directory).
   if (path === "/layout" || path === "/settings" || path === "/background" || path === "/font") {
     if (req.method === "POST" || req.method === "DELETE") {

@@ -242,6 +242,24 @@ node tests/logic_check.mjs <dusklight-randomizer>/generator/data [rules.json]
 JavaScript に移植したロジックを、Randomizer のデータで検証します。「Export rules」で保存したファイルを
 渡すと、その中の自分で設定した条件も検証します。
 
+## 地図データの編集
+
+Mod に固定で入っている地図データ — `res/web/map_presets.json`(チェックの位置、チェックを並べる
+Area、入口の移動・追加・削除)と `res/seen_without_sight.txt`(視線の判定なしで「見た」とする
+落ちているアイテム)— は、トラッカーの地図の上で編集できます。ゲームを起動してセーブを読み込み、
+`http://127.0.0.1:38100/editor.html` を開きます。トラッカーの画面からはリンクしておらず、Mod には
+何も保存しません。
+
+- **Checks**(左): 名前・キー・マップで検索。*No place only* で地図に置けないチェックだけを表示。
+  選んだチェックの位置(数値入力、または **Place on map** を押して地図をクリック)、**Area**、
+  *Seen without line of sight*(落ちているアイテムのみ)を設定します。
+- **Map**(右): マップ ID(ステージ名。例: `F_SP121`、`R_SP01 room 4`)を入れて **Open map**。
+  **+ Entrance**: 場所をクリックしてから行き先を選びます。入口を右クリック: 移動・元に戻す・削除、
+  プリセットで削除済みの入口(薄く表示)を戻す。
+- **Download map_presets.json** / **Download seen_without_sight.txt**: Mod のファイル
+  (`res/web/map_presets.json`、`res/seen_without_sight.txt`)と差し替えるファイル。**Open…** で
+  以前保存したファイルから続けられます。
+
 ## ゲームなしでの画面開発
 
 ```sh

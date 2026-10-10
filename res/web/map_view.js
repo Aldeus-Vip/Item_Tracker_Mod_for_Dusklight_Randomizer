@@ -301,7 +301,7 @@ const linePath = (v, strip) => strip.map((i, n) => `${n ? "L" : "M"}${v[i * 2]} 
  * @param options.makeIcon     (name, className, fallbackText) => <img> of a tracker icon (follows the
  *                             icon settings; right-click opens the icon editor via data-icon)
  */
-export function createMapView(root, { getState, regionName, roomName = null, roomVariants = null, areaChecks = null, checkRegion = null, areaRegion = null, roomKind = null, provinceOrder = () => [], entrances: entranceList = () => [], onShown = () => {}, makeIcon, checks: checkSource = null, onPlaces = null, provinceOf = () => null }) {
+export function createMapView(root, { getState, regionName, roomName = null, roomVariants = null, areaChecks = null, checkRegion = null, areaRegion = null, roomKind = null, provinceOrder = () => [], entrances: entranceList = () => [], onShown = () => {}, makeIcon, checks: checkSource = null, onPlaces = null, provinceOf = () => null, editor = null }) {
   let visible = false;
   let map = null; // last /map
   let player = null; // last /map-player
@@ -652,6 +652,92 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // The check the map was last moved to (showCheck), and the place it showed it on: while that
   // place is shown, Checks is told the check's region (its Area from the presets), not the place's.
   let shownFor = null;
+  // ---- The map data editor (editor.html only) ----
+
+  // The room of a point on the map shown: the smallest room around it, else the nearest one.
+  function roomAt(at) {
+    let room = -1;
+    let best = Infinity;
+    for (const [no, b] of scene?.rooms ?? []) {
+      if (Math.abs(at.x - b.x) <= b.w / 2 && Math.abs(at.y - b.y) <= b.h / 2 && b.w * b.h < best) {
+        best = b.w * b.h;
+        room = no;
+      }
+    }
+    if (room >= 0) return room;
+    let near = Infinity;
+    for (const [no, b] of scene?.rooms ?? []) {
+      const d = Math.hypot(Math.max(0, Math.abs(at.x - b.x) - b.w / 2), Math.max(0, Math.abs(at.y - b.y) - b.h / 2));
+      if (d < near) {
+        near = d;
+        room = no;
+      }
+    }
+    return room;
+  }
+  // The stage of the map shown (a dungeon's, a place's), or null.
+  function editorStage() {
+    if (scene?.kind === "area") return areaPlace?.name ?? areaPlace?.stage?.name ?? null;
+    if (scene?.kind === "stage") return map?.stage ?? null;
+    return null;
+  }
+  // A click on the map while the editor waits for one: the point, its room and floor, given to it
+  // (no zoom then).
+  function editorClick(at) {
+    const stage = editorStage();
+    if (!editor?.armed?.() || !stage) return false;
+    let room = roomAt(at);
+    if (room < 0) room = [...(scene.rooms?.keys() ?? [])][0] ?? 0;
+    const floor = scene.floor ?? 0;
+    const variant = scene.kind === "area" ? areaPlace?.variant ?? undefined : undefined;
+    editor.click({ stage, room, x: Math.round(at.x), z: Math.round(at.y), floor, entranceFloor: roomFloor(stage, room, floor), variant });
+    return true;
+  }
+  // Every place a map opens, for an entrance added in the editor: dungeons, the overworld's places,
+  // the Other tab's.
+  function destinations() {
+    const out = [];
+    for (const [label, stage] of DUNGEON_STAGES) out.push({ group: "Dungeons", title: label, to: { stage, room: -1 } });
+    for (const region of field?.regions ?? []) {
+      for (const st of region.stages) {
+        if (!st.rooms.length) continue;
+        const room = st.part ?? st.rooms[0].no;
+        const title = fieldTitle(fieldKey(st.name, st.rooms.map((r) => r.no))) ?? regionName(st.name, room) ?? st.name;
+        out.push({ group: "Field", title, to: { stage: st.name, room } });
+      }
+    }
+    for (const it of otherPlaces()) {
+      out.push({ group: it.province, title: it.title, to: { stage: it.stage, room: it.rooms?.[0] ?? (places?.mapRooms?.[it.stage] ?? [-1])[0] }, toArea: it.variant ?? null });
+    }
+    return out;
+  }
+  // Opens a map by its stage name ("F_SP121", "R_SP01 room 4", "D_MN05"); a room picks the part
+  // or the house. Returns false when nothing is known of that stage.
+  function openStageId(text) {
+    const m = /([A-Z]_[A-Z0-9_]+)(?:\D*?(\d+))?/i.exec(text ?? "");
+    if (!m) return false;
+    const stage = m[1].toUpperCase();
+    const room = m[2] !== undefined ? Number(m[2]) : null;
+    const parts = (field?.regions ?? []).flatMap((region) => region.stages.filter((st) => st.name === stage && st.rooms.length).map((st) => ({ region, st })));
+    const part = parts.find((p) => room === null || p.st.rooms.some((r) => r.no === room)) ?? (room === null ? parts[0] : null);
+    if (part) {
+      openRemote({ region: part.region, stage: part.st, back: "region" });
+      return true;
+    }
+    if (bossParent(stage) || DUNGEON_STAGES.some(([, st]) => st === stage)) {
+      openRemote({ name: bossParent(stage) ?? stage, back: "dungeons" });
+      return true;
+    }
+    const it = otherPlaces().find((o) => o.stage === stage && (room === null || (o.rooms ?? []).includes(room)));
+    if (it) {
+      openRemote({ name: it.stage, rooms: it.rooms, title: it.title, variant: it.variant, back: "other" });
+      return true;
+    }
+    if (!(places?.mapRooms?.[stage]) && !parts.length) return false;
+    openRemote({ name: stage, back: "other", ...(room !== null ? { rooms: [room], title: roomTitle(stage, room) } : {}) });
+    return true;
+  }
+
   function showCheck(name, req = true) {
     const info = checkSource?.list().find((c) => c.name === name);
     if (!info) return;
@@ -1742,7 +1828,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const seen = new Set();
     const plate = (key, to, toArea, kind, pos, added = null) => {
       // (Removed by the presets.)
-      if (!added && fixes.hidden?.includes(key)) return;
+      const hidden = !added && fixes.hidden?.includes(key);
+      if (hidden && !editor) return;
       const moved = fixes.moved?.[key];
       const at = moved ? { x: moved.x, y: moved.z } : { x: pos.x, y: pos.z };
       const title = sideTitle(to, toArea);
@@ -1755,7 +1842,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       }
       // An icon on the entrance's point, its count above; on hover, a plate with the place's name.
       const count = `${reachable}/${left}`;
-      const node = el("button", { type: "button", className: `map-entrance ${kind.toLowerCase()}` + (left === 0 ? " done" : "") + (added ? " added" : ""),
+      const node = el("button", { type: "button", className: `map-entrance ${kind.toLowerCase()}` + (left === 0 ? " done" : "") + (added ? " added" : "") + (hidden ? " removed" : ""),
         title: "Click: its map (right-click there: back here)", ariaLabel: `${title} ${count}` },
       el("span", { className: "map-entrance-icon" }),
       left ? el("span", { className: "map-entrance-count", textContent: count }) : null,
@@ -1777,6 +1864,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       node.addEventListener("contextmenu", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        // (The editor: this entrance's menu.)
+        editor?.entrance?.({ key, title, to, toArea, added, moved: moved ?? null, hidden, at: { x: pos.x, z: pos.z }, node });
       });
       out.push({ node, at });
     };
@@ -2696,7 +2785,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       press = null;
       pressing = false;
       frame.classList.remove("dragging");
-      if (!wasDrag && e.type === "pointerup") zoomIn(toMap(e));
+      if (!wasDrag && e.type === "pointerup" && !editorClick(toMap(e))) zoomIn(toMap(e));
     };
     frame.addEventListener("pointerup", release);
     frame.addEventListener("pointercancel", release);
@@ -2880,6 +2969,21 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         if (st.startsWith("D_MN")) return openRemote({ name: bossParent(st) ?? st, back: "dungeons" });
         return openRemote({ name: st, back: "other", ...(st.startsWith("R_") ? { rooms: [no], title: roomTitle(st, no) } : {}) });
       }
+    },
+    // The map data editor (editor.html): open a map by its stage, the places an entrance can lead
+    // to, where a check is now and where from.
+    openStageId,
+    followLink: () => switchStage(),
+    placesReady: () => !!places?.done,
+    destinations: () => destinations(),
+    shownStage: () => editorStage(),
+    checkPlace(name) {
+      const info = checkSource?.list().find((c) => c.name === name);
+      if (!info) return null;
+      const p = placeFor(info.key, info.name);
+      if (!p) return null;
+      const from = userPlaces()[info.name] ? "preset" : placeIndex.has(info.key) ? "game files" : "people / wolves (automatic)";
+      return { ...p, from };
     },
     // A dungeon's map (Link's own when he is in it).
     showDungeon(stage) {

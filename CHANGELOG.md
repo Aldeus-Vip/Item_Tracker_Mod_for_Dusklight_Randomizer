@@ -5,6 +5,9 @@
 ### New
 - Options › Display › **Share highlight between pages**: a check highlighted on one page (on the
   map or in Checks) is highlighted on every page open — another browser, OBS — too.
+- Map data editor (`editor.html`, for the mod's maintainers): the mod's map data (checks' places,
+  Areas, entrances) and the items seen without line of sight, edited on the maps and downloaded as
+  `map_presets.json` / `seen_without_sight.txt`. Not linked from the tracker page.
 - Options › Map: **Map backdrop** (off: only the map, to lay it over the game in OBS with
   `?transparent=1`) and **Ground opacity** (a see-through map; checks, entrances and Link stay).
 

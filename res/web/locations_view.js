@@ -1772,6 +1772,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     entrances: () => entranceList,
     // The provinces in the order of the randomizer's world files (the game's order).
     provinceOrder: () => mapGroups.map((g) => g.title),
+    // The provinces and their regions: [{ title, regions }] (the map data editor's Area choices).
+    regionGroups: () => mapGroups.map((g) => ({ title: g.title, regions: [...g.regions] })),
     // Grottos built alike that share one room: [{ name, area }].
     roomVariants: (stage, room) => roomVariants(stage, room),
     // The region a check is listed under (the presets' Area, else its logic region's).

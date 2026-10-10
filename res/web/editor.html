@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Map Data Editor</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="tp-ui.css">
+  <style>
+    /* The map data editor: the mod's map_presets.json and seen_without_sight.txt, edited on the
+       maps and downloaded (not part of the tracker page). */
+    body.editor { margin: 0; min-height: 100vh; }
+    .ed-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line, #3a3826); position: sticky; top: 0; z-index: 20; background: var(--bar, #15160f); }
+    .ed-bar h1 { font-size: 16px; margin: 0 12px 0 0; color: var(--gold, #d8cf9f); }
+    .ed-bar .ed-status { margin-left: auto; color: var(--muted, #8f8a6c); font-size: 13px; }
+    .ed-bar .ed-changed { color: #ffd66b; }
+    .ed-main { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 12px; padding: 12px; align-items: start; }
+    @media (max-width: 900px) { .ed-main { grid-template-columns: 1fr; } }
+    .ed-side { display: flex; flex-direction: column; gap: 8px; position: sticky; top: 56px; max-height: calc(100vh - 70px); }
+    .ed-search { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .ed-search input[type="search"] { flex: 1 1 200px; padding: 6px 8px; font: inherit; background: #0c0c07; color: inherit; border: 1px solid var(--line, #3a3826); border-radius: 4px; }
+    .ed-search label { font-size: 13px; color: var(--muted, #8f8a6c); }
+    .ed-list { overflow: auto; flex: 1 1 auto; min-height: 160px; border: 1px solid var(--line, #3a3826); border-radius: 4px; }
+    .ed-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; width: 100%; text-align: left; padding: 5px 8px; border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+    .ed-row:hover { background: rgba(255, 255, 255, 0.05); }
+    .ed-row.selected { background: rgba(216, 207, 159, 0.16); }
+    .ed-row .ed-where { grid-column: 1; color: var(--muted, #8f8a6c); font-size: 11px; font-family: ui-monospace, monospace; }
+    .ed-row .ed-tags { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 3px; align-items: center; }
+    .ed-tag { font-size: 10px; padding: 1px 4px; border-radius: 3px; border: 1px solid currentColor; }
+    .ed-tag.preset { color: #8fd3ff; } .ed-tag.area { color: #c9a8ff; } .ed-tag.sight { color: #7ed98c; } .ed-tag.none { color: #e06c6c; }
+    .ed-detail, .ed-panel { border: 1px solid var(--line, #3a3826); border-radius: 4px; padding: 8px 10px; font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+    .ed-detail:empty, .ed-panel:empty { display: none; }
+    .ed-detail h2, .ed-panel h2 { font-size: 14px; margin: 0; color: var(--gold, #d8cf9f); }
+    .ed-key { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted, #8f8a6c); }
+    .ed-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .ed-line input[type="number"], .ed-line input[type="text"] { width: 76px; font: inherit; padding: 2px 4px; background: #0c0c07; color: inherit; border: 1px solid var(--line, #3a3826); border-radius: 3px; }
+    .ed-line input.ed-wide { width: 100px; }
+    .ed-line select { font: inherit; max-width: 100%; background: #0c0c07; color: inherit; border: 1px solid var(--line, #3a3826); border-radius: 3px; }
+    .ed-label { color: var(--muted, #8f8a6c); min-width: 56px; }
+    .ed-armed { color: #ffd66b; }
+    .ed-maparea { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .ed-mapbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .ed-mapbar input { width: 240px; padding: 6px 8px; font: inherit; background: #0c0c07; color: inherit; border: 1px solid var(--line, #3a3826); border-radius: 4px; }
+    .tool.active { outline: 2px solid #ffd66b; }
+    /* Entrances the presets remove: still shown here, faded, so they can be brought back. */
+    .map-entrance.removed { opacity: 0.35; filter: grayscale(1); }
+    .map-entrance.removed .map-entrance-icon { outline: 1px dashed #e06c6c; }
+    .ed-help { color: var(--muted, #8f8a6c); font-size: 12px; margin: 0; }
+  </style>
+</head>
+<body class="editor" data-theme="twilight">
+  <header class="ed-bar">
+    <h1>Map Data Editor</h1>
+    <label class="tool" title="Continue from a map_presets.json saved earlier">Open map_presets.json…<input type="file" id="open-presets" accept=".json,application/json" hidden></label>
+    <label class="tool" title="Continue from a seen_without_sight.txt saved earlier">Open seen_without_sight.txt…<input type="file" id="open-sight" accept=".txt,text/plain" hidden></label>
+    <button type="button" class="tool primary" id="save-presets">Download map_presets.json</button>
+    <button type="button" class="tool primary" id="save-sight">Download seen_without_sight.txt</button>
+    <span class="ed-status" id="status">Connecting…</span>
+  </header>
+  <main class="ed-main">
+    <section class="ed-side">
+      <div class="ed-search">
+        <input type="search" id="search" placeholder="Search checks (name, key, map…)" autocomplete="off">
+        <label><input type="checkbox" id="only-unplaced"> No place only</label>
+        <label><input type="checkbox" id="only-edited"> Edited only</label>
+      </div>
+      <div class="ed-list" id="list"></div>
+      <div class="ed-detail" id="detail"></div>
+    </section>
+    <section class="ed-maparea">
+      <div class="ed-mapbar">
+        <input type="text" id="stage-id" placeholder="Map ID (e.g. F_SP121, R_SP01 room 4)" autocomplete="off">
+        <button type="button" class="tool" id="open-stage">Open map</button>
+        <button type="button" class="tool" id="follow-link" title="Back to the map Link is in">Link's map</button>
+        <button type="button" class="tool" id="add-entrance" title="Click where the entrance is on the map, then choose where it leads">+ Entrance</button>
+        <span id="hint" class="ed-armed"></span>
+      </div>
+      <p class="ed-help">Click: zoom in (or place, after a Place / Move button) · Right-click: zoom out · Right-click an entrance: move, remove or bring it back · Faded entrances are removed by the presets.</p>
+      <div class="ed-panel" id="entrance"></div>
+      <div class="loc-map-pane" id="map"></div>
+    </section>
+  </main>
+  <script type="module" src="editor.js"></script>
+</body>
+</html>
