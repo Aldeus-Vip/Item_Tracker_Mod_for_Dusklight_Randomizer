@@ -185,7 +185,10 @@ DoorInfo door_info(const stage_tgsc_data_class& d, bool stageDoor, const std::ve
     out.pos.x = d.base.position.x;
     out.pos.y = d.base.position.y;
     out.pos.z = d.base.position.z;
-    if (stageDoor) dMapInfo_n::correctionOriginPos(static_cast<s8>(out.front), &out.pos);
+    // A stage door by its front room; a room's door by its room (kept in angle.x by
+    // dStage_RoomKeepDoorInfoProc), as that room's checks: rooms moved or turned on the map
+    // (Palace of Twilight's) otherwise put it off its room.
+    dMapInfo_n::correctionOriginPos(static_cast<s8>(stageDoor ? out.front : (static_cast<u16>(d.base.angle.x) & 0x3F)), &out.pos);
     out.angle = static_cast<u16>(static_cast<s16>(d.base.angle.y));
     std::memcpy(out.name, d.name, 8);
 

@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 17";
+constexpr const char* kCacheVersion = "check-places 18";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -148,6 +148,7 @@ struct Door {
     float y = 0;
     float z = 0;
     bool stageDoor = false;  // placed by the stage file: moved by its front room's offset
+    int room = -1;           // a room file's door: moved by that room's offset (as its checks)
 };
 std::map<std::string, std::vector<Door>> g_doors;
 std::map<std::string, std::vector<Shutter>> g_shutters;  // in room coordinates (to_map when served)
@@ -598,8 +599,9 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
                 d.angleY = be16(e + 0x1A);
                 d.angleZ = be16(e + 0x1C);
                 d.stageDoor = roomNo < 0;
+                d.room = roomNo;
                 bool known = false;
-                for (const Door& o : g_doors[stage]) known = known || (o.name == d.name && o.x == d.x && o.z == d.z && o.y == d.y);
+                for (const Door& o : g_doors[stage]) known = known || (o.name == d.name && o.room == d.room && o.x == d.x && o.z == d.z && o.y == d.y);
                 if (!known && !d.name.empty()) g_doors[stage].push_back(std::move(d));
             }
         }
@@ -965,7 +967,7 @@ bool load_cache() {
         } else if (kind == "D") {
             Door d;
             int stageDoor = 0;
-            if (std::getline(fields, d.name, '\t') && (fields >> d.prm >> d.angleY >> d.angleZ >> d.x >> d.y >> d.z >> stageDoor)) {
+            if (std::getline(fields, d.name, '\t') && (fields >> d.prm >> d.angleY >> d.angleZ >> d.x >> d.y >> d.z >> stageDoor >> d.room)) {
                 d.stageDoor = stageDoor != 0;
                 g_doors[stage].push_back(std::move(d));
             }
@@ -1007,7 +1009,7 @@ void save_cache() {
     }
     for (const auto& [stage, doors] : g_doors) {
         for (const Door& d : doors) {
-            out << "D\t" << stage << '\t' << d.name << '\t' << d.prm << ' ' << d.angleY << ' ' << d.angleZ << ' ' << d.x << ' ' << d.y << ' ' << d.z << ' ' << (d.stageDoor ? 1 : 0) << "\n";
+            out << "D\t" << stage << '\t' << d.name << '\t' << d.prm << ' ' << d.angleY << ' ' << d.angleZ << ' ' << d.x << ' ' << d.y << ' ' << d.z << ' ' << (d.stageDoor ? 1 : 0) << ' ' << d.room << "\n";
         }
     }
     for (const auto& [stage, rooms] : g_groundInfo) {
@@ -1316,7 +1318,10 @@ std::string doors_json(const std::string& stage) {
         }
         float x = d.x;
         float z = d.z;
+        // A stage file's door by its front room (as the game draws it); a room file's by its room,
+        // as that room's checks (Palace of Twilight's rooms are moved and turned on the map).
         if (d.stageDoor) to_map(stage, front, x, z);
+        else if (d.room >= 0) to_map(stage, d.room, x, z);
         w.beginObject();
         w.member("name", d.name);
         w.key("rooms").beginArray().value(front).value(back).endArray();
