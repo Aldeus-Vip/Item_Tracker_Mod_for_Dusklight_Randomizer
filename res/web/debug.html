@@ -172,7 +172,7 @@
       // Each door: rooms (front/back), floors, kind and state, place on the map, and where it comes from.
       for (const d of sm.doors) {
         out.push(`  door ${d.name} · rooms ${d.rooms.join("/")} · floors ${d.floors.join("/")} · ${d.kind} ${d.state} · at ${Math.round(d.x)}, ${Math.round(d.z)} · angle ${d.angle}` +
-          (d.file ? ` · ${d.file}, layer ${d.layer}, in file ${d.raw.map(Math.round).join(", ")}` : ""));
+          (d.file ? ` · ${d.file}, layer ${d.layer}, in file ${d.raw.map(Math.round).join(", ")}, height ${Math.round(d.y ?? 0)}` : ""));
       }
     }
     if (sm.shifts) out.push("  room offsets (x, z, turn): " + Object.entries(sm.shifts).map(([r, v]) => `${r}: ${v.map(Math.round).join(", ")}`).join(" · "));

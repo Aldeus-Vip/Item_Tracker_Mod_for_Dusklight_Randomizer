@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 21";
+constexpr const char* kCacheVersion = "check-places 22";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -1365,13 +1365,23 @@ std::string doors_json(const std::string& stage) {
         const bool locks = std::strcmp(e.kind, "key") == 0 || std::strcmp(e.kind, "boss") == 0;
         return (locks ? 4 : 0) + (onMap(e) ? 2 : 0) + (e.d->stageDoor || e.d->mapCoords ? 1 : 0);
     };
+    // A side's floor: a room not on this map (54) has none of its own, so the other side's.
+    const auto sideFloor = [&](const Entry& e, int room, int other) {
+        return floor_of(stage, e.d->y, maps.count(room) != 0 || maps.count(other) == 0 ? room : other);
+    };
+    const auto floors = [&](const Entry& e) { return std::pair<int, int>{sideFloor(e, e.front, e.back), sideFloor(e, e.back, e.front)}; };
     std::vector<bool> dropped(entries.size(), false);
     for (size_t i = 0; i < entries.size(); i++) {
         for (size_t j = i + 1; j < entries.size() && !dropped[i]; j++) {
             if (dropped[j]) continue;
             Entry& a = entries[i];
             Entry& b = entries[j];
-            if (std::fabs(a.x - b.x) > 150.0f || std::fabs(a.z - b.z) > 150.0f || std::fabs(a.d->y - b.d->y) > 300.0f) continue;
+            if (std::fabs(a.x - b.x) > 150.0f || std::fabs(a.z - b.z) > 150.0f) continue;
+            // (Not a door above or below on another floor: the copies of one door share a floor;
+            // their heights differ from file to file.)
+            const auto fa = floors(a);
+            const auto fb = floors(b);
+            if (fa.first != fb.first && fa.first != fb.second && fa.second != fb.first && fa.second != fb.second) continue;
             const bool keepA = rank(a) >= rank(b);
             Entry& keep = keepA ? a : b;
             Entry& drop = keepA ? b : a;
@@ -1397,13 +1407,15 @@ std::string doors_json(const std::string& stage) {
         w.key("x").number(e.x);
         w.key("z").number(e.z);
         w.member("angle", d.angleY);
-        w.key("floors").beginArray().value(floor_of(stage, d.y, front)).value(floor_of(stage, d.y, back)).endArray();
+        const auto fl = floors(e);
+        w.key("floors").beginArray().value(fl.first).value(fl.second).endArray();
         w.member("kind", e.kind);
         if (state == 'L' || state == 'U') w.member("locked", state == 'L');
         // (Where it comes from, for the debug page: the file, its chunk's layer, its place there.)
         w.member("file", d.stageDoor ? std::string("stage") : (d.mapCoords ? "stage archive room " : "room ") + std::to_string(d.room));
         w.member("layer", d.layer < 0 ? std::string("all") : std::string(1, static_cast<char>(d.layer)));
         w.key("raw").beginArray().number(d.x).number(d.z).endArray();
+        w.key("y").number(d.y);
         w.member("state", std::string(1, state));
         w.endObject();
     }
