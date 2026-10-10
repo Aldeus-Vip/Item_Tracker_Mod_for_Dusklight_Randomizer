@@ -2,6 +2,13 @@
 
 ## 1.2.0 — 2026-10-10
 
+### Upgrading from 1.1.0
+- Install over 1.1.0: settings, layout, custom requirements and what each save has found are kept.
+- The page opens in **Simple** display: custom requirements, Reachable Regions and seeds are under
+  **Advanced** (Options › Display).
+- On the first start the mod reads the game files for the map (a bar shows the progress).
+- 1.1.0's Map tab is now **Locations › Map** (`?view=map` opens it).
+
 ### New: Map (Locations › Checks / Map / Checks + Map)
 - **The map of where Link is**, drawn from the game's own map data: rooms by floor, Link's position
   and facing, following him between rooms and floors (**Follow Link** switches this off). Dungeons
