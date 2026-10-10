@@ -82,6 +82,8 @@
 - The items lying around being watched for "seen", and the dungeon map backgrounds read.
 
 ### Fixed
+- Check plates on a dungeon's map were cut off: they leave out the dungeon's name, which every
+  check there starts with ("Arbiters Grounds Death Sword Chest" shows as "Death Sword Chest").
 - Arbiters Grounds Death Sword Chest was not on the dungeon's map: Death Sword's arena is a stage
   of its own (D_MN10B, room 51) the dungeon's map files do not hold. A dungeon's map (Dungeons
   list) now also draws its boss and miniboss stages' rooms it lacks, with their checks.

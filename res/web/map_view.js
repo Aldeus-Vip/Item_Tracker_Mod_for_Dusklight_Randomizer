@@ -2155,6 +2155,10 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // (Lanayru Spring in Lake Hylia's stage).
     const drawn = drawnRooms ?? new Set(map.rooms.map((r) => r.no));
     const out = [];
+    // On a dungeon's map, its checks' plates without the dungeon's name ("Arbiters Grounds Death
+    // Sword Chest" -> "Death Sword Chest"): shorter, as every check there starts with it.
+    const dungeonName = DUNGEON_STAGES.find(([, st]) => st === (bossParent(map.stage) ?? map.stage))?.[0];
+    const plateName = (name) => (dungeonName && name.startsWith(dungeonName + " ") ? name.slice(dungeonName.length + 1) : name);
     for (const place of stageChecks(map.stage, map.checks)) {
       const info = place.name ? byName.get(place.name) : byKey.get(place.key);
       if (info && checkScope && !checkScope.has(info.name)) continue;
@@ -2166,7 +2170,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const node = el("button", { type: "button", className: `map-check ${info.status}`, ariaLabel: info.name },
         el("span", { className: "loc-dot" }),
         el("span", { className: "map-entrance-card map-check-card" },
-          el("span", { className: "map-entrance-name", textContent: info.name })));
+          el("span", { className: "map-entrance-name", textContent: plateName(info.name) })));
       node.addEventListener("pointerdown", (e) => e.stopPropagation());
       node.addEventListener("pointerup", (e) => e.stopPropagation());
       // Highlighted (picked) here and in Checks, again to unhighlight; or its requirement shown too
