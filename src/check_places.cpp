@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 19";
+constexpr const char* kCacheVersion = "check-places 20";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -149,6 +149,7 @@ struct Door {
     float z = 0;
     bool stageDoor = false;  // placed by the stage file: moved by its front room's offset
     int room = -1;           // a room file's door: moved by that room's offset (as its checks)
+    int layer = -1;          // its chunk: -1 Door (every story layer), else Doo0..Doob's layer
 };
 std::map<std::string, std::vector<Door>> g_doors;
 std::map<std::string, std::vector<Shutter>> g_shutters;  // in room coordinates (to_map when served)
@@ -609,6 +610,7 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
                 d.angleZ = be16(e + 0x1C);
                 d.stageDoor = roomNo < 0;
                 d.room = roomNo;
+                d.layer = node[3] == 'r' ? -1 : static_cast<int>(node[3]);
                 // The same door in the stage file and a room's file: kept once, the stage file's
                 // (placed by its front room, as the game does).
                 Door* known = nullptr;
@@ -981,7 +983,7 @@ bool load_cache() {
         } else if (kind == "D") {
             Door d;
             int stageDoor = 0;
-            if (std::getline(fields, d.name, '\t') && (fields >> d.prm >> d.angleY >> d.angleZ >> d.x >> d.y >> d.z >> stageDoor >> d.room)) {
+            if (std::getline(fields, d.name, '\t') && (fields >> d.prm >> d.angleY >> d.angleZ >> d.x >> d.y >> d.z >> stageDoor >> d.room >> d.layer)) {
                 d.stageDoor = stageDoor != 0;
                 g_doors[stage].push_back(std::move(d));
             }
@@ -1023,7 +1025,7 @@ void save_cache() {
     }
     for (const auto& [stage, doors] : g_doors) {
         for (const Door& d : doors) {
-            out << "D\t" << stage << '\t' << d.name << '\t' << d.prm << ' ' << d.angleY << ' ' << d.angleZ << ' ' << d.x << ' ' << d.y << ' ' << d.z << ' ' << (d.stageDoor ? 1 : 0) << ' ' << d.room << "\n";
+            out << "D\t" << stage << '\t' << d.name << '\t' << d.prm << ' ' << d.angleY << ' ' << d.angleZ << ' ' << d.x << ' ' << d.y << ' ' << d.z << ' ' << (d.stageDoor ? 1 : 0) << ' ' << d.room << ' ' << d.layer << "\n";
         }
     }
     for (const auto& [stage, rooms] : g_groundInfo) {
@@ -1345,6 +1347,10 @@ std::string doors_json(const std::string& stage) {
         w.key("floors").beginArray().value(floor_of(stage, d.y, front)).value(floor_of(stage, d.y, back)).endArray();
         w.member("kind", kind);
         if (state == 'L' || state == 'U') w.member("locked", state == 'L');
+        // (Where it comes from, for the debug page: the file, its chunk's layer, its place there.)
+        w.member("file", d.stageDoor ? std::string("stage") : "room " + std::to_string(d.room));
+        w.member("layer", d.layer < 0 ? std::string("all") : std::string(1, static_cast<char>(d.layer)));
+        w.key("raw").beginArray().number(d.x).number(d.z).endArray();
         w.member("state", std::string(1, state));
         w.endObject();
     }
@@ -1405,6 +1411,16 @@ std::string stage_map_json(const std::string& stage) {
         out += R"("icons":)" + w.str() + ",";
     }
     out += R"("doors":)" + doors_json(stage) + ",";
+    {
+        // Each room's place on the map (FILI: offset x, z and turn), for the debug page.
+        JsonWriter w;
+        w.beginObject();
+        for (const auto& [room, sh] : g_shifts[stage]) {
+            w.key(std::to_string(room).c_str()).beginArray().number(sh.x).number(sh.z).value(sh.turn).endArray();
+        }
+        w.endObject();
+        out += R"("shifts":)" + w.str() + ",";
+    }
     {
         JsonWriter w;
         w.beginObject();
