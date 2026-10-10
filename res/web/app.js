@@ -505,6 +505,8 @@ const DEFAULT_SETTINGS = {
   font: { family: "default", scope: "titles", rev: 0 },
   // Checks and Map follow each other's region.
   linkMap: true,
+  // The check highlighted on one page, highlighted on every page (another browser, OBS) too.
+  shareHighlight: false,
   // The map's look: its dark backdrop shown or not, and how opaque its ground is (0.1 to 1), to lay
   // it over the game in OBS.
   mapLook: { backdrop: true, ground: 1 },
@@ -550,6 +552,7 @@ function normalizeSettings(raw) {
   }
   if (ff && typeof ff === "object") out.frameFill.glow = Math.max(0, Math.min(1, Number.isFinite(Number(ff.glow)) ? Number(ff.glow) : 1));
   out.linkMap = raw?.linkMap !== false;
+  out.shareHighlight = raw?.shareHighlight === true;
   const ml = raw?.mapLook;
   if (ml && typeof ml === "object") {
     out.mapLook.backdrop = ml.backdrop !== false;
@@ -655,6 +658,7 @@ function applySettings() {
   document.getElementById("font-scope").disabled = !face;
   document.getElementById("font-upload").hidden = fo.family !== "custom";
   document.getElementById("link-map").checked = settings.linkMap;
+  document.getElementById("share-highlight").checked = settings.shareHighlight;
   // The map's look.
   document.body.classList.toggle("map-no-backdrop", !settings.mapLook.backdrop);
   document.body.style.setProperty("--map-ground", String(settings.mapLook.ground));
@@ -701,6 +705,21 @@ async function loadSettings() {
   } catch {}
   applySettings();
   locationsView.refresh();
+  applySharedHighlight();
+}
+
+// Options › Share highlight: the check highlighted on one page goes through the mod to every page.
+const pageId = Math.random().toString(36).slice(2);
+let sharedHighlight; // the last one sent or received (undefined: none yet)
+function shareHighlight(name) {
+  if (!settings.shareHighlight || name === sharedHighlight) return;
+  sharedHighlight = name;
+  fetch("highlight", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, from: pageId }) }).catch(() => {});
+}
+function applySharedHighlight() {
+  if (!settings.shareHighlight || sharedHighlight === undefined || locationsView.focusedName() === sharedHighlight) return;
+  locationsView.setFocused(sharedHighlight, true);
+  if (settings.linkMap) mapView?.pickCheck(sharedHighlight, false);
 }
 
 // Options: a window over the page, opened and closed by its button, closed by a click outside
@@ -760,6 +779,10 @@ document.getElementById("font-family").addEventListener("change", (e) => {
 });
 document.getElementById("link-map").addEventListener("change", (e) => {
   settings.linkMap = e.target.checked;
+  saveSettings();
+});
+document.getElementById("share-highlight").addEventListener("change", (e) => {
+  settings.shareHighlight = e.target.checked;
   saveSettings();
 });
 document.getElementById("map-backdrop").addEventListener("change", (e) => {
@@ -1222,6 +1245,7 @@ const locationsView = createLocationsView(locChecks, {
     mapView?.showCheck(name, false);
   },
   clickMode: () => settings.clickMode,
+  onFocusChanged: (name) => shareHighlight(name),
 });
 mapView = createMapView(locMap, {
   getState: () => state,
@@ -1341,6 +1365,15 @@ function connect() {
   source.addEventListener("config", () => {
     if (!editing) loadLayout();
     loadSettings();
+  });
+  // A check highlighted on another page (Options › Share highlight).
+  source.addEventListener("highlight", (e) => {
+    try {
+      const h = JSON.parse(e.data);
+      if (h.from === pageId) return;
+      sharedHighlight = typeof h.name === "string" ? h.name : null;
+      applySharedHighlight();
+    } catch {}
   });
   source.addEventListener("error", () => setStatus("offline", "Game not running — retrying…"));
 }

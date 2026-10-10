@@ -45,6 +45,9 @@ mods::net::Socket g_listener;
 int g_port = 0;
 std::unordered_map<NetHandle, std::unique_ptr<Client>> g_clients;
 std::string g_state = R"({"protocol":1,"inGame":false})";
+// The check highlighted on a page, shared with every page that asks for it (Options): kept in
+// memory only.
+std::string g_highlight;
 std::filesystem::path g_iconDir;
 std::filesystem::path g_dataDir;
 RandoFileResolver g_randoResolver = nullptr;
@@ -626,6 +629,28 @@ void add_found(Client& client, const Request& req) {
     send_response(client, "200 OK", "application/json; charset=utf-8", "{\"ok\":true}");
 }
 
+// POST /highlight: the check a page highlighted, passed on to every open page.
+void share_highlight(Client& client, const Request& req) {
+    if (!is_own_origin(req.origin) || !req.contentType.starts_with("application/json")) {
+        send_error(client, "403 Forbidden");
+        return;
+    }
+    const std::string_view body = trim(req.body);
+    // (One line: it goes out as one event's data.)
+    if (body.size() > 1024 || body.empty() || body.front() != '{' || body.back() != '}' ||
+        body.find_first_of("\r\n") != std::string_view::npos) {
+        send_error(client, "400 Bad Request");
+        return;
+    }
+    g_highlight = std::string{body};
+    send_response(client, "200 OK", "application/json; charset=utf-8", "{\"ok\":true}");
+    for (auto& [handle, other] : g_clients) {
+        if (other->eventStream) {
+            send_text(*other, "event: highlight\ndata: " + g_highlight + "\n\n");
+        }
+    }
+}
+
 // Largest request body accepted for a target.
 size_t max_body_bytes(std::string_view target) {
     if (target.starts_with("/icons/")) return kMaxIconBytes;
@@ -653,6 +678,8 @@ bool handle_request(Client& client, const Request& req) {
             save_icon(client, req, target.substr(7));
         } else if (target == "/found") {
             add_found(client, req);
+        } else if (target == "/highlight") {
+            share_highlight(client, req);
         } else {
             send_error(client, "404 Not Found");
         }
@@ -679,6 +706,9 @@ bool handle_request(Client& client, const Request& req) {
             "Connection: keep-alive\r\n\r\n"
             "retry: 2000\n\n");
         send_text(client, format_state_event(g_state));
+        if (!g_highlight.empty()) {
+            send_text(client, "event: highlight\ndata: " + g_highlight + "\n\n");
+        }
         client.eventStream = true;
         return true;
     }

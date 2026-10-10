@@ -54,7 +54,7 @@ English: [README.md](README.md)
 | Items / Dungeons | アイコンを右クリック | アイコン編集を開く(下記) |
 | Items | **Golden Bugs** をクリック | 黄金の虫をすべて表示(ゲームの虫の画面と同じ並び、オス・メス別)。Agitha に渡した虫には蝶のマーク。虫や蝶を右クリックでアイコン編集 |
 | Items | **Edit** | 並び替え。2 つの枠をクリック、またはドラッグで入れ替え、行の追加・削除、最後に **Confirm** |
-| 全タブ | **Options** | Display(Simple / Advanced、Link Checks and Map、Clicks on a check、フォント)、Theme(Twilight / Midna / Hyrule / Shadow)、背景画像、Item Background(色・不透明度・光)、Map(背景の有無・地形の不透明度)。もう一度ボタンを押すか枠外をクリックで閉じる |
+| 全タブ | **Options** | Display(Simple / Advanced、Link Checks and Map、Share highlight between pages(ハイライトを全ページで共有)、Clicks on a check、フォント)、Theme(Twilight / Midna / Hyrule / Shadow)、背景画像、Item Background(色・不透明度・光)、Map(背景の有無・地形の不透明度)。もう一度ボタンを押すか枠外をクリックで閉じる |
 | Locations | 地域をクリック | その地域のチェック一覧を表示。幅が狭いときは一覧に切り替わり、**‹ Back** で戻る |
 | Locations | チェックをクリック | 必要条件を表示(and は横、or は縦に並び、満たしている項目は緑の枠)。Options › Clicks on a check でクリックと右クリックを入れ替え可能 |
 | Locations | チェックにカーソルを置く | 横に必要条件を表示 |

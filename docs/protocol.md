@@ -25,6 +25,7 @@ the mod's panel). Only loopback clients can connect, and requests whose `Host` h
 | GET | `/rando-seeds/<hash>` | That seed's spoiler log (text). The page shows only placements of checks the player has found |
 | GET | `/map` | The current stage's map as the game draws it, read from the rooms it has loaded (see `src/map_data.hpp`). In development: `map-preview.html` draws it |
 | POST | `/found` | `text/plain`: an optional first line `seed\t<hash>`, then entry lines: `loc:<location>` (shop seen), `told:<location>` (an NPC named the item), `map:<region>` (marked reachable), `mark:<location>` (marked checked), `note:<key>\t<text>` (replaces that key's note), or `-map:…` / `-mark:…` / `-note:<key>` to remove one. Kept with the game save (see `found` in the state) |
+| POST | `/highlight` | `application/json`, one line: `{"name": <check or null>, "from": <page id>}`, the check a page highlighted (Options › Share highlight). Kept in memory and sent to every event stream as `event: highlight`, and to each new one when it opens |
 
 Writes are accepted only from the tracker page's own origin (or without `Origin`, e.g. curl) and
 only with `Content-Type: application/json` (layout, settings) or `image/*` (background). These

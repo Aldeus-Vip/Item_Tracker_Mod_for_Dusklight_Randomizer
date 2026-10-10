@@ -147,14 +147,24 @@ setInterval(() => {
   }
 }, Number(process.env.TICK_MS ?? 3000));
 
+let highlight = "";
 createServer(async (req, res) => {
   const path = new URL(req.url, "http://localhost").pathname;
   if (path === "/events") {
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
-    res.write("retry: 2000\n\n" + event());
+    res.write("retry: 2000\n\n" + event() + (highlight ? `event: highlight\ndata: ${highlight}\n\n` : ""));
     streams.add(res);
     req.on("close", () => streams.delete(res));
     return;
+  }
+  // The check highlighted on a page, passed on to every page (kept in memory, as the mod does).
+  if (path === "/highlight" && req.method === "POST") {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    highlight = Buffer.concat(chunks).toString().replace(/[\r\n]/g, "");
+    for (const stream of streams) stream.write(`event: highlight\ndata: ${highlight}\n\n`);
+    res.writeHead(200, { "Content-Type": TYPES[".json"] });
+    return res.end('{"ok":true}');
   }
   // Saved configuration, kept in memory (the mod stores these in its data directory).
   if (path === "/layout" || path === "/settings" || path === "/background" || path === "/font") {

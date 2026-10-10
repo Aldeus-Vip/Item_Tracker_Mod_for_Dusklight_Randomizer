@@ -3,6 +3,8 @@
 ## 1.2.2 — unreleased
 
 ### New
+- Options › Display › **Share highlight between pages**: a check highlighted on one page (on the
+  map or in Checks) is highlighted on every page open — another browser, OBS — too.
 - Options › Map: **Map backdrop** (off: only the map, to lay it over the game in OBS with
   `?transparent=1`) and **Ground opacity** (a see-through map; checks, entrances and Link stay).
 

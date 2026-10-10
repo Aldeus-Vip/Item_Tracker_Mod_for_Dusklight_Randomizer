@@ -57,7 +57,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Items / Dungeons | Right-click an icon | Open the icon editor (see below) |
 | Items | Click **Golden Bugs** | Show every golden bug (male and female of each kind, as on the game's insect screen), with Agitha's butterfly on the bugs given to her; right-click a bug or the butterfly to change its icon |
 | Items | **Edit** | Rearrange tiles: click two slots or drag one onto another to swap them, add or remove rows, then **Confirm** |
-| Any tab | **Options** | Display (Simple / Advanced, Link Checks and Map, Clicks on a check, font), Theme (Twilight, Midna, Hyrule, Shadow), Background image, Item Background (color, opacity, glow), Map (backdrop, ground opacity). Click the button again or outside to close |
+| Any tab | **Options** | Display (Simple / Advanced, Link Checks and Map, Share highlight between pages, Clicks on a check, font), Theme (Twilight, Midna, Hyrule, Shadow), Background image, Item Background (color, opacity, glow), Map (backdrop, ground opacity). Click the button again or outside to close |
 | Locations | Click a region | Show its checks. In a narrow window the region list and the check list are shown one at a time; use **‹ Back** to return |
 | Locations | Click a check | Show its requirement: parts joined by "and" side by side, alternatives stacked, met parts outlined (Options › Clicks on a check can swap click and right-click) |
 | Locations | Rest the pointer on a check | Its requirement beside it |

@@ -184,6 +184,18 @@ int main() {
     check(status_is(request(http("POST", "/settings", R"({"theme":"midna"})", json + own)), "200"), "POST /settings");
     check(g_sent[stream].find("event: config") != std::string::npos, "settings change broadcasts a config event");
     check(!g_closed[stream], "event stream stays open");
+
+    // A highlighted check goes to every event stream, and to one opened later
+    const std::string hl = R"({"name":"Ordon Cat Rescue","from":"a"})";
+    check(status_is(request(http("POST", "/highlight", hl, json + own)), "200"), "POST /highlight");
+    check(g_sent[stream].find(std::string{"event: highlight\ndata: "} + hl + "\n\n") != std::string::npos,
+        "highlight is broadcast");
+    check(status_is(request(http("POST", "/highlight", "{\"a\":\n1}", json + own)), "400"), "multi-line highlight is rejected");
+    check(status_is(request(http("POST", "/highlight", hl, json + "Origin: http://evil.example\r\n")), "403"),
+        "cross-site highlight is rejected");
+    const NetHandle late = connect_client();
+    send_data(late, http("GET", "/events"));
+    check(g_sent[late].find(hl) != std::string::npos, "a new event stream gets the current highlight");
     std::string rules = R"({"logicOverrides":{"a":[[{"item":")";
     rules += std::string(400 * 1024, 'x') + R"(","n":1}]]}})";
     check(status_is(request(http("POST", "/settings", rules, json + own), 64 * 1024), "200"),
