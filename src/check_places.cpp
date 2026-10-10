@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 20";
+constexpr const char* kCacheVersion = "check-places 21";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -150,6 +150,9 @@ struct Door {
     bool stageDoor = false;  // placed by the stage file: moved by its front room's offset
     int room = -1;           // a room file's door: moved by that room's offset (as its checks)
     int layer = -1;          // its chunk: -1 Door (every story layer), else Doo0..Doob's layer
+    // A room's copy in the stage archive (room<N>.dzs): already in map coordinates. A room's own
+    // file (R<N>_00.arc) is in world coordinates, moved by the room's offset as its checks.
+    bool mapCoords = false;
 };
 std::map<std::string, std::vector<Door>> g_doors;
 std::map<std::string, std::vector<Shutter>> g_shutters;  // in room coordinates (to_map when served)
@@ -611,6 +614,7 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
                 d.stageDoor = roomNo < 0;
                 d.room = roomNo;
                 d.layer = node[3] == 'r' ? -1 : static_cast<int>(node[3]);
+                d.mapCoords = stageArchiveRoom && roomNo >= 0;
                 // The same door in the stage file and a room's file: kept once, the stage file's
                 // (placed by its front room, as the game does).
                 Door* known = nullptr;
@@ -983,8 +987,10 @@ bool load_cache() {
         } else if (kind == "D") {
             Door d;
             int stageDoor = 0;
-            if (std::getline(fields, d.name, '\t') && (fields >> d.prm >> d.angleY >> d.angleZ >> d.x >> d.y >> d.z >> stageDoor >> d.room >> d.layer)) {
+            int mapCoords = 0;
+            if (std::getline(fields, d.name, '\t') && (fields >> d.prm >> d.angleY >> d.angleZ >> d.x >> d.y >> d.z >> stageDoor >> d.room >> d.layer >> mapCoords)) {
                 d.stageDoor = stageDoor != 0;
+                d.mapCoords = mapCoords != 0;
                 g_doors[stage].push_back(std::move(d));
             }
         } else if (kind == "S") {
@@ -1025,7 +1031,7 @@ void save_cache() {
     }
     for (const auto& [stage, doors] : g_doors) {
         for (const Door& d : doors) {
-            out << "D\t" << stage << '\t' << d.name << '\t' << d.prm << ' ' << d.angleY << ' ' << d.angleZ << ' ' << d.x << ' ' << d.y << ' ' << d.z << ' ' << (d.stageDoor ? 1 : 0) << ' ' << d.room << ' ' << d.layer << "\n";
+            out << "D\t" << stage << '\t' << d.name << '\t' << d.prm << ' ' << d.angleY << ' ' << d.angleZ << ' ' << d.x << ' ' << d.y << ' ' << d.z << ' ' << (d.stageDoor ? 1 : 0) << ' ' << d.room << ' ' << d.layer << ' ' << (d.mapCoords ? 1 : 0) << "\n";
         }
     }
     for (const auto& [stage, rooms] : g_groundInfo) {
@@ -1304,8 +1310,19 @@ std::string doors_json(const std::string& stage) {
         const bool b = back == 0;
         return f && b ? 'D' : f ? 'F' : b ? 'B' : 'O';
     };
-    JsonWriter w;
-    w.beginArray();
+    // Each door where the map draws it: a stage file's by its front room (as the game does), a
+    // room's own file's by that room's offset (as its checks), a room's copy in the stage archive
+    // as it is (already in map coordinates).
+    struct Entry {
+        const Door* d;
+        int front;
+        int back;
+        float x;
+        float z;
+        const char* kind;
+        char state;
+    };
+    std::vector<Entry> entries;
     for (const Door& d : g_doors[stage]) {
         const int front = (d.prm >> 13) & 0x3F;
         const int back = (d.prm >> 19) & 0x3F;
@@ -1334,21 +1351,57 @@ std::string doors_json(const std::string& stage) {
         }
         float x = d.x;
         float z = d.z;
-        // A stage file's door by its front room (as the game draws it); a room file's by its room,
-        // as that room's checks (Palace of Twilight's rooms are moved and turned on the map).
         if (d.stageDoor) to_map(stage, front, x, z);
-        else if (d.room >= 0) to_map(stage, d.room, x, z);
+        else if (!d.mapCoords && d.room >= 0) to_map(stage, d.room, x, z);
+        entries.push_back({&d, front, back, x, z, kind, state});
+    }
+    // One door kept in several files (the stage archive's copy of a room, the room's own file, the
+    // room on its other side, which names a room not on this map for it: Palace of Twilight's 54):
+    // shown once, as a lock when one copy has one, with the rooms of a copy whose rooms are both
+    // on the map.
+    const auto& maps = g_maps[stage];
+    const auto onMap = [&maps](const Entry& e) { return maps.count(e.front) != 0 && maps.count(e.back) != 0; };
+    const auto rank = [&onMap](const Entry& e) {
+        const bool locks = std::strcmp(e.kind, "key") == 0 || std::strcmp(e.kind, "boss") == 0;
+        return (locks ? 4 : 0) + (onMap(e) ? 2 : 0) + (e.d->stageDoor || e.d->mapCoords ? 1 : 0);
+    };
+    std::vector<bool> dropped(entries.size(), false);
+    for (size_t i = 0; i < entries.size(); i++) {
+        for (size_t j = i + 1; j < entries.size() && !dropped[i]; j++) {
+            if (dropped[j]) continue;
+            Entry& a = entries[i];
+            Entry& b = entries[j];
+            if (std::fabs(a.x - b.x) > 150.0f || std::fabs(a.z - b.z) > 150.0f || std::fabs(a.d->y - b.d->y) > 300.0f) continue;
+            const bool keepA = rank(a) >= rank(b);
+            Entry& keep = keepA ? a : b;
+            Entry& drop = keepA ? b : a;
+            if (!onMap(keep) && onMap(drop)) {
+                keep.front = drop.front;
+                keep.back = drop.back;
+            }
+            dropped[keepA ? j : i] = true;
+        }
+    }
+    JsonWriter w;
+    w.beginArray();
+    for (size_t i = 0; i < entries.size(); i++) {
+        if (dropped[i]) continue;
+        const Entry& e = entries[i];
+        const Door& d = *e.d;
+        const int front = e.front;
+        const int back = e.back;
+        const char state = e.state;
         w.beginObject();
         w.member("name", d.name);
         w.key("rooms").beginArray().value(front).value(back).endArray();
-        w.key("x").number(x);
-        w.key("z").number(z);
+        w.key("x").number(e.x);
+        w.key("z").number(e.z);
         w.member("angle", d.angleY);
         w.key("floors").beginArray().value(floor_of(stage, d.y, front)).value(floor_of(stage, d.y, back)).endArray();
-        w.member("kind", kind);
+        w.member("kind", e.kind);
         if (state == 'L' || state == 'U') w.member("locked", state == 'L');
         // (Where it comes from, for the debug page: the file, its chunk's layer, its place there.)
-        w.member("file", d.stageDoor ? std::string("stage") : "room " + std::to_string(d.room));
+        w.member("file", d.stageDoor ? std::string("stage") : (d.mapCoords ? "stage archive room " : "room ") + std::to_string(d.room));
         w.member("layer", d.layer < 0 ? std::string("all") : std::string(1, static_cast<char>(d.layer)));
         w.key("raw").beginArray().number(d.x).number(d.z).endArray();
         w.member("state", std::string(1, state));
