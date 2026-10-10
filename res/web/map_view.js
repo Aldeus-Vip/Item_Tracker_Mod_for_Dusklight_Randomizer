@@ -1829,8 +1829,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
           const hw = (mine.maxX - mine.minX) / 2 * 0.9;
           const hh = (mine.maxZ - mine.minZ) / 2 * 0.9;
           const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dz ? hh / Math.abs(dz) : Infinity, 1);
-          plate(`part:${here.stage.name}/${here.stage.part ?? here.stage.rooms[0]?.no}>${id}`, to, null, "Field",
-            { x: mine.x + dx * (Number.isFinite(t) ? t : 0), z: mine.z + dz * (Number.isFinite(t) ? t : 0) });
+          const key = `part:${here.stage.name}/${here.stage.part ?? here.stage.rooms[0]?.no}>${id}`;
+          // Not placed by the presets, but the way back is: the same crossing, seen from this side.
+          const back = fixes.moved?.[`part:${st.name}/${to.room}>${sidePlaceId({ stage: here.stage.name, room: here.stage.part ?? here.stage.rooms[0]?.no }, null)}`];
+          plate(key, to, null, "Field", !fixes.moved?.[key] && back ? { x: back.x, z: back.z }
+            : { x: mine.x + dx * (Number.isFinite(t) ? t : 0), z: mine.z + dz * (Number.isFinite(t) ? t : 0) });
         }
       }
     }

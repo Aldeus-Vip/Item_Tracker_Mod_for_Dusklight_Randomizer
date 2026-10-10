@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.2 — unreleased
+
+### New
+- Options › Map: **Map backdrop** (off: only the map, to lay it over the game in OBS with
+  `?transparent=1`) and **Ground opacity** (a see-through map; checks, entrances and Link stay).
+
+### Fixed
+- Hyrule Field: the plate from Kakariko Gorge (Eldin Field) to Faron Field was far from the real
+  crossing. A plate between two provinces now sits where the way back is placed.
+
 ## 1.2.1 — 2026-10-10
 
 ### Fixed

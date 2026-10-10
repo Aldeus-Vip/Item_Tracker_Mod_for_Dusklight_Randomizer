@@ -505,6 +505,9 @@ const DEFAULT_SETTINGS = {
   font: { family: "default", scope: "titles", rev: 0 },
   // Checks and Map follow each other's region.
   linkMap: true,
+  // The map's look: its dark backdrop shown or not, and how opaque its ground is (0.1 to 1), to lay
+  // it over the game in OBS.
+  mapLook: { backdrop: true, ground: 1 },
   // Clicks on a check (Checks and Map): "left-req" (click: requirement, right-click: highlight)
   // or "left-highlight" (the other way round).
   clickMode: "left-req",
@@ -547,6 +550,11 @@ function normalizeSettings(raw) {
   }
   if (ff && typeof ff === "object") out.frameFill.glow = Math.max(0, Math.min(1, Number.isFinite(Number(ff.glow)) ? Number(ff.glow) : 1));
   out.linkMap = raw?.linkMap !== false;
+  const ml = raw?.mapLook;
+  if (ml && typeof ml === "object") {
+    out.mapLook.backdrop = ml.backdrop !== false;
+    out.mapLook.ground = Math.max(0.1, Math.min(1, Number.isFinite(Number(ml.ground)) ? Number(ml.ground) : 1));
+  }
   out.clickMode = raw?.clickMode === "left-highlight" ? "left-highlight" : "left-req";
   const fo = raw?.font;
   if (fo && typeof fo === "object") {
@@ -647,6 +655,11 @@ function applySettings() {
   document.getElementById("font-scope").disabled = !face;
   document.getElementById("font-upload").hidden = fo.family !== "custom";
   document.getElementById("link-map").checked = settings.linkMap;
+  // The map's look.
+  document.body.classList.toggle("map-no-backdrop", !settings.mapLook.backdrop);
+  document.body.style.setProperty("--map-ground", String(settings.mapLook.ground));
+  document.getElementById("map-backdrop").checked = settings.mapLook.backdrop;
+  document.getElementById("map-ground").value = String(Math.round(settings.mapLook.ground * 100));
   document.getElementById("click-mode").value = settings.clickMode;
 }
 
@@ -749,6 +762,17 @@ document.getElementById("link-map").addEventListener("change", (e) => {
   settings.linkMap = e.target.checked;
   saveSettings();
 });
+document.getElementById("map-backdrop").addEventListener("change", (e) => {
+  settings.mapLook.backdrop = e.target.checked;
+  applySettings();
+  saveSettings();
+});
+const mapGround = document.getElementById("map-ground");
+mapGround.addEventListener("input", () => {
+  settings.mapLook.ground = Number(mapGround.value) / 100;
+  applySettings();
+});
+mapGround.addEventListener("change", () => saveSettings());
 document.getElementById("click-mode").addEventListener("change", (e) => {
   settings.clickMode = e.target.value === "left-highlight" ? "left-highlight" : "left-req";
   saveSettings();
