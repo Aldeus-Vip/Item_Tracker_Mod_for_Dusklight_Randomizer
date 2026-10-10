@@ -1275,10 +1275,18 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // either side is drawn and the door is on the floor shown).
   function buildDoors(rooms, floor) {
     const drawn = new Set(rooms.map((r) => r.no));
+    const boxes = roomBoxes(rooms, floor);
+    // On the edge of one of its rooms drawn: a door far from them (another story layer's, a side
+    // that is another stage's room) is left out.
+    const nearRoom = (door) => door.rooms.some((no) => {
+      const b = boxes.get(no);
+      return b && Math.abs(door.x - b.x) <= b.w / 2 + 300 && Math.abs(door.z - b.y) <= b.h / 2 + 300;
+    });
     const out = [];
     (map.doors ?? []).forEach((door, index) => {
       if (!door.rooms.some((r) => drawn.has(r))) return;
       if (!door.floors.includes(floor)) return;
+      if (!nearRoom(door)) return;
       const here = door.rooms.includes(player.stayRoom);
       const node = svg("g", { class: `map-door ${door.kind}` + (here ? " here" : "") });
       const square = svg("rect", { class: "map-door-square", x: -50, y: -50, width: 100, height: 100 });

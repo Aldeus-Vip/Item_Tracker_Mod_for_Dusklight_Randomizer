@@ -23,7 +23,7 @@
 namespace tracker::places {
 namespace {
 
-constexpr const char* kCacheVersion = "check-places 18";
+constexpr const char* kCacheVersion = "check-places 19";
 constexpr uint32_t kReadPerFrame = 512 * 1024;  // bytes read from the disc each frame
 
 // Checks so far placed only from a layer chunk (stage/key).
@@ -575,6 +575,15 @@ std::string room_map_json(int roomNo, const uint8_t* file, uint32_t size, const 
 void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint32_t size, bool stageArchiveRoom) {
     const uint32_t chunks = be32(b);
     if (chunks > 256 || 4 + chunks * 12 > size) return;
+    // The game loads a file's doors of every story layer (Door) and of the one it is in (Doo0..Doob):
+    // only one layer's are read, the first the file has (Forest Temple keeps its doors there;
+    // Palace of Twilight has other doors, locked or not, in each of its layers).
+    char doorLayer = 0;
+    for (uint32_t c = 0; c < chunks; c++) {
+        const uint8_t* node = b + 4 + c * 12;
+        const char l = static_cast<char>(node[3]);
+        if (std::memcmp(node, "Doo", 3) == 0 && l != 'r' && (doorLayer == 0 || l < doorLayer)) doorLayer = l;
+    }
     for (uint32_t c = 0; c < chunks; c++) {
         const uint8_t* node = b + 4 + c * 12;
         const uint8_t* data = chunk_data(b, node);
@@ -584,7 +593,7 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
             g_floors[stage] = {s16(data + 0x1A), std::fabs(s16(data + 0x1C)), std::fabs(s16(data + 0x1E)), be16(data + 0x0A) & 7, (data[0x09] >> 1) & 0x1F};
         }
         // Doors of all story stages too (layer chunks Doo0..Doob: Forest Temple keeps its doors there).
-        if (std::memcmp(node, "Doo", 3) == 0) {
+        if (std::memcmp(node, "Doo", 3) == 0 && (node[3] == 'r' || static_cast<char>(node[3]) == doorLayer)) {
             const uint32_t num = be32(node + 4);
             for (uint32_t i = 0; i < num && i < 0x40 && data + (i + 1) * 0x24 <= b + size; i++) {
                 const uint8_t* e = data + i * 0x24;
@@ -600,9 +609,14 @@ void parse_room_map(const std::string& stage, int roomNo, const uint8_t* b, uint
                 d.angleZ = be16(e + 0x1C);
                 d.stageDoor = roomNo < 0;
                 d.room = roomNo;
-                bool known = false;
-                for (const Door& o : g_doors[stage]) known = known || (o.name == d.name && o.room == d.room && o.x == d.x && o.z == d.z && o.y == d.y);
-                if (!known && !d.name.empty()) g_doors[stage].push_back(std::move(d));
+                // The same door in the stage file and a room's file: kept once, the stage file's
+                // (placed by its front room, as the game does).
+                Door* known = nullptr;
+                for (Door& o : g_doors[stage]) {
+                    if (o.name == d.name && o.x == d.x && o.z == d.z && o.y == d.y) known = &o;
+                }
+                if (known != nullptr && d.stageDoor && !known->stageDoor) *known = d;
+                else if (known == nullptr && !d.name.empty()) g_doors[stage].push_back(std::move(d));
             }
         }
         // (The stage archive's room files carry the map's FILI, dStage_FileList2_dt_c; a room's own
