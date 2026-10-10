@@ -24,58 +24,19 @@ const views = {
 let mapView = null; // Map sub-tab of Locations (created with it)
 
 // ---- The mod's presets (map_presets.json) ----
-// What people set by hand that the mod ships for everyone: checks' places, Areas set for checks,
-// entrances moved, added or removed, and places renamed. Each person's own settings win over them.
+// Fixed data the mod ships: checks' places the game files do not give, Areas set for checks,
+// entrances moved, added or removed, and places renamed. Not changed in the page.
 let mapPresets = { places: {}, checkAreas: {}, entranceFixes: { moved: {}, added: [], hidden: [] }, placeFixes: {} };
 fetch("map_presets.json", { cache: "no-store" })
   .then((r) => (r.ok ? r.json() : null))
   .then((j) => {
     if (!j) return;
-    const clean = normalizeSettings({ checkAreas: j.checkAreas, entranceFixes: j.entranceFixes, placeFixes: j.placeFixes });
+    const clean = normalizePresets(j);
     mapPresets = { places: j.places ?? {}, checkAreas: clean.checkAreas, entranceFixes: clean.entranceFixes, placeFixes: clean.placeFixes };
     locationsView?.refresh();
     mapView?.redraw();
   })
   .catch(() => {});
-// The Areas set for checks: the presets', then one's own ("" = back to automatic).
-function mergedCheckAreas() {
-  return { ...mapPresets.checkAreas, ...settings.checkAreas };
-}
-function mergedPlaceFixes() {
-  return { ...mapPresets.placeFixes, ...settings.placeFixes };
-}
-// Entrances: the presets' and one's own (by id for added ones; removed ones by plate key, an
-// added one as "added:<id>").
-function mergedEntranceFixes() {
-  const p = mapPresets.entranceFixes;
-  const u = settings.entranceFixes;
-  const hidden = [...new Set([...(p.hidden ?? []), ...(u.hidden ?? [])])];
-  const added = [...(p.added ?? []).filter((a) => !(u.added ?? []).some((b) => b.id === a.id)), ...(u.added ?? [])]
-    .filter((a) => !hidden.includes(`added:${a.id}`));
-  return { moved: { ...p.moved, ...u.moved }, added, hidden };
-}
-// Everything set by hand, presets included, as a map_presets.json for the mod (Options ›
-// Export customizations): send it to be shipped with the mod.
-function exportCustomizations() {
-  const checkAreas = Object.fromEntries(Object.entries(mergedCheckAreas()).filter(([, a]) => a));
-  const out = {
-    _comment: "The Dusklight Item Tracker's presets: checks placed on the map (x, z: map units; or u, v: 0..1 across the room's extent), Areas set for checks, entrances moved / added / removed, places renamed or moved to another province. Made by Options › Export customizations.",
-    places: { ...mapPresets.places, ...settings.mapPlaces },
-    checkAreas,
-    entranceFixes: mergedEntranceFixes(),
-    placeFixes: mergedPlaceFixes(),
-  };
-  const blob = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
-  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "map_presets.json" });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  return { places: Object.keys(out.places).length, checkAreas: Object.keys(checkAreas).length,
-    entrances: out.entranceFixes.added.length + Object.keys(out.entranceFixes.moved).length + out.entranceFixes.hidden.length,
-    placeFixes: Object.keys(out.placeFixes).length };
-}
-
 let state = null;          // last state from the mod
 let lastRendered = {};     // tile id -> signature, to flash changed tiles
 let savedLayout = structuredClone(DEFAULT_LAYOUT);
@@ -528,13 +489,6 @@ const DEFAULT_SETTINGS = {
   // Icons changed in the icon editor: { [icon name]: { source: "file" | "game", rev } }. rev
   // changes on every upload so browsers fetch the new image.
   iconOverrides: {},
-  // Checks placed on the map by hand (people, golden wolves, events): { [check name]: { stage,
-  // room, x, z, floor } }.
-  mapPlaces: {},
-  // The Map's Other places renamed or moved to another province: { [entry id]: { title, province } }.
-  placeFixes: {},
-  // Areas set by hand for checks (By area, the region filter): { [check name]: area }.
-  checkAreas: {},
   // Simple (the main things only) or advanced (every tool).
   mode: "simple",
   // The items' frames: the theme's fill or a color of one's own, and how opaque (0 to 1).
@@ -547,8 +501,6 @@ const DEFAULT_SETTINGS = {
   // Clicks on a check (Checks and Map): "left-req" (click: requirement, right-click: highlight)
   // or "left-highlight" (the other way round).
   clickMode: "left-req",
-  // The Map's entrance plates moved by hand ({ [plate]: { x, z } }) and entrances added by hand.
-  entranceFixes: { moved: {}, added: [], hidden: [] },
 };
 let settings = structuredClone(DEFAULT_SETTINGS);
 const themeBar = document.getElementById("theme-bar");
@@ -579,13 +531,6 @@ function normalizeSettings(raw) {
       out.iconOverrides[name] = entry;
     }
   }
-  for (const [name, p] of Object.entries(raw?.mapPlaces ?? {})) {
-    if (name.length > 200 || !p || typeof p !== "object" || typeof p.stage !== "string" || !/^\w{1,8}$/.test(p.stage)) continue;
-    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-    const room = Number.isInteger(p.room) && p.room >= -1 && p.room < 64 ? p.room : -1;
-    out.mapPlaces[name] = { stage: p.stage, room, x: num(p.x), z: num(p.z), floor: Number.isInteger(p.floor) ? p.floor : 0 };
-    if (typeof p.variant === "string" && p.variant.length <= 100) out.mapPlaces[name].variant = p.variant;
-  }
   out.mode = raw?.mode === "advanced" ? "advanced" : "simple";
   const ff = raw?.frameFill;
   if (ff && typeof ff === "object") {
@@ -602,6 +547,12 @@ function normalizeSettings(raw) {
     out.font.scope = fo.scope === "all" ? "all" : "titles";
     out.font.rev = Number(fo.rev) || 0;
   }
+  return out;
+}
+
+// The presets' Areas, entrance fixes and place fixes, checked.
+function normalizePresets(raw) {
+  const out = { checkAreas: {}, entranceFixes: { moved: {}, added: [], hidden: [] }, placeFixes: {} };
   for (const [name, area] of Object.entries(raw?.checkAreas ?? {})) {
     if (name.length <= 200 && typeof area === "string" && area.length <= 80) out.checkAreas[name] = area; // "" = automatic
   }
@@ -790,11 +741,6 @@ document.getElementById("font-family").addEventListener("change", (e) => {
 document.getElementById("link-map").addEventListener("change", (e) => {
   settings.linkMap = e.target.checked;
   saveSettings();
-});
-document.getElementById("export-custom").addEventListener("click", () => {
-  const n = exportCustomizations();
-  document.getElementById("export-note").textContent =
-    `Saved: ${n.places} places, ${n.checkAreas} Areas, ${n.entrances} entrance changes, ${n.placeFixes} place names`;
 });
 document.getElementById("click-mode").addEventListener("change", (e) => {
   settings.clickMode = e.target.value === "left-highlight" ? "left-highlight" : "left-req";
@@ -1232,15 +1178,8 @@ const locationsView = createLocationsView(locChecks, {
   onReqClosed(name) {
     if (settings.linkMap) mapView?.hideReq(name);
   },
-  // Areas set by hand for checks of the list (By area, region filter).
-  getCheckAreas: () => mergedCheckAreas(),
-  saveCheckArea(name, area) {
-    // (Back to automatic over a preset's Area: kept as "".)
-    if (area) settings.checkAreas[name] = area;
-    else if (mapPresets.checkAreas[name]) settings.checkAreas[name] = "";
-    else delete settings.checkAreas[name];
-    saveSettings();
-  },
+  // The presets' Areas of checks (By area, region filter).
+  getCheckAreas: () => mapPresets.checkAreas,
   showOnMap(name) {
     if (locSplit.dataset.tab === "checks") showLocTab("map");
     // (Only shown and highlighted: no requirement.)
@@ -1275,32 +1214,16 @@ mapView = createMapView(locMap, {
     // Checks and Map linked: the requirement shown on both sides.
     linked: () => settings.linkMap,
     clickMode: () => settings.clickMode,
-    // The region a check is listed under in Checks (its Area set by hand counts).
+    // The region a check is listed under in Checks (the presets' Area counts).
     listedRegion: (name) => locationsView.listedRegion(name),
     reqView: (name) => locationsView.requirementView(name),
     showDetail: (name) => locationsView.showDetail(name),
     closeDetail: (name) => locationsView.closeDetail(name),
     bothShown: () => locSplit.dataset.tab === "both",
-    manualPlaces: () => settings.mapPlaces,
-    // Names and provinces of the Map's Other places changed by hand.
-    placeFixes: () => mergedPlaceFixes(),
-    setPlaceFix(id, fix) {
-      if (fix) settings.placeFixes[id] = fix;
-      else delete settings.placeFixes[id];
-      saveSettings();
-    },
-    // Entrances moved or added on the map by hand.
-    entranceFixes: () => mergedEntranceFixes(),
-    setEntranceFixes(fixes) {
-      settings.entranceFixes = normalizeSettings({ entranceFixes: fixes }).entranceFixes;
-      saveSettings();
-    },
-    setPlace(name, place) {
-      if (place) settings.mapPlaces[name] = place;
-      else delete settings.mapPlaces[name];
-      saveSettings();
-      locationsView.refresh();
-    },
+    // The presets' names and provinces of the Map's Other places, and entrances moved, added or
+    // removed.
+    placeFixes: () => mapPresets.placeFixes,
+    entranceFixes: () => mapPresets.entranceFixes,
     jump(name) {
       if (locSplit.dataset.tab !== "both") showLocTab("checks");
       locationsView.jumpTo(name);

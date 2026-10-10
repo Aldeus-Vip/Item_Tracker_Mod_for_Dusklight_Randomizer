@@ -127,7 +127,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), saveCheckArea = () => {}, onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {}, clickMode = () => "left-req" }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {}, clickMode = () => "left-req" }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -849,7 +849,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
 
     const overrides = getOverrides();
     const list = el("div", { className: "loc-list" });
-    // (The province of a check's Area when it was set by hand: filtered as changed.)
+    // (The province of a check's Area from the presets: filtered as changed.)
     let shown = locations.filter((l) => groupOf(l) === selectedGroup);
     // The logic regions of this province's checks, to show only one of them.
 
@@ -1023,7 +1023,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     for (const l of locations) {
       const accessArea = world?.locationAccess.get(l.name)?.[0]?.area;
       add(accessArea ? world.areas.get(accessArea)?.region : null, l.group);
-      // (The room's area, without the one set by hand.)
+      // (The room's area, without the presets' one.)
       if (!saved[l.name]) add(areaOf(l), l.group);
     }
     const map = new Map([...counts].map(([area, c]) => [area, [...c].sort((a, b) => b[1] - a[1])[0][0]]));
@@ -1032,7 +1032,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   }
 
   // A check's status and requirement (under the map, and over a row the pointer rests on).
-  // The region a check is listed under (set by hand, else its logic area's).
+  // The region a check is listed under (the presets' Area, else its logic area's).
   function regionOfLoc(loc) {
     const fixed = regionTitle(getCheckAreas()[loc.name] ?? "");
     if (fixed) return fixed;
@@ -1110,35 +1110,6 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         render();
         if (shown) onReqClosed(shown);
       } })));
-
-    // The area the check is listed under (By area, the region filter): automatic, or set by hand
-    // (people's and events' checks the game files do not place go to "Elsewhere").
-    const loc = locations.find((l) => l.name === name);
-    if (loc) {
-      const auto = (() => {
-        const saved = getCheckAreas()[name];
-        if (!saved) return areaOf(loc);
-        delete getCheckAreas()[name];
-        const a = areaOf(loc);
-        getCheckAreas()[name] = saved;
-        return a;
-      })();
-      const choices = new Set();
-      const sameProvince = (l) => l.group === loc.group || groupOf(l) === groupOf(loc);
-      for (const l of locations) if (sameProvince(l)) choices.add(areaOf(l));
-      // ... and the logic regions of the province's checks.
-      for (const l of locations) {
-        if (!sameProvince(l)) continue;
-        const region = world.areas.get(world.locationAccess.get(l.name)?.[0]?.area)?.region;
-        if (region && region !== "None") choices.add(region);
-      }
-      choices.delete("Elsewhere");
-      const current = regionTitle(getCheckAreas()[name] ?? "");
-      panel.append(el("label", { className: "loc-area-pick" }, "Area ",
-        el("select", { onchange: (e) => { saveCheckArea(name, e.target.value || null); areaProvinceCache = null; render(); } },
-          el("option", { value: "", textContent: `Automatic (${auto})`, selected: !current }),
-          ...[...choices].sort().map((a) => el("option", { value: a, textContent: a, selected: a === current })))));
-    }
 
     const req = el("div", { className: "loc-req" });
     if (editing.edit && !popup) {
@@ -1802,7 +1773,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     provinceOrder: () => mapGroups.map((g) => g.title),
     // Grottos built alike that share one room: [{ name, area }].
     roomVariants: (stage, room) => roomVariants(stage, room),
-    // The region a check is listed under (its Area set by hand, else its logic region's).
+    // The region a check is listed under (the presets' Area, else its logic region's).
     listedRegion(name) {
       const loc = locations.find((l) => l.name === name);
       return loc ? regionOfLoc(loc) : null;
@@ -1827,7 +1798,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       return out;
     },
     // The checks the Map tab can place, by the key the mod finds them under (chest:, freestanding:,
-    // poe:; manual:<name> for those placed by hand): [{ name, key, status }] with the status of the marker left of the check.
+    // poe:; manual:<name> for those placed by the presets): [{ name, key, status }] with the status of the marker left of the check.
     mapChecks() {
       const out = [];
       for (const loc of locations) {

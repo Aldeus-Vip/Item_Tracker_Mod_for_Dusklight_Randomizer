@@ -1,5 +1,5 @@
 {
- "_comment": "Checks the game files do not place, put on the map by the Map tab (see map_view.js manualPlaces). x, z: map units; or u, v: 0..1 across the room's extent (left to right, top to bottom).",
+ "_comment": "The Dusklight Item Tracker's fixed map data: checks' places the game files do not give or give wrongly (x, z: map units; or u, v: 0..1 across the room's extent), the Areas checks are listed under, entrances moved / added / removed, and places renamed.",
  "places": {
   "Agitha Male Beetle Reward": {
    "stage": "R_SP160",
@@ -148,14 +148,1615 @@
   "Jovani 20 Poe Soul Reward": {
    "stage": "R_SP160",
    "room": 5,
-   "u": 0.43,
-   "v": 0.22
+   "x": 4170,
+   "z": 1796,
+   "floor": 0
   },
   "Jovani 60 Poe Soul Reward": {
    "stage": "R_SP160",
    "room": 5,
-   "u": 0.57,
-   "v": 0.22
+   "x": 4327,
+   "z": 1791,
+   "floor": 0
+  },
+  "Charlo Donation Blessing": {
+   "stage": "F_SP116",
+   "room": 2,
+   "x": -4061,
+   "z": -829,
+   "floor": 0
+  },
+  "Plumm Fruit Balloon Minigame": {
+   "stage": "F_SP115",
+   "room": 0,
+   "x": -77922,
+   "z": 41131,
+   "floor": 0
+  },
+  "North Castle Town Golden Wolf": {
+   "stage": "F_SP116",
+   "room": 1,
+   "x": -4,
+   "z": -9526,
+   "floor": 0
+  },
+  "Ilia Charm": {
+   "stage": "F_SP128",
+   "room": 0,
+   "x": 2648,
+   "z": -1222,
+   "floor": 0
+  },
+  "Ilia Memory Reward": {
+   "stage": "R_SP109",
+   "room": 0,
+   "x": -533,
+   "z": 378,
+   "floor": 0
+  },
+  "Telma Invoice": {
+   "stage": "R_SP116",
+   "room": 5,
+   "x": 3485,
+   "z": 3381,
+   "floor": -2
+  },
+  "Sera Shop Slingshot": {
+   "stage": "R_SP01",
+   "room": 1,
+   "x": -7,
+   "z": -122,
+   "floor": 0
+  },
+  "Ordon Sword": {
+   "stage": "R_SP01",
+   "room": 5,
+   "x": 166,
+   "z": -134,
+   "floor": 0
+  },
+  "Bulblin Camp Roasted Boar": {
+   "stage": "F_SP118",
+   "room": 1,
+   "x": 4810,
+   "z": -3190,
+   "floor": 0
+  },
+  "Lanayru Spring Underwater Left Chest": {
+   "stage": "F_SP115",
+   "room": 1,
+   "x": -89393,
+   "z": 58029,
+   "floor": 0
+  },
+  "Cats Hide and Seek Minigame": {
+   "stage": "F_SP128",
+   "room": 0,
+   "x": 5291,
+   "z": -4304,
+   "floor": 0
+  },
+  "Skybook From Impaz": {
+   "stage": "R_SP128",
+   "room": 0,
+   "x": -607,
+   "z": -481,
+   "floor": 0
+  },
+  "Faron Woods Coro Boulder Rupee 1": {
+   "stage": "F_SP108",
+   "room": 4,
+   "x": -14540,
+   "z": -17293,
+   "floor": 0
+  },
+  "Ordon Bo Window Rupee 2": {
+   "stage": "F_SP103",
+   "room": 0,
+   "x": 619,
+   "z": 5112,
+   "floor": 0
+  },
+  "Ordon Rupee In River 1": {
+   "stage": "F_SP103",
+   "room": 0,
+   "x": -4446,
+   "z": 4300,
+   "floor": 0
+  },
+  "Ordon Rusl House Roof Rupee 2": {
+   "stage": "F_SP103",
+   "room": 0,
+   "x": -4694,
+   "z": 2185,
+   "floor": 0
+  },
+  "Ordon Rupee Under Tall Tree 1": {
+   "stage": "F_SP103",
+   "room": 0,
+   "x": -1766,
+   "z": 1851,
+   "floor": 0
+  },
+  "Castle Town Malo Mart Magic Armor": {
+   "stage": "R_SP160",
+   "room": 0,
+   "x": 1308,
+   "z": 3660,
+   "floor": 0
+  },
+  "Kakariko Village Malo Mart Wooden Shield": {
+   "stage": "R_SP109",
+   "room": 3,
+   "x": -739,
+   "z": -572,
+   "floor": 0
+  },
+  "Kakariko Village Malo Mart Red Potion": {
+   "stage": "R_SP109",
+   "room": 3,
+   "x": -862,
+   "z": -572,
+   "floor": 0
+  },
+  "Kakariko Village Malo Mart Hylian Shield": {
+   "stage": "R_SP109",
+   "room": 3,
+   "x": -961,
+   "z": -576,
+   "floor": 0
+  },
+  "Kakariko Village Malo Mart Hawkeye": {
+   "stage": "R_SP109",
+   "room": 3,
+   "x": -636,
+   "z": -568,
+   "floor": 0
+  },
+  "Upper Zoras River East Underwater Boulder Rupee": {
+   "stage": "F_SP126",
+   "room": 0,
+   "x": -3447,
+   "z": -96678,
+   "floor": 0
+  },
+  "Upper Zoras River Central Underwater Boulder Rupee": {
+   "stage": "F_SP126",
+   "room": 0,
+   "x": -5994,
+   "z": -102286,
+   "floor": 0
+  },
+  "Upper Zoras River West Underwater Boulder Rupee": {
+   "stage": "F_SP126",
+   "room": 0,
+   "x": -8681,
+   "z": -99459,
+   "floor": 0
+  },
+  "Upper Zoras River Ledge Boulder Rupee": {
+   "stage": "F_SP126",
+   "room": 0,
+   "x": -7687,
+   "z": -104524,
+   "floor": 0
+  },
+  "Snowpeak Ruins West Cannon Room Central Chest": {
+   "stage": "D_MN11",
+   "room": -1,
+   "x": -5285,
+   "z": -6499,
+   "floor": 0
+  },
+  "Lake Hylia Right Underwater Boulder Rupee": {
+   "stage": "F_SP115",
+   "room": 0,
+   "x": -92143,
+   "z": 41561,
+   "floor": 0
+  },
+  "Lake Hylia Left Underwater Boulder Rupee": {
+   "stage": "F_SP115",
+   "room": 0,
+   "x": -94777,
+   "z": 40151,
+   "floor": 0
+  },
+  "Flight By Fowl Top Platform Reward": {
+   "stage": "F_SP115",
+   "room": 0,
+   "x": -102507,
+   "z": 43522,
+   "floor": 0
+  },
+  "Flight By Fowl Second Platform Chest": {
+   "stage": "F_SP115",
+   "room": 0,
+   "x": -102714,
+   "z": 43211,
+   "floor": 0
+  },
+  "Lakebed Temple East Lower Waterwheel Bridge Chest": {
+   "stage": "D_MN01",
+   "room": -1,
+   "x": 11404,
+   "z": 4796,
+   "floor": -1
+  },
+  "Lanayru Spring Upper Underwater Boulder Rupee": {
+   "stage": "F_SP115",
+   "room": 1,
+   "x": -91150,
+   "z": 59683,
+   "floor": 0
+  },
+  "Lanayru Spring Lower Underwater Boulder Rupee": {
+   "stage": "F_SP115",
+   "room": 1,
+   "x": -90721,
+   "z": 57683,
+   "floor": 0
+  },
+  "Lanayru Spring West Double Clawshot Chest": {
+   "stage": "F_SP115",
+   "room": 1,
+   "x": -92820,
+   "z": 56598,
+   "floor": 0
+  },
+  "Lanayru Spring East Double Clawshot Chest": {
+   "stage": "F_SP115",
+   "room": 1,
+   "x": -87203,
+   "z": 57008,
+   "floor": 0
+  },
+  "Lanayru Spring Underwater Right Chest": {
+   "stage": "F_SP115",
+   "room": 1,
+   "x": -91269,
+   "z": 58068,
+   "floor": 0
+  },
+  "Lanayru Spring Back Room Lantern Chest": {
+   "stage": "F_SP115",
+   "room": 1,
+   "x": -89785,
+   "z": 62862,
+   "floor": 0
+  },
+  "Lanayru Spring Back Room Right Chest": {
+   "stage": "F_SP115",
+   "room": 1,
+   "x": -90037,
+   "z": 62875,
+   "floor": 0
+  },
+  "Lanayru Spring Back Room Left Chest": {
+   "stage": "F_SP115",
+   "room": 1,
+   "x": -89520,
+   "z": 62872,
+   "floor": 0
+  },
+  "Sacred Grove Pedestal Master Sword": {
+   "stage": "F_SP117",
+   "room": 1,
+   "x": 4,
+   "z": -5406,
+   "floor": 0
+  },
+  "Sacred Grove Pedestal Shadow Crystal": {
+   "stage": "F_SP117",
+   "room": 1,
+   "x": 0,
+   "z": -5500,
+   "floor": 0
+  },
+  "Ordon Shield": {
+   "stage": "R_SP01",
+   "room": 2,
+   "x": -1255,
+   "z": -2,
+   "floor": 0
+  },
+  "Herding Goats Reward": {
+   "stage": "F_SP00",
+   "room": 0,
+   "x": -4893,
+   "z": -20088,
+   "floor": 0
+  },
+  "Cave of Ordeals Great Fairy Reward": {
+   "stage": "D_SB01",
+   "room": 49,
+   "x": -2,
+   "z": -4100,
+   "floor": 0
+  },
+  "Gerudo Desert East Poe": {
+   "stage": "F_SP124",
+   "room": 0,
+   "x": 66716,
+   "z": 56028,
+   "floor": 0
+  },
+  "STAR Prize 1": {
+   "stage": "R_SP161",
+   "room": 7,
+   "x": -4317,
+   "z": 2612,
+   "floor": 0
+  },
+  "STAR Prize 2": {
+   "stage": "R_SP161",
+   "room": 7,
+   "x": -4089,
+   "z": 2683,
+   "floor": 0
+  },
+  "Castle Town Goron Shop Red Potion": {
+   "stage": "R_SP160",
+   "room": 4,
+   "x": -711,
+   "z": 3800,
+   "floor": 0
+  },
+  "Castle Town Goron Shop Hylian Shield": {
+   "stage": "R_SP160",
+   "room": 4,
+   "x": -597,
+   "z": 3640,
+   "floor": 0
+  },
+  "Castle Town Goron Shop Lantern Oil": {
+   "stage": "R_SP160",
+   "room": 4,
+   "x": -836,
+   "z": 4295,
+   "floor": 1
+  },
+  "Castle Town Goron Shop Arrow Refill": {
+   "stage": "F_SP116",
+   "room": 0,
+   "x": 303,
+   "z": 3320,
+   "floor": 0
+  },
+  "Jovani House Poe": {
+   "stage": "R_SP160",
+   "room": 5,
+   "x": 4576,
+   "z": 2630,
+   "floor": 0
+  },
+  "West Hyrule Field Southern Boulder Rupee": {
+   "stage": "F_SP122",
+   "room": 8,
+   "x": -71898,
+   "z": -306,
+   "floor": 0
+  },
+  "West Hyrule Field Northern Boulder Rupee": {
+   "stage": "F_SP122",
+   "room": 8,
+   "x": -70883,
+   "z": -6945,
+   "floor": 0
+  },
+  "Outside South Castle Town Boulder Rupee": {
+   "stage": "F_SP122",
+   "room": 16,
+   "x": -46350,
+   "z": 26273,
+   "floor": 0
+  },
+  "Coro Lantern": {
+   "stage": "F_SP108",
+   "room": 4,
+   "x": -13609,
+   "z": -14624,
+   "floor": 0
+  },
+  "Coro Gate Key": {
+   "stage": "F_SP108",
+   "room": 4,
+   "x": -13413,
+   "z": -14428,
+   "floor": 0
+  },
+  "Coro Bottle": {
+   "stage": "F_SP108",
+   "room": 4,
+   "x": -13903,
+   "z": -14568,
+   "floor": 0
+  },
+  "Snowpeak Ruins Mansion Map": {
+   "stage": "D_MN11",
+   "room": 1,
+   "x": 25,
+   "z": -230,
+   "floor": 0
+  },
+  "Snowpeak Ruins Ball and Chain": {
+   "stage": "D_MN11",
+   "room": 50,
+   "x": -23,
+   "z": -7369,
+   "floor": 0
+  },
+  "East Castle Town Bridge Poe": {
+   "stage": "F_SP122",
+   "room": 17,
+   "x": -40288,
+   "z": 10797,
+   "floor": 0
+  },
+  "Faron Mist Cave Open Chest": {
+   "stage": "F_SP108",
+   "room": 14,
+   "x": -16038,
+   "z": -26338,
+   "floor": 0
+  },
+  "Faron Mist Cave Lantern Chest": {
+   "stage": "F_SP108",
+   "room": 14,
+   "x": -15702,
+   "z": -26324,
+   "floor": 0
+  },
+  "Forest Temple Central Chest Hanging From Web": {
+   "stage": "D_MN05",
+   "room": 0,
+   "x": 16,
+   "z": 7224,
+   "floor": 0
+  },
+  "Forest Temple Gale Boomerang": {
+   "stage": "D_MN05",
+   "room": 51,
+   "x": 21,
+   "z": -6744,
+   "floor": 0
+  },
+  "Ordon Cat Rescue": {
+   "stage": "R_SP01",
+   "room": 1,
+   "x": 35,
+   "z": -122,
+   "floor": 0
+  },
+  "Ordon Rusl House Roof Rupee 1": {
+   "stage": "F_SP103",
+   "room": 0,
+   "x": -4746,
+   "z": 2338,
+   "floor": 0
+  },
+  "Faron Woods Owl Statue Sky Character": {
+   "stage": "F_SP108",
+   "room": 8,
+   "x": -17434,
+   "z": -20951,
+   "floor": 0
+  },
+  "Sacred Grove Female Snail": {
+   "stage": "F_SP117",
+   "room": 2,
+   "x": 320,
+   "z": 6017,
+   "floor": 0
+  },
+  "Sacred Grove Male Snail": {
+   "stage": "F_SP117",
+   "room": 1,
+   "x": 1536,
+   "z": 7045,
+   "floor": 0
+  },
+  "Kakariko Gorge Female Pill Bug": {
+   "stage": "F_SP121",
+   "room": 3,
+   "x": 469,
+   "z": 61624,
+   "floor": 0
+  },
+  "Kakariko Gorge Male Pill Bug": {
+   "stage": "F_SP121",
+   "room": 3,
+   "x": -9867,
+   "z": 57554,
+   "floor": 0
+  },
+  "Kakariko Gorge Owl Statue Boulder Rupee": {
+   "stage": "F_SP121",
+   "room": 3,
+   "x": -13327,
+   "z": 44981,
+   "floor": 0
+  },
+  "Kakariko Gorge Owl Statue Sky Character": {
+   "stage": "F_SP121",
+   "room": 3,
+   "x": -10433,
+   "z": 38923,
+   "floor": 0
+  },
+  "Faron Field Female Beetle": {
+   "stage": "F_SP121",
+   "room": 6,
+   "x": -36235,
+   "z": 74552,
+   "floor": 0
+  },
+  "Kakariko Gorge Spire Boulder Rupee": {
+   "stage": "F_SP121",
+   "room": 3,
+   "x": -26133,
+   "z": 55823,
+   "floor": 0
+  },
+  "Kakariko Village Hot Spring Ledge Box Rupee": {
+   "stage": "F_SP109",
+   "room": 0,
+   "x": -2858,
+   "z": -3881,
+   "floor": 0
+  },
+  "Kakariko Village Spring Shortcut Box Rupee 2": {
+   "stage": "F_SP109",
+   "room": 0,
+   "x": -3653,
+   "z": 12170,
+   "floor": 0
+  },
+  "Kakariko Village Spring Shortcut Box Rupee 1": {
+   "stage": "F_SP109",
+   "room": 0,
+   "x": -3883,
+   "z": 12118,
+   "floor": 0
+  },
+  "Kakariko Village Female Ant": {
+   "stage": "R_SP109",
+   "room": 6,
+   "x": 220,
+   "z": -23,
+   "floor": 0
+  },
+  "Kakariko Village Ant House Ledge Box Rupee": {
+   "stage": "F_SP109",
+   "room": 0,
+   "x": 775,
+   "z": -568,
+   "floor": 0
+  },
+  "Barnes Bomb Bag": {
+   "stage": "R_SP109",
+   "room": 1,
+   "x": 777,
+   "z": -434,
+   "floor": 0
+  },
+  "Talo Sharpshooting": {
+   "stage": "F_SP109",
+   "room": 0,
+   "x": -1595,
+   "z": -6627,
+   "floor": 0
+  },
+  "Renados Letter": {
+   "stage": "R_SP109",
+   "room": 0,
+   "x": -306,
+   "z": 241,
+   "floor": 0
+  },
+  "Shad Dominion Rod": {
+   "stage": "R_SP209",
+   "room": 7,
+   "x": 214,
+   "z": -2895,
+   "floor": 0
+  },
+  "Rutelas Blessing": {
+   "stage": "F_SP111",
+   "room": 0,
+   "x": 21474,
+   "z": -46,
+   "floor": 0
+  },
+  "Gift From Ralis": {
+   "stage": "F_SP111",
+   "room": 0,
+   "x": 21105,
+   "z": -40,
+   "floor": 0
+  },
+  "Kakariko Graveyard Male Ant": {
+   "stage": "F_SP111",
+   "room": 0,
+   "x": 16920,
+   "z": -762,
+   "floor": 0
+  },
+  "Death Mountain Volcano Pipe Ledge Rock Rupee": {
+   "stage": "F_SP110",
+   "room": 3,
+   "x": 12,
+   "z": -5715,
+   "floor": 0
+  },
+  "Eldin Field Female Grasshopper": {
+   "stage": "F_SP121",
+   "room": 0,
+   "x": -10045,
+   "z": -8991,
+   "floor": 0
+  },
+  "Eldin Field Male Grasshopper": {
+   "stage": "F_SP121",
+   "room": 0,
+   "x": 19487,
+   "z": 13446,
+   "floor": 0
+  },
+  "Goron Springwater Rush": {
+   "stage": "F_SP121",
+   "room": 0,
+   "x": -24483,
+   "z": 9741,
+   "floor": 0
+  },
+  "Bridge of Eldin Female Phasmid": {
+   "stage": "F_SP121",
+   "room": 0,
+   "x": 39896,
+   "z": -40450,
+   "floor": 0
+  },
+  "Bridge of Eldin Male Phasmid": {
+   "stage": "F_SP121",
+   "room": 0,
+   "x": 35250,
+   "z": -15120,
+   "floor": 0
+  },
+  "Bridge of Eldin Owl Statue Sky Character": {
+   "stage": "F_SP121",
+   "room": 0,
+   "x": 33627,
+   "z": -36328,
+   "floor": 0
+  },
+  "Lanayru Field North Underwater Boulder Rupee": {
+   "stage": "F_SP121",
+   "room": 10,
+   "x": -45729,
+   "z": -41091,
+   "floor": 0
+  },
+  "Lanayru Field South Underwater Boulder Rupee": {
+   "stage": "F_SP121",
+   "room": 10,
+   "x": -44635,
+   "z": -29032,
+   "floor": 0
+  },
+  "Lanayru Field Female Stag Beetle": {
+   "stage": "F_SP121",
+   "room": 10,
+   "x": -48916,
+   "z": -51293,
+   "floor": 0
+  },
+  "Lanayru Field Male Stag Beetle": {
+   "stage": "F_SP121",
+   "room": 10,
+   "x": -62724,
+   "z": -33205,
+   "floor": 0
+  },
+  "Lanayru Field North Spinner Track Boulder Rupee": {
+   "stage": "F_SP121",
+   "room": 10,
+   "x": -75351,
+   "z": -32676,
+   "floor": 0
+  },
+  "Lanayru Field South Spinner Track Boulder Rupee": {
+   "stage": "F_SP121",
+   "room": 12,
+   "x": -94051,
+   "z": 4914,
+   "floor": 0
+  },
+  "Lake Hylia Bridge Owl Statue Sky Character": {
+   "stage": "F_SP121",
+   "room": 13,
+   "x": -94316,
+   "z": 18258,
+   "floor": 0
+  },
+  "Lake Hylia Bridge Male Mantis": {
+   "stage": "F_SP121",
+   "room": 13,
+   "x": -92979,
+   "z": 30352,
+   "floor": 0
+  },
+  "Lake Hylia Bridge Female Mantis": {
+   "stage": "F_SP121",
+   "room": 13,
+   "x": -88800,
+   "z": 59018,
+   "floor": 0
+  },
+  "Lake Hylia Bridge Owl Statue Boulder Rupee": {
+   "stage": "F_SP121",
+   "room": 13,
+   "x": -90438,
+   "z": 22362,
+   "floor": 0
+  },
+  "Lake Hylia Bridge Faron Boulder Rupee": {
+   "stage": "F_SP121",
+   "room": 13,
+   "x": -78419,
+   "z": 58651,
+   "floor": 0
+  },
+  "West Hyrule Field Female Butterfly": {
+   "stage": "F_SP122",
+   "room": 8,
+   "x": -79645,
+   "z": 1573,
+   "floor": 0
+  },
+  "West Hyrule Field Male Butterfly": {
+   "stage": "F_SP122",
+   "room": 8,
+   "x": -75070,
+   "z": 16006,
+   "floor": 0
+  },
+  "Hyrule Field Amphitheater Owl Statue Sky Character": {
+   "stage": "F_SP122",
+   "room": 8,
+   "x": -82022,
+   "z": 20832,
+   "floor": 0
+  },
+  "Outside South Castle Town Male Ladybug": {
+   "stage": "F_SP122",
+   "room": 16,
+   "x": -45093,
+   "z": 30112,
+   "floor": 0
+  },
+  "Outside South Castle Town Female Ladybug": {
+   "stage": "F_SP122",
+   "room": 16,
+   "x": -54533,
+   "z": 27302,
+   "floor": 0
+  },
+  "Wooden Statue": {
+   "stage": "F_SP122",
+   "room": 16,
+   "x": -51530,
+   "z": 33258,
+   "floor": 0
+  },
+  "Gerudo Desert Male Dayfly": {
+   "stage": "F_SP124",
+   "room": 0,
+   "x": 28958,
+   "z": 58936,
+   "floor": 0
+  },
+  "Gerudo Desert Female Dayfly": {
+   "stage": "F_SP124",
+   "room": 0,
+   "x": 11646,
+   "z": 55390,
+   "floor": 0
+  },
+  "Gerudo Desert Owl Statue Sky Character": {
+   "stage": "F_SP124",
+   "room": 0,
+   "x": 15105,
+   "z": 59826,
+   "floor": 0
+  },
+  "Snowboarding Top Left Rupee": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -33341,
+   "z": -5016,
+   "floor": 0
+  },
+  "Snowboarding Top Right Rupee": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -36274,
+   "z": -13935,
+   "floor": 0
+  },
+  "Snowboarding Bridge Ledge Upper Rupee": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -43128,
+   "z": -9547,
+   "floor": 0
+  },
+  "Snowboarding Bridge Ledge Middle Rupee": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -46570,
+   "z": -8440,
+   "floor": 0
+  },
+  "Snowboarding Bridge Ledge Bottom Rupee": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -48157,
+   "z": -2574,
+   "floor": 0
+  },
+  "Snowboard Racing Prize": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -14458,
+   "z": -9320,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 1": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -47701,
+   "z": 39479,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 2": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -46990,
+   "z": 40700,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 3": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -44594,
+   "z": 47757,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 4": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -44638,
+   "z": 48356,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 5": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -44749,
+   "z": 49088,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 6": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -44660,
+   "z": 50153,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 7": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -44461,
+   "z": 51396,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 8": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -43839,
+   "z": 55124,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 9": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -43640,
+   "z": 57321,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 10": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -43728,
+   "z": 59629,
+   "floor": 0
+  },
+  "Snowboarding Shortcut Rupee 11": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -44683,
+   "z": 62891,
+   "floor": 0
+  },
+  "Snowboarding Snowy Tree Top Rupee 1": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -48988,
+   "z": 22628,
+   "floor": 0
+  },
+  "Snowboarding Snowy Tree Top Rupee 2": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -49076,
+   "z": 25202,
+   "floor": 0
+  },
+  "Snowboarding Snowy Tree Top Rupee 3": {
+   "stage": "F_SP114",
+   "room": 1,
+   "x": -49232,
+   "z": 27199,
+   "floor": 0
+  },
+  "Forest Temple Diababa Heart Container": {
+   "stage": "D_MN05",
+   "room": 50,
+   "x": 7012,
+   "z": -17888,
+   "floor": 0
+  },
+  "Forest Temple Dungeon Reward": {
+   "stage": "D_MN05",
+   "room": 50,
+   "x": 7376,
+   "z": -17888,
+   "floor": 0
+  },
+  "Goron Mines Gor Amato Key Shard": {
+   "stage": "D_MN04",
+   "room": 14,
+   "x": -15302,
+   "z": 1630,
+   "floor": 0
+  },
+  "Goron Mines Gor Ebizo Key Shard": {
+   "stage": "D_MN04",
+   "room": 17,
+   "x": 12904,
+   "z": -17683,
+   "floor": 1
+  },
+  "Goron Mines Gor Liggs Key Shard": {
+   "stage": "D_MN04",
+   "room": 16,
+   "x": 12959,
+   "z": -1644,
+   "floor": 1
+  },
+  "Goron Mines Fyrus Heart Container": {
+   "stage": "D_MN04",
+   "room": 50,
+   "x": -6195,
+   "z": -9916,
+   "floor": 1
+  },
+  "Goron Mines Dungeon Reward": {
+   "stage": "D_MN04",
+   "room": 50,
+   "x": -5663,
+   "z": -9916,
+   "floor": 1
+  },
+  "Lakebed Temple Big Key Chest": {
+   "stage": "D_MN01",
+   "room": 6,
+   "x": -16596,
+   "z": 2997,
+   "floor": -1
+  },
+  "Lakebed Temple Morpheel Heart Container": {
+   "stage": "D_MN01",
+   "room": 3,
+   "x": -1907,
+   "z": -970,
+   "floor": -2
+  },
+  "Lakebed Temple Dungeon Reward": {
+   "stage": "D_MN01",
+   "room": 3,
+   "x": -1907,
+   "z": 1621,
+   "floor": -2
+  },
+  "Arbiters Grounds Stallord Heart Container": {
+   "stage": "D_MN10",
+   "room": 2,
+   "x": -436,
+   "z": -1689,
+   "floor": 3
+  },
+  "Arbiters Grounds Dungeon Reward": {
+   "stage": "D_MN10",
+   "room": 2,
+   "x": 611,
+   "z": -1689,
+   "floor": 3
+  },
+  "Arbiters Grounds East Turning Room Poe": {
+   "stage": "D_MN10",
+   "room": 3,
+   "x": 4139,
+   "z": -5252,
+   "floor": 0
+  },
+  "Arbiters Grounds West Poe": {
+   "stage": "D_MN10",
+   "room": 8,
+   "x": -4477,
+   "z": 4046,
+   "floor": 1
+  },
+  "Arbiters Grounds Death Sword Chest": {
+   "stage": "D_MN10",
+   "room": 51,
+   "x": -691,
+   "z": -13316,
+   "floor": -2
+  },
+  "Snowpeak Ruins Blizzeta Heart Container": {
+   "stage": "D_MN11",
+   "room": 4,
+   "x": -308,
+   "z": -6306,
+   "floor": 2
+  },
+  "Snowpeak Ruins Dungeon Reward": {
+   "stage": "D_MN11",
+   "room": 4,
+   "x": 402,
+   "z": -6285,
+   "floor": 2
+  },
+  "Temple of Time Darknut Chest": {
+   "stage": "D_MN06",
+   "room": 51,
+   "x": -4691,
+   "z": 709,
+   "floor": 7
+  },
+  "Temple of Time Armogohma Heart Container": {
+   "stage": "D_MN06",
+   "room": 50,
+   "x": 545,
+   "z": -17264,
+   "floor": 0
+  },
+  "Temple of Time Dungeon Reward": {
+   "stage": "D_MN06",
+   "room": 50,
+   "x": -641,
+   "z": -17208,
+   "floor": 0
+  },
+  "City in the Sky Aeralfos Chest": {
+   "stage": "D_MN07",
+   "room": 51,
+   "x": 21155,
+   "z": -12739,
+   "floor": -3
+  },
+  "City in the Sky Argorok Heart Container": {
+   "stage": "D_MN07",
+   "room": 50,
+   "x": -1561,
+   "z": -23434,
+   "floor": 4
+  },
+  "City in the Sky Dungeon Reward": {
+   "stage": "D_MN07",
+   "room": 50,
+   "x": -919,
+   "z": -23409,
+   "floor": 4
+  },
+  "Palace of Twilight Collect Both Sols": {
+   "stage": "D_MN08",
+   "room": 0,
+   "x": 244,
+   "z": 10939,
+   "floor": 0
+  },
+  "Palace of Twilight Zant Heart Container": {
+   "stage": "D_MN08",
+   "room": 10,
+   "x": 235,
+   "z": -21704,
+   "floor": 3
+  },
+  "Hyrule Castle King Bulblin Key": {
+   "stage": "D_MN09",
+   "room": 13,
+   "x": -7643,
+   "z": -5826,
+   "floor": 0
   }
- }
+ },
+ "checkAreas": {
+  "Uli Cradle Delivery": "Ordon",
+  "Ordon Cat Rescue": "Ordon",
+  "Ordon Sword": "Ordon",
+  "Ordon Bo Window Rupee 1": "Ordon",
+  "Ordon Rupee In River 2": "Ordon",
+  "Ordon Rupee Under Tall Tree 2": "Ordon",
+  "Ordon Rusl House Roof Rupee 1": "Ordon",
+  "Ordon Ranch Grotto Lantern Chest": "Ordon",
+  "Ordon Spring Golden Wolf": "Ordon",
+  "Faron Woods Coro Boulder Rupee 2": "Faron Woods",
+  "Faron Woods Coro Boulder Rupee 3": "Faron Woods",
+  "Faron Woods Coro Boulder Rupee 4": "Faron Woods",
+  "Faron Woods Golden Wolf": "Faron Woods",
+  "Faron Woods Owl Statue Sky Character": "Faron Woods",
+  "Faron Field Corner Grotto Left Chest": "Faron Field",
+  "Faron Field Female Beetle": "Faron Field",
+  "Sacred Grove Baba Serpent Grotto Chest": "Sacred Grove",
+  "Sacred Grove Female Snail": "Sacred Grove",
+  "Sacred Grove Male Snail": "Sacred Grove",
+  "Kakariko Gorge Owl Statue Sky Character": "Kakariko Gorge",
+  "Kakariko Village Hot Spring Ledge Box Rupee": "Kakariko Village",
+  "Kakariko Village Spring Shortcut Box Rupee 1": "Kakariko Village",
+  "Kakariko Village Spring Shortcut Box Rupee 2": "Kakariko Village",
+  "Kakariko Village Female Ant": "Kakariko Village",
+  "Kakariko Village Ant House Ledge Box Rupee": "Kakariko Village",
+  "Talo Sharpshooting": "Kakariko Village",
+  "Renados Letter": "Kakariko Village",
+  "Ilia Memory Reward": "Kakariko Village",
+  "Shad Dominion Rod": "Kakariko Village",
+  "Rutelas Blessing": "Kakariko Graveyard",
+  "Gift From Ralis": "Kakariko Graveyard",
+  "Kakariko Graveyard Male Ant": "Kakariko Graveyard",
+  "Kakariko Graveyard Golden Wolf": "Kakariko Graveyard",
+  "Death Mountain Volcano Pipe Ledge Rock Rupee": "Death Mountain",
+  "Eldin Field Bomskit Grotto Lantern Chest": "Eldin Field",
+  "Eldin Field Bomskit Grotto Left Chest": "Eldin Field",
+  "Eldin Field Female Grasshopper": "Eldin Field",
+  "Eldin Field Male Grasshopper": "Eldin Field",
+  "Goron Springwater Rush": "Eldin Field",
+  "Eldin Field Water Bomb Fish Grotto Chest": "Eldin Field",
+  "Bridge of Eldin Female Phasmid": "Eldin Field",
+  "Bridge of Eldin Male Phasmid": "Eldin Field",
+  "Bridge of Eldin Owl Statue Sky Character": "Eldin Field",
+  "Eldin Stockcave Upper Chest": "Eldin Field",
+  "Eldin Stockcave Lantern Chest": "Eldin Field",
+  "Eldin Stockcave Lowest Chest": "Eldin Field",
+  "Skybook From Impaz": "Hidden Village",
+  "Ilia Charm": "Hidden Village",
+  "Lakebed Temple Deku Toad Chest": "Lakebed Temple",
+  "Forest Temple Gale Boomerang": "Forest Temple",
+  "Forest Temple Diababa Heart Container": "Forest Temple",
+  "Forest Temple Dungeon Reward": "Forest Temple",
+  "Arbiters Grounds Stallord Heart Container": "Arbiters Grounds",
+  "Arbiters Grounds Dungeon Reward": "Arbiters Grounds",
+  "Eldin Field Stalfos Grotto Right Small Chest": "Eldin Field",
+  "Eldin Field Stalfos Grotto Stalfos Chest": "Eldin Field",
+  "Lanayru Field Spinner Track Chest": "Lanayru Field",
+  "Lanayru Field Female Stag Beetle": "Lanayru Field",
+  "Lanayru Field Male Stag Beetle": "Lanayru Field",
+  "Lanayru Field Poe Grotto Left Poe": "Lanayru Field",
+  "Lanayru Field Poe Grotto Right Poe": "Lanayru Field",
+  "West Hyrule Field Female Butterfly": "Beside Castle Town",
+  "West Hyrule Field Male Butterfly": "Beside Castle Town",
+  "Hyrule Field Amphitheater Owl Statue Sky Character": "Beside Castle Town",
+  "Charlo Donation Blessing": "Castle Town",
+  "STAR Prize 1": "Castle Town",
+  "STAR Prize 2": "Castle Town",
+  "North Castle Town Golden Wolf": "Castle Town",
+  "Jovani 20 Poe Soul Reward": "Castle Town",
+  "Jovani House Poe": "Castle Town",
+  "Telma Invoice": "Castle Town",
+  "Agitha Male Beetle Reward": "Castle Town",
+  "Agitha Female Beetle Reward": "Castle Town",
+  "Agitha Male Butterfly Reward": "Castle Town",
+  "Agitha Female Butterfly Reward": "Castle Town",
+  "Agitha Male Stag Beetle Reward": "Castle Town",
+  "Agitha Female Stag Beetle Reward": "Castle Town",
+  "Agitha Male Grasshopper Reward": "Castle Town",
+  "Agitha Female Grasshopper Reward": "Castle Town",
+  "Agitha Male Phasmid Reward": "Castle Town",
+  "Agitha Female Phasmid Reward": "Castle Town",
+  "Agitha Male Pill Bug Reward": "Castle Town",
+  "Agitha Female Pill Bug Reward": "Castle Town",
+  "Agitha Male Mantis Reward": "Castle Town",
+  "Agitha Female Mantis Reward": "Castle Town",
+  "Agitha Male Ladybug Reward": "Castle Town",
+  "Agitha Female Ladybug Reward": "Castle Town",
+  "Agitha Male Snail Reward": "Castle Town",
+  "Agitha Female Snail Reward": "Castle Town",
+  "Agitha Male Dragonfly Reward": "Castle Town",
+  "Agitha Female Dragonfly Reward": "Castle Town",
+  "Agitha Male Ant Reward": "Castle Town",
+  "Agitha Female Ant Reward": "Castle Town",
+  "Agitha Male Dayfly Reward": "Castle Town",
+  "Agitha Female Dayfly Reward": "Castle Town",
+  "Outside South Castle Town Male Ladybug": "South of Castle Town",
+  "Outside South Castle Town Female Ladybug": "South of Castle Town",
+  "Outside South Castle Town Tektite Grotto Chest": "South of Castle Town",
+  "Outside South Castle Town Golden Wolf": "South of Castle Town",
+  "Wooden Statue": "South of Castle Town",
+  "Lake Hylia Bridge Owl Statue Sky Character": "Great Bridge of Hylia",
+  "Lake Hylia Bridge Female Mantis": "Great Bridge of Hylia",
+  "Lake Hylia Bridge Male Mantis": "Great Bridge of Hylia",
+  "Lake Hylia Bridge Bubble Grotto Chest": "Great Bridge of Hylia",
+  "Auru Gift To Fyer": "Lake Hylia",
+  "Flight By Fowl Top Platform Reward": "Lake Hylia",
+  "Lanayru Spring Underwater Left Chest": "Lanayru Spring",
+  "Plumm Fruit Balloon Minigame": "Lake Hylia",
+  "Upper Zoras River Female Dragonfly": "Upper Zoras River",
+  "Iza Helping Hand": "Upper Zoras River",
+  "Iza Raging Rapids Minigame": "Upper Zoras River",
+  "Fishing Hole Bottle": "Upper Zoras River",
+  "Zoras Domain Male Dragonfly": "Zoras Domain",
+  "Zoras Domain Underwater Goron": "Zoras Domain",
+  "Eldin Field Stalfos Grotto Left Small Chest": "Eldin Field",
+  "Coro Bottle": "Faron Woods",
+  "Sacred Grove Pedestal Master Sword": "Sacred Grove",
+  "Sacred Grove Pedestal Shadow Crystal": "Sacred Grove",
+  "Gerudo Desert Skulltula Grotto Chest": "North Gerudo Desert",
+  "Gerudo Desert Male Dayfly": "North Gerudo Desert",
+  "Gerudo Desert Female Dayfly": "North Gerudo Desert",
+  "Gerudo Desert Owl Statue Sky Character": "North Gerudo Desert",
+  "Gerudo Desert Rock Grotto First Poe": "North Gerudo Desert",
+  "Gerudo Desert Rock Grotto Second Poe": "North Gerudo Desert",
+  "Gerudo Desert Rock Grotto Lantern Chest": "North Gerudo Desert",
+  "Gerudo Desert Golden Wolf": "North Gerudo Desert",
+  "Bulblin Camp First Chest Under Tower At Entrance": "Bulblin Camp",
+  "Bulblin Camp Small Chest in Back of Camp": "Bulblin Camp",
+  "Bulblin Camp Roasted Boar": "Bulblin Camp",
+  "Bulblin Guard Key": "Bulblin Camp",
+  "Cave of Ordeals Great Fairy Reward": "South Gerudo Desert",
+  "Ashei Sketch": "Snowpeak",
+  "Ordon Shield": "Ordon",
+  "Herding Goats Reward": "Ordon",
+  "Coro Lantern": "Faron Woods",
+  "Coro Gate Key": "Faron Woods",
+  "Kakariko Gorge Female Pill Bug": "Kakariko Gorge",
+  "Kakariko Gorge Male Pill Bug": "Kakariko Gorge",
+  "Jovani 60 Poe Soul Reward": "Castle Town",
+  "Sacred Grove Past Owl Statue Chest": "Sacred Grove",
+  "Sacred Grove Temple of Time Owl Statue Poe": "Sacred Grove",
+  "West Hyrule Field Golden Wolf": "Beside Castle Town",
+  "Lanayru Field Skulltula Grotto Chest": "Lanayru Field",
+  "Snowpeak Ruins Chest After Darkhammer": "Snowpeak Ruins",
+  "Snowpeak Ruins Mansion Map": "Snowpeak Ruins",
+  "Snowpeak Ruins Ball and Chain": "Snowpeak Ruins",
+  "West Hyrule Field Helmasaur Grotto Chest": "Beside Castle Town",
+  "Lanayru Ice Block Puzzle Cave Chest": "Lanayru Field",
+  "Castle Town Goron Shop Red Potion": "Castle Town",
+  "Castle Town Goron Shop Lantern Oil": "Castle Town",
+  "Castle Town Goron Shop Hylian Shield": "Castle Town",
+  "Castle Town Goron Shop Arrow Refill": "Castle Town",
+  "Castle Town Malo Mart Magic Armor": "Castle Town",
+  "Doctors Office Balcony Chest": "Castle Town",
+  "Lake Hylia Water Toadpoli Grotto Chest": "Lake Hylia",
+  "Lake Lantern Cave First Chest": "Lake Hylia",
+  "Lake Lantern Cave Second Chest": "Lake Hylia",
+  "Lake Lantern Cave Third Chest": "Lake Hylia",
+  "Lake Lantern Cave Fourth Chest": "Lake Hylia",
+  "Lake Lantern Cave Fifth Chest": "Lake Hylia",
+  "Lake Lantern Cave Sixth Chest": "Lake Hylia",
+  "Lake Lantern Cave Seventh Chest": "Lake Hylia",
+  "Lake Lantern Cave Eighth Chest": "Lake Hylia",
+  "Lake Lantern Cave Ninth Chest": "Lake Hylia",
+  "Lake Lantern Cave Tenth Chest": "Lake Hylia",
+  "Lake Lantern Cave Eleventh Chest": "Lake Hylia",
+  "Lake Lantern Cave Twelfth Chest": "Lake Hylia",
+  "Lake Lantern Cave Thirteenth Chest": "Lake Hylia",
+  "Lake Lantern Cave Fourteenth Chest": "Lake Hylia",
+  "Lake Lantern Cave End Lantern Chest": "Lake Hylia",
+  "Lake Lantern Cave First Poe": "Lake Hylia",
+  "Lake Lantern Cave Second Poe": "Lake Hylia",
+  "Lake Lantern Cave Final Poe": "Lake Hylia",
+  "Lake Hylia Shell Blade Grotto Chest": "Lake Hylia",
+  "Faron Field Male Beetle": "Faron Field",
+  "Faron Field Corner Grotto Right Chest": "Faron Field",
+  "Faron Field Corner Grotto Rear Chest": "Faron Field",
+  "Cave of Ordeals Floor 17 Poe": "South Gerudo Desert",
+  "Cave of Ordeals Floor 33 Poe": "South Gerudo Desert",
+  "Cave of Ordeals Floor 44 Poe": "South Gerudo Desert",
+  "Snowpeak Blizzard Poe": "Snowpeak",
+  "Snowpeak Above Freezard Grotto Poe": "Snowpeak",
+  "Snowpeak Poe Among Trees": "Snowpeak",
+  "Snowpeak Freezard Grotto Chest": "Snowpeak",
+  "Snowpeak Cave Ice Lantern Chest": "Snowpeak",
+  "Snowpeak Cave Ice Poe": "Snowpeak",
+  "Snowpeak Icy Summit Poe": "Snowpeak",
+  "Snowboard Racing Prize": "Snowpeak",
+  "Snowboarding Bridge Ledge Bottom Rupee": "Snowpeak",
+  "Snowboarding Bridge Ledge Middle Rupee": "Snowpeak",
+  "Snowboarding Bridge Ledge Upper Rupee": "Snowpeak",
+  "Snowboarding Shortcut Rupee 1": "Snowpeak",
+  "Snowboarding Shortcut Rupee 2": "Snowpeak",
+  "Snowboarding Shortcut Rupee 3": "Snowpeak",
+  "Snowboarding Shortcut Rupee 4": "Snowpeak",
+  "Snowboarding Shortcut Rupee 5": "Snowpeak",
+  "Snowboarding Shortcut Rupee 6": "Snowpeak",
+  "Snowboarding Shortcut Rupee 7": "Snowpeak",
+  "Snowboarding Shortcut Rupee 8": "Snowpeak",
+  "Snowboarding Shortcut Rupee 9": "Snowpeak",
+  "Snowboarding Shortcut Rupee 10": "Snowpeak",
+  "Snowboarding Shortcut Rupee 11": "Snowpeak",
+  "Snowboarding Snowy Tree Top Rupee 1": "Snowpeak",
+  "Snowboarding Snowy Tree Top Rupee 2": "Snowpeak",
+  "Snowboarding Snowy Tree Top Rupee 3": "Snowpeak",
+  "Snowboarding Top Left Rupee": "Snowpeak",
+  "Snowboarding Top Right Rupee": "Snowpeak",
+  "Wooden Sword Chest": "Ordon",
+  "Links Basement Chest": "Ordon",
+  "Sera Shop Slingshot": "Ordon",
+  "Wrestling With Bo": "Ordon",
+  "Eldin Lantern Cave First Chest": "Kakariko Gorge",
+  "Eldin Lantern Cave Second Chest": "Kakariko Gorge",
+  "Eldin Lantern Cave Lantern Chest": "Kakariko Gorge",
+  "Eldin Lantern Cave Poe": "Kakariko Gorge",
+  "Kakariko Village Malo Mart Hawkeye": "Kakariko Village",
+  "Kakariko Village Malo Mart Hylian Shield": "Kakariko Village",
+  "Kakariko Village Malo Mart Red Potion": "Kakariko Village",
+  "Kakariko Village Malo Mart Wooden Shield": "Kakariko Village",
+  "Kakariko Inn Chest": "Kakariko Village",
+  "Barnes Bomb Bag": "Kakariko Village",
+  "Kakariko Watchtower Chest": "Kakariko Village",
+  "Lanayru Field South Spinner Track Boulder Rupee": "Great Bridge of Hylia",
+  "Lanayru Field Behind Gate Underwater Chest": "Lanayru Field",
+  "Lanayru Field North Underwater Boulder Rupee": "Lanayru Field",
+  "Lanayru Field South Underwater Boulder Rupee": "Lanayru Field",
+  "Lanayru Field Tree Boulder Rupee": "Lanayru Field",
+  "Lanayru Field Bridge Poe": "Lanayru Field",
+  "Lanayru Field North Spinner Track Boulder Rupee": "Lanayru Field",
+  "Lake Hylia Bridge Owl Statue Chest": "Great Bridge of Hylia",
+  "Lake Hylia Bridge Owl Statue Boulder Rupee": "Great Bridge of Hylia",
+  "Hyrule Field Amphitheater Owl Statue Chest": "Beside Castle Town",
+  "East Castle Town Bridge Poe": "Castle Town",
+  "Outside South Castle Town Tightrope Chest": "South of Castle Town",
+  "Outside South Castle Town Fountain Chest": "South of Castle Town",
+  "Outside South Castle Town Poe": "South of Castle Town",
+  "Outside South Castle Town Double Clawshot Chasm Chest": "South of Castle Town",
+  "Outside South Castle Town Boulder Rupee": "South of Castle Town",
+  "Lake Hylia Bridge Vines Chest": "Great Bridge of Hylia",
+  "Lake Hylia Bridge Cliff Chest": "Great Bridge of Hylia",
+  "Lake Hylia Bridge Cliff Poe": "Great Bridge of Hylia",
+  "Lake Hylia Bridge Faron Boulder Rupee": "Great Bridge of Hylia",
+  "Gerudo Desert East Poe": "North Gerudo Desert",
+  "Gerudo Desert Peahat Ledge Chest": "North Gerudo Desert",
+  "Gerudo Desert East Canyon Chest": "North Gerudo Desert",
+  "Gerudo Desert South Chest Behind Wooden Gates": "North Gerudo Desert",
+  "Gerudo Desert Lone Small Chest": "North Gerudo Desert",
+  "Gerudo Desert Owl Statue Chest": "North Gerudo Desert",
+  "Gerudo Desert Poe Above Cave of Ordeals": "North Gerudo Desert",
+  "Gerudo Desert West Canyon Chest": "North Gerudo Desert",
+  "Gerudo Desert North Peahat Poe": "North Gerudo Desert",
+  "Gerudo Desert Campfire East Chest": "North Gerudo Desert",
+  "Gerudo Desert Campfire North Chest": "North Gerudo Desert",
+  "Gerudo Desert Campfire West Chest": "North Gerudo Desert",
+  "Gerudo Desert Northeast Chest Behind Gates": "North Gerudo Desert",
+  "Gerudo Desert Northwest Chest Behind Gates": "North Gerudo Desert",
+  "Gerudo Desert North Small Chest Before Bulblin Camp": "North Gerudo Desert",
+  "Outside Bulblin Camp Poe": "North Gerudo Desert",
+  "Goron Mines Gor Amato Key Shard": "Goron Mines",
+  "Goron Mines Gor Ebizo Key Shard": "Goron Mines",
+  "Goron Mines Gor Liggs Key Shard": "Goron Mines",
+  "Goron Mines Fyrus Heart Container": "Goron Mines",
+  "Goron Mines Dungeon Reward": "Goron Mines",
+  "Lakebed Temple Morpheel Heart Container": "Lakebed Temple",
+  "Lakebed Temple Dungeon Reward": "Lakebed Temple",
+  "Arbiters Grounds Death Sword Chest": "Arbiters Grounds",
+  "Snowpeak Ruins Blizzeta Heart Container": "Snowpeak Ruins",
+  "Snowpeak Ruins Dungeon Reward": "Snowpeak Ruins",
+  "Temple of Time Darknut Chest": "Temple of Time",
+  "Temple of Time Chest Before Darknut": "Temple of Time",
+  "Temple of Time Armogohma Heart Container": "Temple of Time",
+  "Temple of Time Dungeon Reward": "Temple of Time",
+  "City in the Sky Aeralfos Chest": "City in the Sky",
+  "City in the Sky Argorok Heart Container": "City in the Sky",
+  "City in the Sky Dungeon Reward": "City in the Sky",
+  "Palace of Twilight Collect Both Sols": "Palace of Twilight",
+  "Palace of Twilight Zant Heart Container": "Palace of Twilight",
+  "Hyrule Castle King Bulblin Key": "Hyrule Castle"
+ },
+ "entranceFixes": {
+  "moved": {
+   "part:F_SP121/1>F_SP121/@3:0": {
+    "x": -24322,
+    "z": 75779
+   },
+   "part:F_SP121/1>F_SP121/@4:9": {
+    "x": -71113,
+    "z": 66321
+   },
+   "F_SP103/1>R_SP01/4/": {
+    "x": 983,
+    "z": -6498
+   },
+   "F_SP103/1>F_SP104/@1:1": {
+    "x": -1587,
+    "z": -7929
+   },
+   "part:F_SP121/9>F_SP121/@3:0": {
+    "x": 937,
+    "z": -55679
+   },
+   "part:F_SP121/9>F_SP121/@2:1": {
+    "x": -69342,
+    "z": 61676
+   },
+   "D_SB07/2>F_SP124/@5:0": {
+    "x": -161,
+    "z": 792
+   },
+   "F_SP115/0>D_MN07/*/": {
+    "x": -102072,
+    "z": 54005
+   },
+   "R_SP160/4>F_SP116/@4:0": {
+    "x": 112,
+    "z": 3808
+   },
+   "F_SP116/3>R_SP116/5/": {
+    "x": 2806,
+    "z": 5489
+   },
+   "added:muylhm6p": {
+    "x": -541,
+    "z": 10497
+   },
+   "F_SP121/6>F_SP122/@4:16": {
+    "x": -49400,
+    "z": 57062
+   },
+   "added:muylngqa": {
+    "x": -42946,
+    "z": 10848
+   },
+   "D_SB06/1>F_SP121/@2:1": {
+    "x": 52,
+    "z": 517
+   },
+   "F_SP108/4>F_SP121/@2:1": {
+    "x": -11572,
+    "z": -22120
+   },
+   "D_SB06/1>F_SP117/@2:3": {
+    "x": 68,
+    "z": 541
+   },
+   "R_SP109/2>F_SP109/@3:0": {
+    "x": -1194,
+    "z": -193
+   },
+   "part:F_SP121/0>F_SP121/@4:9": {
+    "x": 4793,
+    "z": -61208
+   },
+   "D_SB05/0>F_SP122/@4:16": {
+    "x": -158,
+    "z": 787
+   },
+   "F_SP114/2>F_SP114/@6:0": {
+    "x": -4593,
+    "z": -10829
+   },
+   "part:F_SP114/2>F_SP114/@6:1": {
+    "x": -9235,
+    "z": -11913
+   },
+   "part:F_SP114/1>F_SP114/@6:2": {
+    "x": -9460,
+    "z": -12122
+   }
+  },
+  "added": [
+   {
+    "id": "muylhm6p",
+    "stage": "F_SP117",
+    "room": 3,
+    "x": -786,
+    "z": 10803,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP117",
+     "room": 1
+    }
+   },
+   {
+    "id": "muylm0px",
+    "stage": "F_SP122",
+    "room": 16,
+    "x": -51586,
+    "z": 19795,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP116",
+     "room": 0
+    }
+   },
+   {
+    "id": "muylngqa",
+    "stage": "F_SP122",
+    "room": 17,
+    "x": -43304,
+    "z": 10848,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP116",
+     "room": 0
+    }
+   },
+   {
+    "id": "muyly2wh",
+    "stage": "F_SP122",
+    "room": 8,
+    "x": -83997,
+    "z": 3947,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP121",
+     "room": 9
+    }
+   },
+   {
+    "id": "muylyief",
+    "stage": "F_SP121",
+    "room": 12,
+    "x": -87422,
+    "z": 4699,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP122",
+     "room": 16
+    }
+   },
+   {
+    "id": "muypxslw",
+    "stage": "D_SB10",
+    "room": 0,
+    "x": -1544,
+    "z": -3852,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP108",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv027dnw",
+    "stage": "F_SP121",
+    "room": 0,
+    "x": 43731,
+    "z": -37281,
+    "floor": 0,
+    "to": {
+     "stage": "D_SB04",
+     "room": 10
+    }
+   }
+  ],
+  "hidden": [
+   "part:F_SP117/3>F_SP117/@2:2",
+   "part:F_SP117/2>F_SP117/@2:3",
+   "part:F_SP114/0>F_SP114/@6:1",
+   "part:F_SP114/1>F_SP114/@6:0"
+  ]
+ },
+ "placeFixes": {}
 }

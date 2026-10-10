@@ -520,10 +520,10 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     return out;
   }
 
-  // Checks placed on the map by hand (NPCs, golden wolves, events: no place in the game files):
-  // the mod's presets (map_presets.json), and those placed in the page, kept in its settings
-  // ({ [check name]: { stage, room, x, z, floor } }), which win. A preset can give its place in the
-  // room's extent (u, v from 0 to 1, left to right and top to bottom) instead of x, z.
+  // Checks' places from the mod's presets (map_presets.json: { [check name]: { stage, room, x, z,
+  // floor } }): checks the game files do not place (people, events, shops) or place wrongly; they
+  // win over the game files. A preset can give its place in the room's extent (u, v from 0 to 1,
+  // left to right and top to bottom) instead of x, z.
   let presets = {};
   fetch("map_presets.json", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
@@ -534,7 +534,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     })
     .catch(() => {});
   function userPlaces() {
-    return checkSource?.manualPlaces?.() ?? {};
+    const out = {};
+    for (const [name, p] of Object.entries(presets)) out[name] = resolvePreset(p);
+    return out;
   }
   // A preset's x, z from its room's extent (once the stage's rooms are known).
   function resolvePreset(p) {
@@ -547,13 +549,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     return { ...p, x: b.x + (p.u - 0.5) * b.w, z: b.y + (p.v - 0.5) * b.h };
   }
   function manualPlaces() {
-    const out = { ...autoPlaces() };
-    for (const [name, p] of Object.entries(presets)) out[name] = resolvePreset(p);
-    return Object.assign(out, userPlaces());
+    return { ...autoPlaces(), ...userPlaces() };
   }
 
   // Checks given by people and golden wolves: where the game files place that person (or wolf),
-  // the one in the check's logic region when there are several. Presets and places put by hand win.
+  // the one in the check's logic region when there are several. Presets win.
   let autoCache = { key: "", places: {} };
   function autoPlaces() {
     if (!places?.done || !checkSource) return {};
@@ -598,7 +598,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     for (const list of patches.values()) if (list.some((ch) => ch.key === key)) return true;
     return false;
   }
-  // Where a check is: found in the game files or placed by hand.
+  // Where a check is: from the presets or the game files.
   function placeFor(key, name = key.startsWith("manual:") ? key.slice(7) : null) {
     if (name && userPlaces()[name]) return { ...userPlaces()[name], key };
     const game = placeIndex.get(key);
@@ -609,7 +609,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // A stage's checks: those of the game files (with the randomizer's changes) and those placed by
   // hand.
   function stageChecks(stage, list) {
-    // A check moved by hand leaves the place the game files give it.
+    // A check the presets move leaves the place the game files give it.
     const mine = userPlaces();
     const moved = new Set((checkSource?.list() ?? []).filter((c) => mine[c.name]).map((c) => c.key));
     // A dungeon and its boss rooms show each other's checks (the same coordinates).
@@ -618,49 +618,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     return [...patchedChecks(stage, list ?? []), ...others].filter((c) => !moved.has(c.key)).concat(manualChecks(stage));
   }
 
-  // The check being placed by hand: the next click on a map places it.
-  let placing = null;
   // The checks of the grotto shown, when grottos built alike share one map (null: all).
   let checkScope = null;
   let stageVariant = null; // the grotto Link is in (its logic area), when it shares its room
-
-  // The room of a point on the map shown: the smallest room around it, else the nearest one.
-  function roomAt(at) {
-    let room = -1;
-    let best = Infinity;
-    for (const [no, b] of scene?.rooms ?? []) {
-      if (Math.abs(at.x - b.x) <= b.w / 2 && Math.abs(at.y - b.y) <= b.h / 2 && b.w * b.h < best) {
-        best = b.w * b.h;
-        room = no;
-      }
-    }
-    if (room >= 0) return room;
-    let near = Infinity;
-    for (const [no, b] of scene?.rooms ?? []) {
-      const d = Math.hypot(Math.max(0, Math.abs(at.x - b.x) - b.w / 2), Math.max(0, Math.abs(at.y - b.y) - b.h / 2));
-      if (d < near) {
-        near = d;
-        room = no;
-      }
-    }
-    return room;
-  }
-  function placeAt(at) {
-    if (placingEntrance && scene && (scene.kind === "stage" || scene.kind === "area")) return placeEntrance(at);
-    if (!placing || !scene || (scene.kind !== "stage" && scene.kind !== "area")) return false;
-    const stage = scene.kind === "area" ? areaPlace?.name : map?.stage;
-    if (!stage) return false;
-    // Its room: the smallest drawn room around the point, else the nearest (it can be changed
-    // above the map).
-    const room = roomAt(at);
-    const variant = scene.kind === "area" ? areaPlace?.variant : undefined;
-    checkSource.setPlace(placing, { stage, room, x: Math.round(at.x), z: Math.round(at.y), floor: scene.floor ?? 0, ...(variant ? { variant } : {}) });
-    placing = null;
-    sceneKey = "";
-    render();
-    updatePick(true);
-    return true;
-  }
 
   async function fetchPlaces() {
     await fetchPatches();
@@ -698,7 +658,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   // Shows a check of the check list on the map (double-click in Checks): its map, centered on it,
   // highlighted, with its details under the map.
   // The check the map was last moved to (showCheck), and the place it showed it on: while that
-  // place is shown, Checks is told the check's region (its Area as set by hand), not the place's.
+  // place is shown, Checks is told the check's region (its Area from the presets), not the place's.
   let shownFor = null;
   function showCheck(name, req = true) {
     const info = checkSource?.list().find((c) => c.name === name);
@@ -892,7 +852,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     }
     const floors = [...new Set(rooms.flatMap((r) => r.floors.map((f) => f.no)))].sort((a, b) => b - a);
     const floor = pickedFloor ?? player.stayFloor ?? floors[floors.length - 1] ?? 0;
-    // An overworld place's title: named by hand or by the mod (by its rooms), else its region.
+    // An overworld place's title: named by the presets or the mod (by its rooms), else its region.
     titleKey = !dungeon && !interior ? fieldKey(map.stage, map.singleRoom || ground ? [player.stayRoom] : extent.map((r) => r.no)) : null;
     // A grotto sharing its room with others: the one Link entered (its name and only its checks).
     const grotto = linkVariant();
@@ -980,7 +940,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   }
 
   // Names of the overworld's places by their stage and rooms ("F_SP121/1+6+15"): the mod's, and
-  // those set by hand with ✎ beside the map's title (kept with the Other places' fixes).
+  // the presets' (kept with the Other places' fixes).
   const FIELD_TITLES = {
     "F_SP125/4": "Mirror Chamber",
     "F_SP124/0": "Gerudo Desert",
@@ -992,32 +952,13 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     "F_SP117/2": "Past Sacred Grove",
     "F_SP117/3": "Lost Woods",
   };
-  let titleKey = null; // the overworld place shown now, for naming it by hand
+  let titleKey = null; // the overworld place shown now (its name from the presets)
   function fieldKey(stage, rooms) {
     return `${stage}/${[...new Set(rooms)].filter((n) => n >= 0).sort((a, b) => a - b).join("+")}`;
   }
   function fieldTitle(key) {
     return placeFixes()[key]?.title || FIELD_TITLES[key] || null;
   }
-  function editTitle(span) {
-    const key = titleKey;
-    if (!key) return;
-    const input = el("input", { type: "text", className: "plate map-fix-title", value: span.textContent, title: `Name of ${key} (empty: back to the mod's name)` });
-    const done = (save) => {
-      if (save) checkSource?.setPlaceFix?.(key, input.value.trim() ? { title: input.value.trim() } : null);
-      sceneKey = "";
-      render();
-    };
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") done(true);
-      if (e.key === "Escape") done(false);
-    });
-    input.addEventListener("blur", () => done(true));
-    span.replaceWith(input);
-    input.focus();
-    input.select();
-  }
-
   // Each room's extent on the floor shown (or on any floor when it has nothing there).
   function roomBoxes(rooms, floor) {
     const boxes = new Map();
@@ -1152,9 +1093,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         el("div", { className: "map-stage" }, frame, zoomBar.node, detailPop()),
         d ? dungeonItems(d) : null),
       caption ? el("div", { className: "map-caption", textContent: caption }) : null,
-      checkSource ? checkNote() : null,
-      checkSource ? placedList() : null,
-      checkSource ? removedEntrances() : null,
       noticeBox()));
     if (view) view = clampView(view);
     applyView();
@@ -1217,19 +1155,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       }),
       button("dungeons", "Dungeons", "Every dungeon's map", () => openSelect("dungeons")),
       button("other", "Other", "Houses, caves, grottos and other places", () => openSelect("other")));
-    // An entrance the randomizer data does not place: put by hand (advanced mode).
-    const addEntrance = checkSource?.setEntranceFixes && (mode === "stage" || mode === "area") ? el("button", {
-      type: "button", className: "map-tab adv-only map-add-entrance" + (placingEntrance?.add ? " selected" : ""), textContent: "+ Entrance",
-      title: "Add an entrance: click where it is on the map, then choose where it leads",
-      onclick: (e) => {
-        e.stopPropagation();
-        placingEntrance = placingEntrance?.add ? null : { add: true };
-        e.currentTarget.classList.toggle("selected", !!placingEntrance);
-        root.querySelector(".map-frame")?.classList.toggle("placing", !!placingEntrance);
-        if (placingEntrance) showNotice("Click where the entrance is on the map.");
-      },
-    }) : null;
-    return el("div", { className: "map-toolbar" }, tabs, addEntrance, checkSource ? filterMenu() : null);
+    // An entrance the randomizer data does not place: added by the presets.
+    return el("div", { className: "map-toolbar" }, tabs, checkSource ? filterMenu() : null);
   }
 
   function openSelect(kind) {
@@ -1308,30 +1235,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       };
       row.ondblclick = () => checkSource.jump(reqName);
     }
-    // A check without a place in the game files (NPCs, golden wolves, events) is placed by hand.
+    // Where it is: its map, room and coordinates (Advanced).
     const info = reqName ? checkSource.list().find((c) => c.name === reqName) : null;
-    let actions = null;
-    if (info && (info.key.startsWith("manual:") || places?.done)) {
-      const name = reqName;
-      const placed = !!manualPlaces()[name];
-      const mine = !!userPlaces()[name];
-      const preset = !!presets[name];
-      const now = placing === name;
-      actions = el("div", { className: "map-pick-actions" },
-        el("button", { type: "button", className: "map-place" + (now ? " active" : ""),
-          textContent: now ? "Click the map to place it (cancel)" : placed || hasGamePlace(info.key) ? "Move on map" : "Place on map",
-          title: hasGamePlace(info.key) && !mine ? "Put it somewhere else than the game files say (it moves there)" : "Checks given by people, golden wolves and events have no place in the game files: put it where it is",
-          onclick: () => { placing = now ? null : name; updatePick(true); } }),
-        mine ? el("button", { type: "button", className: "map-place", textContent: preset ? "Back to preset" : hasGamePlace(info.key) ? "Back to the game's place" : "Remove place",
-          onclick: () => { checkSource.setPlace(name, null); placing = null; sceneKey = ""; render(); updatePick(true); } }) : null,
-        Object.keys(userPlaces()).length ? el("button", { type: "button", className: "map-place", textContent: "Copy my places",
-          title: "Copy every check you placed (JSON), to send for the mod's presets",
-          onclick: (e) => copyPlaces(e.currentTarget) }) : null);
-      const where = placeLine(name, info);
-      if (where) actions.append(where);
-    }
-    if (placing && placing !== reqName) placing = null;
-    root.querySelector(".map-frame")?.classList.toggle("placing", !!placing);
+    const actions = info ? placeLine(info) : null;
     // Redrawn only when it changed (statuses update a few times a second).
     const html = row.outerHTML + (actions?.outerHTML ?? "");
     if (!force && html === pickShown) return;
@@ -1339,89 +1245,13 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     slot.replaceChildren(row, ...(actions ? [actions] : []));
   }
 
-  // Where the picked check is: its map, room, coordinates and floor, and where that comes from;
-  // its room can be changed to another room of the map shown (a cave's checks are in a room of
-  // their own).
-  function placeLine(name, info) {
+  // Where the picked check is: its map, room, coordinates and floor (Advanced).
+  function placeLine(info) {
     const at = placeFor(info.key, info.name);
     if (!at || !at.stage) return null;
-    const from = userPlaces()[name] ? "set by hand" : placeIndex.has(info.key) ? "game files" : "preset";
-    const shownStage = scene?.kind === "area" ? areaPlace?.name ?? areaPlace?.stage?.name : scene?.kind === "stage" ? map?.stage : null;
-    const roomNos = new Set([at.room ?? -1, -1]);
-    if (shownStage && relatedStages(shownStage).includes(at.stage) && scene?.rooms) for (const no of scene.rooms.keys()) roomNos.add(no);
-    const pick = el("select", { className: "plate map-place-room", title: "The room it is in (only checks of the rooms drawn show on a map)",
-      onchange: (e) => {
-        const { key, ...rest } = at;
-        checkSource.setPlace(name, { stage: rest.stage, room: Number(e.target.value), x: Math.round(rest.x), z: Math.round(rest.z), floor: rest.floor ?? 0,
-          ...(rest.variant ? { variant: rest.variant } : {}) });
-        sceneKey = "";
-        render();
-        updatePick(true);
-      } },
-      ...[...roomNos].sort((a, b) => a - b).map((no) => el("option", { value: String(no), textContent: no < 0 ? "any room" : `room ${no}`, selected: no === (at.room ?? -1) })));
-    return el("div", { className: "map-place-line" },
-      el("span", { textContent: `${at.stage} · ` }), pick,
-      el("span", { textContent: ` · x ${Math.round(at.x)}, z ${Math.round(at.z)} · floor ${at.floor ?? 0} · ${from}` }));
-  }
-
-  // Entrances removed from the maps by hand: brought back (under the map, Advanced).
-  function removedEntrances() {
-    const hidden = entranceFixes().hidden ?? [];
-    if (!hidden.length) return null;
-    return el("div", { className: "map-check-note adv-only" },
-      `${hidden.length} entrance${hidden.length > 1 ? "s" : ""} removed by hand · `,
-      el("button", { type: "button", className: "map-place", textContent: "Bring them back", onclick: () => {
-        const next = structuredClone(entranceFixes());
-        next.hidden = [];
-        checkSource?.setEntranceFixes?.(next);
-        sceneKey = "";
-        render();
-      } }));
-  }
-
-  // Every check placed by hand, with its map, room and coordinates (under the map, Advanced).
-  function placedList() {
-    const mine = Object.entries(userPlaces());
-    if (!mine.length) return null;
-    mine.sort(([a, p], [b, q]) => p.stage.localeCompare(q.stage) || (p.room ?? -1) - (q.room ?? -1) || a.localeCompare(b));
-    return el("details", { className: "map-check-note map-placed-list adv-only" },
-      el("summary", { textContent: `${mine.length} check${mine.length > 1 ? "s" : ""} placed by hand ▾` }),
-      el("table", {},
-        el("thead", {}, el("tr", {}, ...["Check", "Map", "Room", "x", "z", "Floor", ""].map((h) => el("th", { textContent: h })))),
-        el("tbody", {}, ...mine.map(([name, p]) => el("tr", {},
-          el("td", {}, el("button", { type: "button", className: "map-note-item", textContent: name, title: "Show it on its map", onclick: () => showCheck(name, false) })),
-          el("td", { textContent: p.stage + (p.variant ? ` (${p.variant})` : "") }),
-          el("td", { textContent: (p.room ?? -1) < 0 ? "any" : String(p.room) }),
-          el("td", { textContent: String(Math.round(p.x)) }),
-          el("td", { textContent: String(Math.round(p.z)) }),
-          el("td", { textContent: String(p.floor ?? 0) }),
-          el("td", {}, el("button", { type: "button", className: "map-place", textContent: "Remove", onclick: () => {
-            checkSource.setPlace(name, null);
-            sceneKey = "";
-            render();
-            updatePick(true);
-          } })))))));
-  }
-
-  // Every check placed in the page, as JSON for the mod's presets (map_presets.json).
-  function copyPlaces(button) {
-    const text = JSON.stringify({ places: userPlaces() }, null, 1);
-    const done = (ok) => {
-      button.textContent = ok ? "Copied!" : "Could not copy";
-      setTimeout(() => updatePick(true), 1500);
-    };
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => fallback());
-    else fallback();
-    function fallback() {
-      const area = el("textarea", { value: text });
-      area.style.cssText = "position:fixed;opacity:0";
-      document.body.append(area);
-      area.select();
-      let ok = false;
-      try { ok = document.execCommand("copy"); } catch { /* not allowed */ }
-      area.remove();
-      done(ok);
-    }
+    const room = (at.room ?? -1) < 0 ? "any room" : `room ${at.room}`;
+    return el("div", { className: "map-place-line adv-only",
+      textContent: `${at.stage} · ${room} · x ${Math.round(at.x)}, z ${Math.round(at.z)} · floor ${at.floor ?? 0}` });
   }
 
   function unpick() {
@@ -1720,8 +1550,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const name = el("span", { className: "loc-banner-title", textContent: title });
     return el("div", { className: "loc-banner map-title" },
       name,
-      titleKey && (mode === "stage" || mode === "area") ? el("button", { type: "button", className: "map-title-edit", textContent: "✎",
-        title: "Rename this place (kept in the page's settings)", onclick: () => editTitle(name) }) : null,
       el("label", { className: "map-follow", title: "Keep the map on Link: slide and zoom to his room, and go back to his floor and map when he moves" },
         el("input", { type: "checkbox", checked: followOn, onchange: (e) => {
           followOn = e.target.checked;
@@ -1855,7 +1683,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     mode = "stage";
     return switchStage();
   }
-  // Entrances moved or added by hand (the page's settings): { moved: { [plate]: { x, z } },
+  // Entrances moved, added or removed by the presets: { moved: { [plate]: { x, z } },
   // added: [{ id, stage, room, x, z, floor, atArea, to: { stage, room }, toArea }] }.
   const entranceFixes = () => checkSource?.entranceFixes?.() ?? { moved: {}, added: [] };
   // Both ends of every entrance: [this end, its area, the other end, its area, kind there].
@@ -1900,7 +1728,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     return fieldPlace();
   }
 
-  let placingEntrance = null; // { add: true } or { move: plate key }: the next click on the map
   function buildEntrances(rooms, floor, extent = rooms) {
     if (!checkFilter.has("entrances") || !checkSource) return [];
     const stages = new Set(relatedStages(map.stage));
@@ -1914,7 +1741,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const out = [];
     const seen = new Set();
     const plate = (key, to, toArea, kind, pos, added = null) => {
-      // (Removed by hand.)
+      // (Removed by the presets.)
       if (!added && fixes.hidden?.includes(key)) return;
       const moved = fixes.moved?.[key];
       const at = moved ? { x: moved.x, y: moved.z } : { x: pos.x, y: pos.z };
@@ -1929,7 +1756,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       // An icon on the entrance's point, its count above; on hover, a plate with the place's name.
       const count = `${reachable}/${left}`;
       const node = el("button", { type: "button", className: `map-entrance ${kind.toLowerCase()}` + (left === 0 ? " done" : "") + (added ? " added" : ""),
-        title: `Click: its map (right-click there: back here) · Right-click: move${added ? ", change or remove" : ""} this entrance`, ariaLabel: `${title} ${count}` },
+        title: "Click: its map (right-click there: back here)", ariaLabel: `${title} ${count}` },
       el("span", { className: "map-entrance-icon" }),
       left ? el("span", { className: "map-entrance-count", textContent: count }) : null,
       el("span", { className: "map-entrance-card" },
@@ -1950,7 +1777,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       node.addEventListener("contextmenu", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        entranceMenu(node, key, added, !!moved);
       });
       out.push({ node, at });
     };
@@ -1970,7 +1796,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         pos = { x: sp[2], z: sp[3], floor: roomFloor(at.stage, sp[0], sp[4]) };
       }
       if (floor !== null && pos.floor !== floor) continue;
-      // One plate per place it leads to (a building's two doors: one); an entrance added by hand
+      // One plate per place it leads to (a building's two doors: one); an entrance added by the presets
       // always has its own.
       const id = sidePlaceId(to, toArea);
       if (seen.has(id) && !at.added) continue;
@@ -2009,137 +1835,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       }
     }
     return out;
-  }
-
-  // ---- Entrances changed by hand ----
-
-  // A plate's menu (right-click): move it, put it back, change where an added one leads, remove it.
-  function entranceMenu(node, key, added, moved) {
-    closeEntranceMenu();
-    const fixes = entranceFixes();
-    const save = (next) => {
-      checkSource?.setEntranceFixes?.(next);
-      closeEntranceMenu();
-      sceneKey = "";
-      render();
-    };
-    const item = (label, title, go) => el("button", { type: "button", className: "map-place", textContent: label, title, onclick: (e) => { e.stopPropagation(); go(); } });
-    const menu = el("div", { className: "map-entrance-menu" },
-      item("Move", "Then click where it is on the map", () => {
-        closeEntranceMenu();
-        placingEntrance = { move: key };
-        root.querySelector(".map-frame")?.classList.add("placing");
-        showNotice("Click where this entrance is on the map.");
-      }),
-      moved ? item("Reset place", "Back where the game files put it", () => {
-        const next = structuredClone(fixes);
-        delete next.moved[key];
-        save(next);
-      }) : null,
-      added ? item("Leads to…", "Choose the place it leads to", () => {
-        closeEntranceMenu();
-        destinationForm(added.to, added.toArea, (to, toArea) => {
-          const next = structuredClone(fixes);
-          const a = next.added.find((x) => x.id === added.id);
-          if (a) Object.assign(a, { to, toArea: toArea ?? undefined });
-          save(next);
-        });
-      }) : null,
-      item("Remove", added ? "Remove this entrance" : "Remove this entrance from the map (it can be brought back under the map)", () => {
-        const next = structuredClone(fixes);
-        next.moved ??= {};
-        next.added ??= [];
-        next.hidden ??= [];
-        // (An added one also by its key, so a preset's stays removed.)
-        if (added) next.added = next.added.filter((x) => x.id !== added.id);
-        if (!next.hidden.includes(key)) next.hidden.push(key);
-        delete next.moved[key];
-        save(next);
-      }),
-      item("Cancel", "", () => closeEntranceMenu()));
-    menu.addEventListener("pointerdown", (e) => e.stopPropagation());
-    menu.addEventListener("pointerup", (e) => e.stopPropagation());
-    menu.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); });
-    node.after(menu);
-    menu.style.left = node.style.left;
-    menu.style.top = node.style.top;
-    menu.style.transform = node.style.transform;
-    setTimeout(() => document.addEventListener("pointerdown", closeEntranceMenu, { once: true }), 0);
-  }
-  function closeEntranceMenu() {
-    root.querySelector(".map-entrance-menu")?.remove();
-  }
-
-  // Every place a map opens, for an entrance added by hand: dungeons, the overworld's places, the
-  // Other tab's.
-  function destinations() {
-    const out = [];
-    for (const [label, stage] of DUNGEON_STAGES) out.push({ group: "Dungeons", title: label, to: { stage, room: -1 } });
-    for (const region of field?.regions ?? []) {
-      for (const st of region.stages) {
-        if (!st.rooms.length) continue;
-        const room = st.part ?? st.rooms[0].no;
-        const title = fieldTitle(fieldKey(st.name, st.rooms.map((r) => r.no))) ?? regionName(st.name, room) ?? st.name;
-        out.push({ group: "Field", title, to: { stage: st.name, room } });
-      }
-    }
-    for (const it of otherPlaces()) {
-      out.push({ group: it.province, title: it.title, to: { stage: it.stage, room: it.rooms?.[0] ?? (places?.mapRooms?.[it.stage] ?? [-1])[0] }, toArea: it.variant ?? null });
-    }
-    return out;
-  }
-  function destinationForm(current, currentArea, done) {
-    root.querySelector(".map-dest-form")?.remove();
-    const list = destinations();
-    const groups = [...new Set(list.map((d) => d.group))];
-    const pick = el("select", { className: "plate" },
-      ...groups.map((g) => {
-        const og = document.createElement("optgroup");
-        og.label = g;
-        og.append(...list.map((d, i) => [d, i]).filter(([d]) => d.group === g).map(([d, i]) => el("option", { value: String(i), textContent: d.title,
-          selected: !!current && d.to.stage === current.stage && (d.to.room === current.room || d.to.room < 0) && (d.toArea ?? null) === (currentArea ?? null) })));
-        return og;
-      }));
-    const form = el("div", { className: "map-dest-form map-fix-form" },
-      el("span", { textContent: "Leads to" }), pick,
-      el("button", { type: "button", className: "map-place", textContent: "Save", onclick: () => {
-        const d = list[Number(pick.value)];
-        form.remove();
-        if (d) done(d.to, d.toArea);
-      } }),
-      el("button", { type: "button", className: "map-place", textContent: "Cancel", onclick: () => form.remove() }));
-    root.querySelector(".map-pane")?.prepend(form);
-    pick.focus();
-  }
-
-  // The click after "+ Entrance" or "Move": where the entrance is.
-  function placeEntrance(at) {
-    const task = placingEntrance;
-    placingEntrance = null;
-    root.querySelector(".map-frame")?.classList.remove("placing");
-    const fixes = structuredClone(entranceFixes());
-    fixes.moved ??= {};
-    fixes.added ??= [];
-    const save = () => {
-      checkSource?.setEntranceFixes?.(fixes);
-      sceneKey = "";
-      render();
-    };
-    if (task.move) {
-      fixes.moved[task.move] = { x: Math.round(at.x), z: Math.round(at.y) };
-      save();
-      return true;
-    }
-    const stage = scene.kind === "area" ? areaPlace?.name ?? areaPlace?.stage?.name : map?.stage;
-    if (!stage) return true;
-    let room = roomAt(at);
-    if (room < 0) room = [...scene.rooms.keys()][0] ?? 0;
-    destinationForm(null, null, (to, toArea) => {
-      fixes.added.push({ id: Date.now().toString(36), stage, room, x: Math.round(at.x), z: Math.round(at.y),
-        floor: roomFloor(stage, room, scene?.floor ?? 0), atArea: (scene.kind === "area" && areaPlace?.variant) || undefined, to, toArea: toArea ?? undefined });
-      save();
-    });
-    return true;
   }
 
   // ---- Checks on the map ----
@@ -2223,56 +1918,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     return out;
   }
 
-  // How many of this place's checks (those the check list knows by a key: chests, items lying
-  // around, poes) the mod has found in its rooms; the rest are named on hover.
-  function checkNote() {
-    const placed = new Map(patchedChecks(map.stage, map.checks ?? []).map((c) => [c.key, c]));
-    const shown = new Set((scene?.checks ?? []).map((c) => c.name));
-    // The rooms drawn now (on a stage whose map shows one room at a time, only Link's).
-    const drawn = new Set(scene?.rooms ? [...scene.rooms.keys()] : map.rooms.map((r) => r.no));
-    const mineStages = new Set(relatedStages(map.stage));
-    let mine = checkSource.list().filter((c) => mineStages.has(c.key.split(":")[1]));
-    // A grotto sharing its room: only its own checks.
-    if (checkScope) mine = mine.filter((c) => checkScope.has(c.name));
-    // A house, cave or grotto: only the checks of the room shown (a shop's room is in its key).
-    if (isInterior(map.stage)) {
-      mine = mine.filter((c) => {
-        const p = placed.get(c.key);
-        const room = p ? p.room : c.key.startsWith("shop:") ? Number(c.key.split(":")[2]) : null;
-        return shown.has(c.name) || (room !== null && (room < 0 || drawn.has(room)));
-      });
-    }
-    if (!mine.length) return null;
-    const groups = { here: [], room: [], floor: [], missing: [] };
-    for (const c of mine) {
-      const p = placed.get(c.key);
-      if (shown.has(c.name)) groups.here.push(c);
-      else if (!p) groups.missing.push(c);
-      else if (p.room >= 0 && !drawn.has(p.room)) groups.room.push({ ...c, why: `room ${p.room}` });
-      else groups.floor.push({ ...c, why: p.floor !== undefined ? floorLabel(p.floor) : "" });
-    }
-    if (groups.here.length === mine.length) return null;
-    for (const c of groups.missing) c.why = missingWhy(c.key);
-    const parts = [`${groups.here.length} of ${mine.length} checks of this place on this map`];
-    if (groups.floor.length) parts.push(`${groups.floor.length} on another floor`);
-    if (groups.room.length) parts.push(`${groups.room.length} in another part of this place`);
-    if (groups.missing.length) parts.push(`${groups.missing.length} not found${map.checksAll ? "" : " yet (the game files are being read)"}`);
-    // Which ones, and why (click one to pick it: then it can be placed by hand).
-    const section = (title, items) => (items.length ? el("div", { className: "map-note-group" }, el("h5", { textContent: title }),
-      ...items.map((c) => el("button", { type: "button", className: "map-note-item", title: "Pick it (then Place on map)", onclick: () => {
-        if (reqName !== c.name) checkSource.unmount();
-        reqName = c.name;
-        checkSource.setFocused(c.name);
-        updatePick(true);
-        updateChecks();
-      } }, el("span", { className: "map-note-name", textContent: c.name }), c.why ? el("span", { className: "map-note-why", textContent: c.why }) : null))) : null);
-    return el("details", { className: "map-check-note" },
-      el("summary", { textContent: `${parts.join(" · ")}. Which ones ▾` }),
-      section("On another floor", groups.floor), section("In another part of this place (another room's map)", groups.room),
-      section("Not found in the game files", groups.missing));
-  }
-
-  // Every check with no place on any map (not in the game files, not placed by hand, no preset),
+  // Every check with no place on any map (not in the game files, no preset),
   // for the debug page (debug.html reads it from this browser's storage).
   let unplacedTime = 0;
   function publishUnplaced() {
@@ -2291,9 +1937,9 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       case "chest": return `no chest with box number ${a} in ${stage}'s room files${read}`;
       case "freestanding": return `no item lying around with flag ${a} in ${stage}'s room files (or one the randomizer adds without a place)${read}`;
       case "poe": return `no poe with switch ${a} in ${stage}'s room files${read}`;
-      case "shop": return `a shop item (room ${a}, item ${b}): the game files place no item for it — place it by hand`;
-      case "golden_wolf": return "a golden wolf: none was found in the game files for it — place it by hand";
-      default: return "given by a person or an event: the game files have no place for it — place it by hand";
+      case "shop": return `a shop item (room ${a}, item ${b}): the game files place no item for it — no place`;
+      case "golden_wolf": return "a golden wolf: none was found in the game files for it";
+      default: return "given by a person or an event: the game files have no place for it";
     }
   }
 
@@ -2753,7 +2399,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       boss: bossIcon ? { room: bossIcon.room, x: bossIcon.x, z: bossIcon.z, floor: bossIcon.floor } : null,
       checks: (places?.stages?.[name] ?? []).map((p) => ({ key: p.key, room: p.room, x: p.x, z: p.z, floor: p.floor ?? 0 })),
       // A cave's map: every part, also those the game shows only once a switch is set (its far
-      // rooms), as this view is for finding and placing checks. The overworld's places as the field
+      // rooms), as this view is for finding checks. The overworld's places as the field
       // map data shows them (water and bridges by the save's switches), dungeons as the game does.
       rooms: rooms.map((r) => ({ ...r, layer: 0, visited: true,
         floors: (stage && !ALL_PARTS.has(name)) || name.startsWith("D_MN") ? r.floors : r.floors.map((f) => ({ ...f, groups: f.groups.map((g) => ({ ...g, shown: true })) })) })), bounds: { minX: -1, maxX: 1, minZ: -1, maxZ: 1 } };
@@ -2802,27 +2448,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   function placeFixes() {
     return { ...PLACE_FIXES, ...(checkSource?.placeFixes?.() ?? {}) };
   }
-  function editPlaceFix(button, it, provinces) {
-    const fix = placeFixes()[it.id] ?? {};
-    const title = el("input", { type: "text", className: "plate map-fix-title", value: fix.title ?? it.title, placeholder: it.defaultTitle });
-    const province = el("select", { className: "plate map-fix-province" },
-      ...[...new Set([...provinces, "Ordona Province", "Faron Province", "Eldin Province", "Lanayru Province", "Gerudo Desert", "Snowpeak", "Other"])]
-        .sort().map((p) => el("option", { value: p, textContent: p, selected: p === it.province })));
-    const done = (value) => {
-      checkSource?.setPlaceFix?.(it.id, value);
-      sceneKey = "";
-      render();
-    };
-    const form = el("div", { className: "map-fix-form" }, title, province,
-      el("button", { type: "button", className: "map-place", textContent: "Save", onclick: () => done({ title: title.value.trim() || undefined, province: province.value }) }),
-      el("button", { type: "button", className: "map-place", textContent: "Hide", title: "Leave it out of this list", onclick: () => done({ hidden: true }) }),
-      el("button", { type: "button", className: "map-place", textContent: "Reset", onclick: () => done(null) }),
-      el("button", { type: "button", className: "map-place", textContent: "Cancel", onclick: () => form.replaceWith(button) }));
-    form.addEventListener("click", (e) => e.stopPropagation());
-    button.replaceWith(form);
-    title.focus();
-  }
-
   // What a dungeon's remote map shows from the save (its big key, for the boss door).
   function dungeonKey(name) {
     return name.startsWith("D_") ? !!findDungeon(placeTitle(name))?.bigKey : null;
@@ -2975,13 +2600,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
                 openRemote({ name: it.stage, rooms: it.rooms, title: it.title, variant: it.variant, back: "other" });
               } });
             b.dataset.search = `${it.title} ${it.stage}`.toLowerCase();
-            // Rename it or move it to another province (kept in the page's settings).
-            const edit = el("span", { className: "map-other-edit", title: "Change its name or province", textContent: "✎", role: "button", tabIndex: 0 });
-            edit.addEventListener("click", (e) => {
-              e.stopPropagation();
-              editPlaceFix(b, it, [...groups.keys()]);
-            });
-            b.append(edit);
             return b;
           })))));
       }
@@ -3075,7 +2693,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       press = null;
       pressing = false;
       frame.classList.remove("dragging");
-      if (!wasDrag && e.type === "pointerup" && !placeAt(toMap(e))) zoomIn(toMap(e));
+      if (!wasDrag && e.type === "pointerup") zoomIn(toMap(e));
     };
     frame.addEventListener("pointerup", release);
     frame.addEventListener("pointercancel", release);
@@ -3232,7 +2850,6 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       // The map on screen goes to the check's place, centered on it.
       if (visible && getState()?.inGame && map && player) return showCheck(name, req);
       reqName = name;
-      if (placing && placing !== reqName) placing = null;
       updatePick(true);
       if (scene?.checks) updateChecks();
     },

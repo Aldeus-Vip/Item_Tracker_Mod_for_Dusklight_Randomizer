@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0 — 2026-10-08
+## 1.2.0 — 2026-10-10
 
 ### New: Map (Locations › Checks / Map / Checks + Map)
 - **The map of where Link is**, drawn from the game's own map data: rooms by floor, Link's position
@@ -14,28 +14,27 @@
 - **Field / Dungeons / Other** above the map open any place's map from the game files: Hyrule and
   its provinces (places not visited yet dimmed), every dungeon (a twilight list in story order, with
   emblems cut from the game's dungeon parchments and each dungeon's keys, map and compass), and
-  every house, cave and grotto by province and kind, with a search. Entries can be renamed, moved
-  to another province or hidden (✎). Grottos built alike that share one map are one entry each.
+  every house, cave and grotto by province and kind, with a search. Grottos built alike that
+  share one map are one entry each.
 - **Dungeon details as in the game**: doors (white squares) with padlocks on locked ones (heavier
   for the big key door), barred doors and doors shut from one side, key shutters, the boss icon in
-  the boss's room; boss rooms share the dungeon's map. Door states update live. The dungeon map
+  the boss's room; boss and miniboss rooms (stages of their own, as Death Sword's arena) are drawn
+  in the dungeon's map. Door states update live. The dungeon map
   screen's icons (monkeys, iron balls, statues, Sols, Ooccoo, Yeto and Yeta, small keys) show too.
-- **Checks on the map**: chests, items lying around, poes, people and golden wolves where the game
-  files put them (also where the randomizer adds or moves items), with the check list's markers.
-  The mod reads the game files once (a bar shows the progress; the result is kept). **Checks
-  Filter ▾** chooses which markers show. Resting the pointer on a check shows its name on a plate (opening inward near the map's
-  edges: sideways, and below near the top).
-  Under the map: how many of the place's checks are on this map and which are elsewhere, with why.
-- **Place checks by hand**: checks the game files do not place (shops, events, some people) — and
-  any other check — can be put on the map: pick it, **Place on map** / **Move on map**, click the
-  map. The picked check's map, room (selectable), coordinates and floor show above the map; every
-  hand-placed check is listed under it (Advanced). Agitha's and Jovani's rewards come placed.
+- **Every check on the map**, with the check list's markers: chests, items lying around and poes
+  where the game files put them (also where the randomizer adds or moves items), read once from
+  the game files (a bar shows the progress; the result is kept); people, golden wolves, shops and
+  events where the mod's map data puts them (`map_presets.json`, the same for everyone).
+  **Checks Filter ▾** chooses which markers show. Resting the pointer on a check shows its name on
+  a plate (opening inward near the map's edges; on a dungeon's map without the dungeon's name).
+  In Advanced, the picked check's map, room, coordinates and floor show above the map, and the
+  map's name and rooms under it.
 - **Entrances**: an icon where each entrance of the randomizer's list is, with how many of the
   checks there are reachable of those left; on hover, a plate in the style of the game's place
   names. Click it for that place's map (right-click there to come back). An overworld place's count
   includes the houses, caves and grottos entered from it. Plates show on both ends, and to the
-  other parts of an overworld stage the map shows apart (Hyrule Field by province). Right-click a
-  plate to move or remove it; **+ Entrance** adds one (Advanced).
+  other parts of an overworld stage the map shows apart (Hyrule Field by province); entrances the
+  randomizer data does not place come with the mod's map data.
 - **Grottos sharing a map**: in the grotto, opened from the list or reached from a check in
   Checks, only its own checks and name show (in the grotto, the mod reads the story layer the game
   loaded it with).
@@ -45,14 +44,14 @@
   in Lake Hylia's blue) have maps the game's map screen does not.
 
 ### New: Checks
-- **Link Checks and Map** (Options, on by default): the region picked in Checks opens its map and
-  the map's place sets Checks' region; a check highlighted or opened on one side is on the other
+- **Link Checks and Map** (Options, on by default): the region picked in Checks opens the map most
+  of its checks are on, and the map's place sets Checks' region (by the checks on it); a check highlighted or opened on one side is on the other
   (the map goes to it), and closing it on one side closes it on both.
 - **Clicks on a check** (Options), the same in Checks and on the map: click for its requirement and
   right-click to highlight it, or the other way round. A double-click jumps between Checks and the
   map without opening the requirement.
-- **Area** of a check (in its panel): the area it is listed under, by hand. The check then moves to
-  that area's province, region filter and By area group.
+- Checks the randomizer lists under a far-off region (people, shops, grottos) are listed under the
+  area they are in, with that area's province, region filter and By area group.
 - **By area** groups a province's checks by the place they are in; a **region filter** beside the
   province's title shows one region (in the game's order).
 - Resting the pointer on a check shows its requirement beside it.
@@ -61,51 +60,27 @@
 - **Options** (was Theme) opens as a window over the page (its button or a click outside closes
   it), each part in a frame: Display, Theme, Background, Item Background.
 - **Simple / Advanced**: Simple (the default) shows the main things only (the region filter and
-  By area included); custom requirements,
-  Reachable Regions, seeds, placing checks and entrances, renaming places and the map's details
-  are under Advanced.
+  By area included); custom requirements, Reachable Regions, seeds and the map's details are
+  under Advanced.
 - **Item Background**: the theme's fill or a color of one's own, its opacity (down to transparent,
   for a background image or OBS), and how bright the obtained items' glow is.
 - **Font**: standard, Old English (UnifrakturMaguntia, SIL OFL) or one's own uploaded (a Hylian
   font, ...), for the titles or all text.
-- **Export customizations** (Options, Advanced): everything set by hand — checks' places, Areas,
-  entrances moved / added / removed, places renamed — as one `map_presets.json`, the file the mod
-  ships as its presets. The presets apply to everyone; each person's own changes win over them.
 - **Dungeons tab** in the same twilight design: a plate a dungeon with its emblem and land, the
   small keys found (used ones too), big key or key shards, map, compass, boss and extras in
   columns. Click a dungeon to open its map.
 - The Goron Mines key shard icon can be changed for every stage (1/3, 2/3, 3/3).
 
 ### New: debug page (`/debug.html`)
-- Checks with no place on the map (how many, which, why), to find and place the rest.
+- Checks with no place on the map (how many, which, why).
 - A stage's map data as the mod knows it, to copy and send when a map does not show.
 - The items lying around being watched for "seen", and the dungeon map backgrounds read.
 
+### Changed
+- The randomizer's Snowpeak Mountain region is shown as Snowpeak, as its province and map are;
+  region marks saved under the old name still count.
+
 ### Fixed
-- Check plates on a dungeon's map were cut off: they leave out the dungeon's name, which every
-  check there starts with ("Arbiters Grounds Death Sword Chest" shows as "Death Sword Chest").
-- Arbiters Grounds Death Sword Chest was not on the dungeon's map: Death Sword's arena is a stage
-  of its own (D_MN10B, room 51) the dungeon's map files do not hold. A dungeon's map (Dungeons
-  list) now also draws its boss and miniboss stages' rooms it lacks, with their checks.
-- The Snowpeak summit (F_SP114 room 1) was named after Snowpeak Ruins, the dungeon behind its
-  door: an overworld room no longer takes a dungeon's region (the Mirror Chamber's room is named
-  Mirror Chamber, not Palace of Twilight, the same way). The randomizer's Snowpeak Mountain region
-  is shown as Snowpeak, as its province and map are; map marks and Areas saved under the old name
-  still count.
-- Checks and Map linked: some regions could not be picked in Checks, as the map's places and
-  Checks' regions are cut differently (Beside Castle Town picked → the map of West/South/East of
-  Castle Town → Checks switched to South of Castle Town). The map now goes by the checks placed on
-  it: a region picked in Checks is kept while its checks are on the map, and opens the place most
-  of its checks are placed in; a place opened on the map sets the region most of its checks are in.
-- A Past Sacred Grove check (F_SP117 room 2) opened the Sacred Grove map (room 1) while Link was
-  in the Sacred Grove: a check in another part of the stage than Link's now opens that part's map.
-  A place with no room goes to the part its point is in, and a place set by hand takes the room it
-  lies in.
-- The dungeon map screen's icons (Ooccoo, monkeys, statues, ...) showed on overworld maps too
-  (an Ooccoo in the Sacred Grove): they show on dungeon maps only, as in the game.
-- Dungeon maps opened from the Dungeons list showed a small key where the boss is, and none of
-  the map screen's other icons: the game files' icon types are now turned into the map screen's
-  icon groups as the game does (the boss icon from the Dungeons tab shows in the boss's room).
 - Crashes on reset, on loading a save and on some stage changes (game memory read while a stage
   loads): the map and the seen-item check read it only while the game is plainly playing.
 - Items behind an invisible wall (Faron Field's Female Beetle) were not noted:
