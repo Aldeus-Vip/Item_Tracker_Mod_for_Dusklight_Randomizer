@@ -169,7 +169,13 @@
       const byFloor = {};
       for (const d of sm.doors) byFloor[d.floors.join("/")] = (byFloor[d.floors.join("/")] ?? 0) + 1;
       out.push("  doors by floor: " + Object.entries(byFloor).map(([k, n]) => `${k}: ${n}`).join(", "));
+      // Each door: rooms (front/back), floors, kind and state, place on the map, and where it comes from.
+      for (const d of sm.doors) {
+        out.push(`  door ${d.name} · rooms ${d.rooms.join("/")} · floors ${d.floors.join("/")} · ${d.kind} ${d.state} · at ${Math.round(d.x)}, ${Math.round(d.z)} · angle ${d.angle}` +
+          (d.file ? ` · ${d.file}, layer ${d.layer}, in file ${d.raw.map(Math.round).join(", ")}` : ""));
+      }
     }
+    if (sm.shifts) out.push("  room offsets (x, z, turn): " + Object.entries(sm.shifts).map(([r, v]) => `${r}: ${v.map(Math.round).join(", ")}`).join(" · "));
     for (const [room, info] of Object.entries(sm.groundInfo ?? {})) out.push(`  ground of room ${room}: ${info}`);
     const places = await get("check-places");
     out.push(`\nCheck places: ${places.done ? "read" : `reading ${places.read}/${places.total}`}; map rooms ${JSON.stringify(places.mapRooms?.[stage] ?? null)}; ${(places.stages?.[stage] ?? []).length} checks; ${(places.spawns?.[stage] ?? []).length} spawn points; single-room map: ${(places.singleRooms ?? []).includes(stage)}`);
