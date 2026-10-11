@@ -5,3 +5,6 @@
 
 # Faron Field Female Beetle (on the tree beyond the cliff's edge)
 freestanding:F_SP121:158
+
+# Ordon Hidden Rusl House Rupee
+freestanding:F_SP103:136
