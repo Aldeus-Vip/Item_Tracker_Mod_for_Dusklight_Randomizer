@@ -12,6 +12,8 @@
   `?transparent=1`) and **Ground opacity** (a see-through map; checks, entrances and Link stay).
 
 ### Fixed
+- Items › **Edit** (rearranging the tiles) was hidden in Simple display; it shows in both again
+  (only writing a check's own requirement is Advanced).
 - Hyrule Field: the plate from Kakariko Gorge (Eldin Field) to Faron Field was far from the real
   crossing. A plate between two provinces now sits where the way back is placed.
 
