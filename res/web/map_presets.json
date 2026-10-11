@@ -156,7 +156,7 @@
    "stage": "R_SP160",
    "room": 5,
    "x": 4327,
-   "z": 1791,
+   "z": 1796,
    "floor": 0
   },
   "Charlo Donation Blessing": {
@@ -246,8 +246,8 @@
   "Faron Woods Coro Boulder Rupee 1": {
    "stage": "F_SP108",
    "room": 4,
-   "x": -14540,
-   "z": -17293,
+   "x": -14585,
+   "z": -17279,
    "floor": 0
   },
   "Ordon Bo Window Rupee 2": {
@@ -289,21 +289,21 @@
    "stage": "R_SP109",
    "room": 3,
    "x": -739,
-   "z": -572,
+   "z": -568,
    "floor": 0
   },
   "Kakariko Village Malo Mart Red Potion": {
    "stage": "R_SP109",
    "room": 3,
    "x": -862,
-   "z": -572,
+   "z": -568,
    "floor": 0
   },
   "Kakariko Village Malo Mart Hylian Shield": {
    "stage": "R_SP109",
    "room": 3,
    "x": -961,
-   "z": -576,
+   "z": -568,
    "floor": 0
   },
   "Kakariko Village Malo Mart Hawkeye": {
@@ -442,7 +442,7 @@
   "Sacred Grove Pedestal Master Sword": {
    "stage": "F_SP117",
    "room": 1,
-   "x": 4,
+   "x": 0,
    "z": -5406,
    "floor": 0
   },
@@ -470,7 +470,7 @@
   "Cave of Ordeals Great Fairy Reward": {
    "stage": "D_SB01",
    "room": 49,
-   "x": -2,
+   "x": 0,
    "z": -4100,
    "floor": 0
   },
@@ -765,7 +765,7 @@
    "stage": "F_SP111",
    "room": 0,
    "x": 21474,
-   "z": -46,
+   "z": -40,
    "floor": 0
   },
   "Gift From Ralis": {
@@ -1164,7 +1164,7 @@
    "stage": "D_MN01",
    "room": 6,
    "x": -16596,
-   "z": 2997,
+   "z": 3000,
    "floor": -1
   },
   "Lakebed Temple Morpheel Heart Container": {
@@ -1220,7 +1220,7 @@
    "stage": "D_MN11",
    "room": 4,
    "x": -308,
-   "z": -6306,
+   "z": -6285,
    "floor": 2
   },
   "Snowpeak Ruins Dungeon Reward": {
@@ -1248,7 +1248,7 @@
    "stage": "D_MN06",
    "room": 50,
    "x": -641,
-   "z": -17208,
+   "z": -17264,
    "floor": 0
   },
   "City in the Sky Aeralfos Chest": {
@@ -1269,7 +1269,7 @@
    "stage": "D_MN07",
    "room": 50,
    "x": -919,
-   "z": -23409,
+   "z": -23434,
    "floor": 4
   },
   "Palace of Twilight Collect Both Sols": {
@@ -1291,6 +1291,174 @@
    "room": 13,
    "x": -7643,
    "z": -5826,
+   "floor": 0
+  },
+  "Ordon Bo Window Rupee 1": {
+   "stage": "F_SP103",
+   "room": 0,
+   "x": 590,
+   "z": 5255,
+   "floor": 0
+  },
+  "Ordon Rupee In River 2": {
+   "stage": "F_SP103",
+   "room": 0,
+   "x": -4512,
+   "z": 4403,
+   "floor": 0
+  },
+  "Ordon Rupee Under Tall Tree 2": {
+   "stage": "F_SP103",
+   "room": 0,
+   "x": -1766,
+   "z": 1704,
+   "floor": 0
+  },
+  "Faron Woods Coro Boulder Rupee 4": {
+   "stage": "F_SP108",
+   "room": 4,
+   "x": -14775,
+   "z": -17181,
+   "floor": 0
+  },
+  "Faron Woods Coro Boulder Rupee 2": {
+   "stage": "F_SP108",
+   "room": 4,
+   "x": -14608,
+   "z": -17133,
+   "floor": 0
+  },
+  "Faron Field Male Beetle": {
+   "stage": "F_SP121",
+   "room": 6,
+   "x": -50179,
+   "z": 86371,
+   "floor": 0
+  },
+  "Bridge of Eldin Boulder Rupee": {
+   "stage": "F_SP121",
+   "room": 0,
+   "x": 38161,
+   "z": -39712,
+   "floor": 0
+  },
+  "Faron Woods Coro Boulder Rupee 3": {
+   "stage": "F_SP108",
+   "room": 4,
+   "x": -14729,
+   "z": -17332,
+   "floor": 0
+  },
+  "Flight By Fowl Ledge Poe": {
+   "stage": "F_SP115",
+   "room": 0,
+   "x": -115053,
+   "z": 25312,
+   "floor": 0
+  },
+  "Upper Zoras River Female Dragonfly": {
+   "stage": "F_SP126",
+   "room": 0,
+   "x": -1609,
+   "z": -102126,
+   "floor": 0
+  },
+  "Fishing Hole Bottle": {
+   "stage": "F_SP127",
+   "room": 0,
+   "x": 6017,
+   "z": 1394,
+   "floor": 0
+  },
+  "Zoras Domain Male Dragonfly": {
+   "stage": "F_SP113",
+   "room": 1,
+   "x": 3790,
+   "z": 15534,
+   "floor": 0
+  },
+  "Zoras Domain Central Underwater Boulder Rupee": {
+   "stage": "F_SP113",
+   "room": 1,
+   "x": 218,
+   "z": 12705,
+   "floor": 0
+  },
+  "Zoras Domain North Underwater Boulder Rupee": {
+   "stage": "F_SP113",
+   "room": 1,
+   "x": 57,
+   "z": 8248,
+   "floor": 0
+  },
+  "Zoras Domain Shortcut Lower Boulder Rupee": {
+   "stage": "F_SP113",
+   "room": 1,
+   "x": -4408,
+   "z": 6850,
+   "floor": 0
+  },
+  "Zoras Domain Shortcut Upper Boulder Rupee": {
+   "stage": "F_SP113",
+   "room": 1,
+   "x": -3457,
+   "z": 6855,
+   "floor": 0
+  },
+  "Zoras Domain Underwater Goron": {
+   "stage": "F_SP113",
+   "room": 0,
+   "x": -671,
+   "z": -2632,
+   "floor": 0
+  },
+  "Zoras Domain Throne East Gate Underwater Rupee": {
+   "stage": "F_SP113",
+   "room": 0,
+   "x": 535,
+   "z": -125,
+   "floor": 0
+  },
+  "Zoras Domain Throne West Gate Underwater Rupee": {
+   "stage": "F_SP113",
+   "room": 0,
+   "x": -452,
+   "z": -125,
+   "floor": 0
+  },
+  "Bulblin Camp First Chest Under Tower At Entrance": {
+   "stage": "F_SP118",
+   "room": 1,
+   "x": 4781,
+   "z": 1560,
+   "floor": 0
+  },
+  "Bulblin Camp Small Chest in Back of Camp": {
+   "stage": "F_SP118",
+   "room": 1,
+   "x": 2377,
+   "z": -1469,
+   "floor": 0
+  },
+  "Bulblin Guard Key": {
+   "stage": "F_SP118",
+   "room": 1,
+   "x": 4009,
+   "z": -3506,
+   "floor": 0
+  },
+  "Iza Helping Hand": {
+   "stage": "F_SP112",
+   "room": 1,
+   "x": -5868,
+   "z": -89227,
+   "floor": 0
+  },
+  "Iza Raging Rapids Minigame": {
+   "stage": "F_SP112",
+   "room": 1,
+   "x": -5325,
+   "z": -89723,
    "floor": 0
   }
  },
@@ -1572,7 +1740,9 @@
   "City in the Sky Dungeon Reward": "City in the Sky",
   "Palace of Twilight Collect Both Sols": "Palace of Twilight",
   "Palace of Twilight Zant Heart Container": "Palace of Twilight",
-  "Hyrule Castle King Bulblin Key": "Hyrule Castle"
+  "Hyrule Castle King Bulblin Key": "Hyrule Castle",
+  "Ordon Bo Cliff Rupee": "Ordon",
+  "Ordon Bo Roof Rupee": "Ordon"
  },
  "entranceFixes": {
   "moved": {
@@ -1663,6 +1833,18 @@
    "part:F_SP114/1>F_SP114/@6:2": {
     "x": -9460,
     "z": -12122
+   },
+   "F_SP116/2>F_SP122/@4:16": {
+    "x": -8159,
+    "z": -72
+   },
+   "part:F_SP121/0>F_SP121/@2:1": {
+    "x": -23616,
+    "z": 73023
+   },
+   "F_SP103/1>F_SP103/@1:0": {
+    "x": -89,
+    "z": -3180
    }
   },
   "added": [
@@ -1749,6 +1931,198 @@
      "stage": "D_SB04",
      "room": 10
     }
+   },
+   {
+    "id": "mv3e2n0p",
+    "stage": "F_SP126",
+    "room": 0,
+    "x": -15044,
+    "z": -101291,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP113",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3e3fj7",
+    "stage": "F_SP126",
+    "room": 0,
+    "x": -5450,
+    "z": -106988,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP127",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3e4ckt",
+    "stage": "F_SP126",
+    "room": 0,
+    "x": -12948,
+    "z": -95470,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP121",
+     "room": 9
+    }
+   },
+   {
+    "id": "mv3j30vi",
+    "stage": "F_SP126",
+    "room": 0,
+    "x": -1054,
+    "z": -102948,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP112",
+     "room": 1
+    }
+   },
+   {
+    "id": "mv3jaz1p",
+    "stage": "F_SP112",
+    "room": 1,
+    "x": -49550,
+    "z": 30590,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP115",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3jct6m",
+    "stage": "F_SP115",
+    "room": 0,
+    "x": -53291,
+    "z": 30921,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP112",
+     "room": 1
+    }
+   },
+   {
+    "id": "mv3jsvx5",
+    "stage": "F_SP116",
+    "room": 4,
+    "x": 8306,
+    "z": 36,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP122",
+     "room": 16
+    }
+   },
+   {
+    "id": "mv3jt57v",
+    "stage": "F_SP116",
+    "room": 3,
+    "x": -26,
+    "z": 8236,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP122",
+     "room": 16
+    }
+   },
+   {
+    "id": "mv3jtzvn",
+    "stage": "F_SP122",
+    "room": 16,
+    "x": -58046,
+    "z": 30706,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP115",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3k18yp",
+    "stage": "F_SP115",
+    "room": 0,
+    "x": -108293,
+    "z": 46523,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP124",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3k5i4u",
+    "stage": "F_SP121",
+    "room": 0,
+    "x": 19483,
+    "z": 36183,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP109",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3k7502",
+    "stage": "F_SP109",
+    "room": 0,
+    "x": -12120,
+    "z": -7771,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP121",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3k82dd",
+    "stage": "F_SP111",
+    "room": 0,
+    "x": 20377,
+    "z": -1848,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP115",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3k9tri",
+    "stage": "R_SP110",
+    "room": 0,
+    "x": -1871,
+    "z": 4405,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP110",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3kg22l",
+    "stage": "F_SP110",
+    "room": 3,
+    "x": -2727,
+    "z": -3984,
+    "floor": 0,
+    "to": {
+     "stage": "R_SP110",
+     "room": 0
+    }
+   },
+   {
+    "id": "mv3kn7km",
+    "stage": "F_SP117",
+    "room": 1,
+    "x": -1229,
+    "z": 11308,
+    "floor": 0,
+    "to": {
+     "stage": "F_SP117",
+     "room": 3
+    }
    }
   ],
   "hidden": [
@@ -1756,7 +2130,26 @@
    "part:F_SP117/2>F_SP117/@2:3",
    "part:F_SP114/0>F_SP114/@6:1",
    "part:F_SP114/1>F_SP114/@6:0"
+  ],
+  "sameMap": [
+   "F_SP126/0",
+   "F_SP113/0+1",
+   "F_SP112/1",
+   "F_SP122/8+16+17"
   ]
  },
- "placeFixes": {}
+ "placeFixes": {
+  "F_SP127/0": {
+   "title": "Fishing Hole"
+  },
+  "F_SP112/1": {
+   "title": "Zoras River"
+  },
+  "F_SP114/0": {
+   "title": "Snowpeak Mountain"
+  },
+  "F_SP114/2": {
+   "title": "Snowpeak Cave"
+  }
+ }
 }
