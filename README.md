@@ -258,27 +258,6 @@ node tests/logic_check.mjs <dusklight-randomizer>/generator/data [rules.json]
 checks the JavaScript logic port against the randomizer's data files. If you pass a file saved
 with "Export rules", it also checks that file's custom requirements.
 
-## Editing the map data
-
-The mod's fixed map data — `res/web/map_presets.json` (checks' places, the Areas checks are listed
-under, entrances moved / added / removed) and `res/seen_without_sight.txt` (items lying around
-counted as seen without the line-of-sight test) — is edited on the tracker's own maps with the map
-data editor: start the game, load a save, and open `http://127.0.0.1:38100/editor.html`. It is not
-linked from the tracker page and saves nothing in the mod.
-
-- **Checks** (left): search by name, key or map; *No place only* lists the checks the map cannot
-  place. Pick one to set its place (fields, or **Place on map** and a click on the map), its
-  **Area**, and *Seen without line of sight* (items lying around only).
-- **Map** (right): type a map ID (the stage, e.g. `F_SP121` or `R_SP01 room 4`) and **Open map**.
-  **+ Entrance**: click where it is, then choose where it leads. Right-click an entrance: move it,
-  reset it, remove it, or bring back one the presets removed (shown faded).
-  The line under the map: the map's key, **Rename** it (dungeons keep their names), and
-  *Entrances within this map* — also show entrances between two rooms of that map (hidden by
-  default).
-- **Download map_presets.json** / **Download seen_without_sight.txt**: the files to put in place of
-  the mod's (`res/web/map_presets.json`, `res/seen_without_sight.txt`). **Open…** continues from
-  files saved earlier.
-
 ## Developing the page without the game
 
 ```sh
