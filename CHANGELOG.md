@@ -1,17 +1,30 @@
 # Changelog
 
-## 1.2.2 — unreleased
+## 1.2.2 — 2026-10-11
+
+### Upgrading from 1.2.x
+- Install over 1.2.x: settings, layout, custom requirements and what each save has found are kept.
+- The preset custom requirements were updated (67 checks). Custom requirements already loaded are
+  not replaced: to use the new ones, Requirements ▾ › **Load Preset Custom Requirements**.
 
 ### New
+- Options › Map: **Map backdrop** (off: only the map, to lay it over the game in OBS with
+  `?transparent=1`) and **Ground opacity** (a see-through map; checks, entrances and Link stay).
 - Options › Display › **Share highlight between pages**: a check highlighted on one page (on the
   map or in Checks) is highlighted on every page open — another browser, OBS — too.
 - Map data editor (`editor.html`, for the mod's maintainers): the mod's map data (checks' places,
-  Areas, entrances) and the items seen without line of sight, edited on the maps and downloaded as
-  `map_presets.json` / `seen_without_sight.txt`. Not linked from the tracker page.
-- Map data (presets): a map can be renamed, and can show its entrances between two of its own
-  rooms (`entranceFixes.sameMap`, set in the editor).
-- Options › Map: **Map backdrop** (off: only the map, to lay it over the game in OBS with
-  `?transparent=1`) and **Ground opacity** (a see-through map; checks, entrances and Link stay).
+  Areas, entrances, map names) and the items seen without line of sight, edited on the maps and
+  downloaded as `map_presets.json` / `seen_without_sight.txt`. Not linked from the tracker page.
+
+### Changed
+- Map data: 25 more checks placed (rupees, bugs and poes in Ordon, Faron Woods, Zora's Domain and
+  Upper Zora's River, Bulblin Camp, Iza, the Fishing Hole Bottle...) and 12 moved; 16 entrances
+  added (Upper Zora's River, Zora's River, Lake Hylia, Castle Town's fields, Kakariko...); the
+  Fishing Hole, Zora's River, Snowpeak Mountain and Snowpeak Cave named; Upper Zora's River,
+  Zora's Domain, Zora's River and the fields around Castle Town also show the entrances within
+  their map.
+- Preset custom requirements: 67 checks revised.
+- Ordon Hidden Rusl House Rupee counts as seen without a clear line to it.
 
 ### Fixed
 - A crash in the cutscene after Beast Ganon (into the horseback fight): on a boss room's stage the
