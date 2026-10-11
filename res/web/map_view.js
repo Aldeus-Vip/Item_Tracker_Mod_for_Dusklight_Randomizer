@@ -888,7 +888,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     if (OWN_MAPS.has(`${map.stage}/${player.stayRoom}`)) {
       ground = ownMap(map.stage, player.stayRoom);
     }
-    if (!map.exists && !ground) return message("This place has no map.");
+    // (A boss room: the game's map data there is the stage before it's, not read by the mod.)
+    if (!map.exists && !ground) return message(bossParent(map.stage) ? "Boss room: no map here (its dungeon's map is under Dungeons)." : "This place has no map.");
     const dungeon = map.stage.startsWith("D_");
     let rooms = ground ? [{ ...ground, visited: true, layer: 0 }] : drawnRooms(dungeon);
     let extent = ground ? rooms : map.rooms;

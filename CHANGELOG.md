@@ -14,6 +14,10 @@
   `?transparent=1`) and **Ground opacity** (a see-through map; checks, entrances and Link stay).
 
 ### Fixed
+- A crash in the cutscene after Beast Ganon (into the horseback fight): on a boss room's stage the
+  game keeps the map data of the stage before it, already freed, and the mod read it. The mod no
+  longer reads the game's map data in boss rooms (the page says so there; the dungeon's map is
+  under Dungeons).
 - Items › **Edit** (rearranging the tiles) was hidden in Simple display; it shows in both again
   (only writing a check's own requirement is Advanced).
 - Hyrule Field: the plate from Kakariko Gorge (Eldin Field) to Faron Field was far from the real

@@ -456,6 +456,15 @@ void write_room_shapes(JsonWriter& w, const dDrawPath_c::room_class* room,
     w.endArray();
 }
 
+// Whether the game's map data (dMpath) is the stage's own. On a boss room's stage (STAG type
+// ST_BOSS_ROOM) dMpath_c::create keeps the room pointers of the stage before it, whose rooms are
+// gone by then (Beast Ganon's to the horseback fight's: a crash): never read it there.
+static bool map_path_usable() {
+    if (dMpath_c::mLayerList == nullptr || !dMpath_c::isExistMapPathData()) return false;
+    stage_stag_info_class* stag = dComIfGp_getStage() != nullptr ? dComIfGp_getStage()->getStagInfo() : nullptr;
+    return stag != nullptr && dStage_stagInfo_GetSTType(stag) != ST_BOSS_ROOM;
+}
+
 std::string build_player_json() {
     JsonWriter w;
     w.beginObject();
@@ -466,7 +475,7 @@ std::string build_player_json() {
     // grottos sharing a room differ only by it (which enemies, chests and pots load).
     w.member("startLayer", static_cast<int>(dComIfGp_getStartStageLayer()));
     if (stage != nullptr && *stage) w.member("layer", dComIfG_play_c::getLayerNo(0));
-    if (dMpath_c::mLayerList != nullptr && dMpath_c::isExistMapPathData()) {
+    if (map_path_usable()) {
         write_player(w);
         if (stage != nullptr && std::strncmp(stage, "D_", 2) == 0) w.member("doors", door_states());
     }
@@ -480,7 +489,7 @@ std::string build_json() {
     const char* stage = dComIfGp_getStartStageName();
     w.member("stage", stage != nullptr ? stage : "");
     w.member("stayRoom", static_cast<int>(dComIfGp_roomControl_getStayNo()));
-    const bool exists = dMpath_c::mLayerList != nullptr && dMpath_c::isExistMapPathData();
+    const bool exists = map_path_usable();
     w.member("exists", exists);
     if (exists) {
         s8 top = 0;
