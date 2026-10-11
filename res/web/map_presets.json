@@ -1460,6 +1460,13 @@
    "x": -5325,
    "z": -89723,
    "floor": 0
+  },
+  "Upper Zoras River Poe": {
+   "stage": "F_SP126",
+   "room": 0,
+   "x": -6899,
+   "z": -98068,
+   "floor": 0
   }
  },
  "checkAreas": {
@@ -1743,7 +1750,8 @@
   "Hyrule Castle King Bulblin Key": "Hyrule Castle",
   "Ordon Bo Cliff Rupee": "Ordon",
   "Ordon Bo Roof Rupee": "Ordon",
-  "Bridge of Eldin Boulder Rupee": "Eldin Field"
+  "Bridge of Eldin Boulder Rupee": "Eldin Field",
+  "Upper Zoras River Poe": "Upper Zoras River"
  },
  "entranceFixes": {
   "moved": {
@@ -1846,22 +1854,6 @@
    "F_SP103/1>F_SP103/@1:0": {
     "x": -89,
     "z": -3180
-   },
-   "D_SB05/0>F_SP00/@1:0": {
-    "x": -160,
-    "z": 793
-   },
-   "D_SB05/0>F_SP121/@3:0": {
-    "x": -160,
-    "z": 797
-   },
-   "D_SB06/1>F_SP121/@3:0": {
-    "x": 71,
-    "z": 550
-   },
-   "D_SB05/0>F_SP121/@4:9": {
-    "x": -154,
-    "z": 797
    }
   },
   "added": [
