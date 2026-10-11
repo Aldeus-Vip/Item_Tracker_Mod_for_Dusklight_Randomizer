@@ -272,6 +272,9 @@ linked from the tracker page and saves nothing in the mod.
 - **Map** (right): type a map ID (the stage, e.g. `F_SP121` or `R_SP01 room 4`) and **Open map**.
   **+ Entrance**: click where it is, then choose where it leads. Right-click an entrance: move it,
   reset it, remove it, or bring back one the presets removed (shown faded).
+  The line under the map: the map's key, **Rename** it (dungeons keep their names), and
+  *Entrances within this map* — also show entrances between two rooms of that map (hidden by
+  default).
 - **Download map_presets.json** / **Download seen_without_sight.txt**: the files to put in place of
   the mod's (`res/web/map_presets.json`, `res/seen_without_sight.txt`). **Open…** continues from
   files saved earlier.

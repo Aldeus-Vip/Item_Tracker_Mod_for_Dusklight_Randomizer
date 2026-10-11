@@ -8,6 +8,8 @@
 - Map data editor (`editor.html`, for the mod's maintainers): the mod's map data (checks' places,
   Areas, entrances) and the items seen without line of sight, edited on the maps and downloaded as
   `map_presets.json` / `seen_without_sight.txt`. Not linked from the tracker page.
+- Map data (presets): a map can be renamed, and can show its entrances between two of its own
+  rooms (`entranceFixes.sameMap`, set in the editor).
 - Options › Map: **Map backdrop** (off: only the map, to lay it over the game in OBS with
   `?transparent=1`) and **Ground opacity** (a see-through map; checks, entrances and Link stay).
 

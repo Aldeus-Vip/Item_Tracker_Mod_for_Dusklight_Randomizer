@@ -935,7 +935,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // A grotto sharing its room with others: the one Link entered (its name and only its checks).
     const grotto = linkVariant();
     const grottoName = grotto ? (roomVariants?.(map.stage, player.stayRoom) ?? []).find((v) => v.area === grotto)?.name : null;
-    const title = grottoName ?? (titleKey && fieldTitle(titleKey)) ?? (isInterior(map.stage) ? roomTitle(map.stage, map.stayRoom) : regionName(map.stage, map.stayRoom)) ?? map.stage;
+    const title = (!dungeon && fixedTitle()) || grottoName || ((titleKey && fieldTitle(titleKey)) ?? (isInterior(map.stage) ? roomTitle(map.stage, map.stayRoom) : regionName(map.stage, map.stayRoom)) ?? map.stage);
     const d = dungeon ? findDungeon(title) : null;
     const items = getState()?.items ?? {};
     const key = JSON.stringify(["stage", mapVersion, map.stage, floor, player.stayRoom, player.stayFloor, player.wolf, title,
@@ -1036,6 +1036,24 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
   }
   function fieldTitle(key) {
     return placeFixes()[key]?.title || FIELD_TITLES[key] || null;
+  }
+  // The map shown, by the key the presets name it under: an overworld place's stage and rooms
+  // ("F_SP121/1+6+15"), an Other place's entry ("R_SP01/4"), a dungeon's stage.
+  function currentMapKey() {
+    if (titleKey) return titleKey;
+    const stage = mode === "area" ? areaPlace?.name : map?.stage;
+    if (!stage) return null;
+    if (stage.startsWith("D_")) return bossParent(stage) ?? stage;
+    const rooms = mode === "area" ? areaPlace?.rooms : [player?.stayRoom];
+    const variant = mode === "area" ? areaPlace?.variant ?? null : null;
+    const it = otherPlaces(new Set([...(places?.maps ?? []), stage])).find((o) => o.stage === stage && (!o.rooms || !rooms || rooms.every((r) => o.rooms.includes(r))) &&
+      (!variant || (o.variant ?? null) === variant));
+    return it?.id ?? (rooms?.length ? `${stage}/${rooms.join("+")}` : stage);
+  }
+  // A name the presets give the map shown (dungeons keep theirs).
+  function fixedTitle() {
+    const key = currentMapKey();
+    return key && !key.startsWith("D_") ? placeFixes()[key]?.title || null : null;
   }
   // Each room's extent on the floor shown (or on any floor when it has nothing there).
   function roomBoxes(rooms, floor) {
@@ -1715,6 +1733,13 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const place = fieldPlaceOf(side.stage, side.room);
       return (place && fieldTitle(fieldKey(side.stage, place.stage.rooms.map((r) => r.no)))) ?? regionName(side.stage, side.room) ?? area;
     }
+    // (An Other place the presets rename.)
+    const fixes = placeFixes();
+    if (Object.keys(fixes).some((k) => (k === side.stage || k.startsWith(side.stage + "/")) && fixes[k].title)) {
+      const room = leadRoom(side.stage, side.room);
+      const it = otherPlaces(new Set([...(places?.maps ?? []), side.stage])).find((o) => o.stage === side.stage && (!o.rooms || o.rooms.includes(room)) && (!area || !o.variant || o.variant === area));
+      if (it && fixes[it.id]?.title) return fixes[it.id].title;
+    }
     return roomTitle(side.stage, leadRoom(side.stage, side.room)) ?? area;
   }
   function fieldPlaceOf(stage, room) {
@@ -1824,6 +1849,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     const variant = map.area ? areaPlace?.variant ?? null : stageVariant;
     const status = new Map(checkSource.list().map((c) => [c.name, c.status]));
     const fixes = entranceFixes();
+    const sameMapShown = (fixes.sameMap ?? []).includes(currentMapKey());
     const out = [];
     const seen = new Set();
     const plate = (key, to, toArea, kind, pos, added = null) => {
@@ -1873,8 +1899,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       if (!stages.has(at.stage) || (at.room >= 0 && !drawn.has(at.room))) continue;
       // A grotto sharing its map: only its own way out.
       if (variant && atArea !== variant && !atArea?.startsWith(variant + " ")) continue;
-      // Both ends on this map: no need to jump.
-      if (stages.has(to.stage) && (to.room < 0 || onMap.has(to.room))) continue;
+      // Both ends on this map: no need to jump (unless the presets show this map's own ones).
+      if (stages.has(to.stage) && (to.room < 0 || onMap.has(to.room)) && !sameMapShown) continue;
       let pos;
       if (at.added) {
         pos = { x: at.added.x, z: at.added.z, floor: at.added.floor };
@@ -2502,7 +2528,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       if (!dungeon) for (const c of map.checks) c.floor = roomFloor(name, c.room, floor);
       const d = dungeon ? findDungeon(placeTitle(name)) : null;
       titleKey = stage ? fieldKey(name, stage.rooms.map((r) => r.no)) : null;
-      build(dungeon, map.rooms, floors, floor, (titleKey && fieldTitle(titleKey)) ?? areaPlace.title ?? placeTitle(name), d, map.rooms,
+      build(dungeon, map.rooms, floors, floor, (!dungeon && fixedTitle()) || ((titleKey && fieldTitle(titleKey)) ?? areaPlace.title ?? placeTitle(name)), d, map.rooms,
         mapCaption(name, map.rooms.map((r) => r.no)));
     } finally {
       map = real;
@@ -2974,6 +3000,13 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     // to, where a check is now and where from.
     openStageId,
     followLink: () => switchStage(),
+    // The map shown: its key in the presets, its name, and whether it can be renamed (not a
+    // dungeon).
+    mapInfo() {
+      const key = currentMapKey();
+      if (!key || !scene || (scene.kind !== "stage" && scene.kind !== "area")) return null;
+      return { key, title: root.querySelector(".map-title .loc-banner-title")?.textContent ?? "", renamable: !key.startsWith("D_") };
+    },
     placesReady: () => !!places?.done,
     destinations: () => destinations(),
     shownStage: () => editorStage(),

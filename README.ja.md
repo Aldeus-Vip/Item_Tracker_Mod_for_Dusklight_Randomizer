@@ -256,6 +256,8 @@ Area、入口の移動・追加・削除)と `res/seen_without_sight.txt`(視線
 - **Map**(右): マップ ID(ステージ名。例: `F_SP121`、`R_SP01 room 4`)を入れて **Open map**。
   **+ Entrance**: 場所をクリックしてから行き先を選びます。入口を右クリック: 移動・元に戻す・削除、
   プリセットで削除済みの入口(薄く表示)を戻す。
+  地図の下の行: マップのキー、名前の変更(**Rename**。ダンジョンは変更不可)、
+  *Entrances within this map*(同じマップ内の部屋どうしの入口も表示。標準は非表示)。
 - **Download map_presets.json** / **Download seen_without_sight.txt**: Mod のファイル
   (`res/web/map_presets.json`、`res/seen_without_sight.txt`)と差し替えるファイル。**Open…** で
   以前保存したファイルから続けられます。

@@ -26,7 +26,7 @@ let mapView = null; // Map sub-tab of Locations (created with it)
 // ---- The mod's presets (map_presets.json) ----
 // Fixed data the mod ships: checks' places the game files do not give, Areas set for checks,
 // entrances moved, added or removed, and places renamed. Not changed in the page.
-let mapPresets = { places: {}, checkAreas: {}, entranceFixes: { moved: {}, added: [], hidden: [] }, placeFixes: {} };
+let mapPresets = { places: {}, checkAreas: {}, entranceFixes: { moved: {}, added: [], hidden: [], sameMap: [] }, placeFixes: {} };
 // Asked again until it comes: the mod can be too busy to answer at first (reading the game files
 // on its first start), and without it the checks it places are not on the map.
 function loadMapPresets(tries = 0) {
@@ -570,7 +570,7 @@ function normalizeSettings(raw) {
 
 // The presets' Areas, entrance fixes and place fixes, checked.
 function normalizePresets(raw) {
-  const out = { checkAreas: {}, entranceFixes: { moved: {}, added: [], hidden: [] }, placeFixes: {} };
+  const out = { checkAreas: {}, entranceFixes: { moved: {}, added: [], hidden: [], sameMap: [] }, placeFixes: {} };
   for (const [name, area] of Object.entries(raw?.checkAreas ?? {})) {
     if (name.length <= 200 && typeof area === "string" && area.length <= 80) out.checkAreas[name] = area; // "" = automatic
   }
@@ -583,6 +583,10 @@ function normalizePresets(raw) {
   }
   for (const key of Array.isArray(ef?.hidden) ? ef.hidden.slice(0, 1000) : []) {
     if (typeof key === "string" && key.length <= 200 && !out.entranceFixes.hidden.includes(key)) out.entranceFixes.hidden.push(key);
+  }
+  // Maps that show their entrances between two of their own rooms too.
+  for (const key of Array.isArray(ef?.sameMap) ? ef.sameMap.slice(0, 500) : []) {
+    if (typeof key === "string" && key.length <= 200 && !out.entranceFixes.sameMap.includes(key)) out.entranceFixes.sameMap.push(key);
   }
   for (const a of Array.isArray(ef?.added) ? ef.added.slice(0, 500) : []) {
     if (!a || typeof a.id !== "string" || a.id.length > 20 || !stageOk(a.stage) || !roomOk(a.room) || !stageOk(a.to?.stage) || !roomOk(a.to?.room)) continue;

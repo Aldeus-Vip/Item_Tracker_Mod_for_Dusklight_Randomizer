@@ -29,7 +29,7 @@ let sight = new Set(); // its check keys
 let changes = 0;
 
 function emptyPresets() {
-  return { _comment: "", places: {}, checkAreas: {}, entranceFixes: { moved: {}, added: [], hidden: [] }, placeFixes: {} };
+  return { _comment: "", places: {}, checkAreas: {}, entranceFixes: { moved: {}, added: [], hidden: [], sameMap: [] }, placeFixes: {} };
 }
 function readPresets(raw) {
   const out = emptyPresets();
@@ -42,6 +42,7 @@ function readPresets(raw) {
     moved: ef.moved && typeof ef.moved === "object" ? ef.moved : {},
     added: Array.isArray(ef.added) ? ef.added : [],
     hidden: Array.isArray(ef.hidden) ? ef.hidden : [],
+    sameMap: Array.isArray(ef.sameMap) ? ef.sameMap : [],
   };
   if (raw.placeFixes && typeof raw.placeFixes === "object") out.placeFixes = raw.placeFixes;
   return out;
@@ -485,6 +486,50 @@ $("stage-id").addEventListener("keydown", (e) => {
   if (e.key === "Enter") openStage();
 });
 $("follow-link").addEventListener("click", () => mapView.followLink());
+
+// The map shown: its name (presets' placeFixes) and whether its entrances between two of its own
+// rooms show (entranceFixes.sameMap).
+let mapInfoKey = "";
+function renderMapInfo(force = false) {
+  const info = mapView.mapInfo();
+  const fix = info ? presets.placeFixes[info.key] : null;
+  const key = JSON.stringify([info?.key, info?.title, fix?.title, presets.entranceFixes.sameMap.includes(info?.key)]);
+  if (!force && key === mapInfoKey) return;
+  // (Not while its name is being typed.)
+  if (!force && document.activeElement?.id === "map-name") return;
+  mapInfoKey = key;
+  const box = $("map-info");
+  if (!info) return box.replaceChildren();
+  const setFix = (title) => {
+    const next = { ...(presets.placeFixes[info.key] ?? {}) };
+    if (title) next.title = title;
+    else delete next.title;
+    if (Object.keys(next).length) presets.placeFixes[info.key] = next;
+    else delete presets.placeFixes[info.key];
+    changed();
+    renderMapInfo(true);
+  };
+  const name = el("input", { type: "text", id: "map-name", value: fix?.title ?? info.title, disabled: !info.renamable, title: info.renamable ? "The map's name (Enter: rename)" : "Dungeons keep their names",
+    onkeydown: (e) => {
+      if (e.key === "Enter") setFix(name.value.trim());
+    } });
+  name.style.width = "220px";
+  const shown = presets.entranceFixes.sameMap.includes(info.key);
+  box.replaceChildren(
+    el("span", { className: "ed-label", textContent: "Map" }), el("span", { className: "ed-key", textContent: info.key }),
+    name,
+    el("button", { type: "button", className: "tool", textContent: "Rename", disabled: !info.renamable, onclick: () => setFix(name.value.trim()) }),
+    fix?.title ? el("button", { type: "button", className: "tool", textContent: "Reset name", title: "Back to the mod's name", onclick: () => setFix("") }) : "",
+    el("label", { title: "Also show the entrances between two rooms of this map (hidden by default: no need to jump)" },
+      el("input", { type: "checkbox", checked: shown, onchange: (e) => {
+        const list = presets.entranceFixes.sameMap;
+        presets.entranceFixes.sameMap = e.target.checked ? [...new Set([...list, info.key])] : list.filter((k) => k !== info.key);
+        changed();
+        renderMapInfo(true);
+      } }),
+      " Entrances within this map"));
+}
+setInterval(() => renderMapInfo(), 700);
 
 showStatus();
 connect();
