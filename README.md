@@ -175,7 +175,7 @@ it opens in the panel). The window closes when you press **Save**.
 
 ### Item Search
 
-**Locations › Item Search** lists the checks whose item you know (as **Show found items** shows them), whatever their province: type an item's name to find where it is. Tick the statuses to list (by default every check still to take, and the Important ones), and **Group by region** to group them. Clicks are as in Checks (highlight, requirement under the list, shared with the map and other pages as set in Options).
+**Locations › Item Search** lists the checks whose item you know (as **Show found items** shows them), whatever their province: type an item's name to find where it is. Tick the statuses to list (by default every check still to take, and the Important ones), pick the order (**Game order** or **Reachable first**, the Important ones first within a status), and **Group by region** to group them. Clicks are as in Checks (highlight, requirement under the list, shared with the map and other pages as set in Options).
 
 **Give up…** shows every check's item from the spoiler log, found or not. It asks first (type GIVE UP), and lasts until the page is reloaded or **Hide them again**.
 

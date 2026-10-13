@@ -1690,6 +1690,7 @@ body.font-fancy :is(.opt-title, .twilight-heading, .map-other-kind > h5, .dungeo
 
 /* ---- Locations › Item Search ---- */
 .loc-items-pane { padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.loc-items-pane[hidden] { display: none; }
 .loc-item-toolbar { position: static; }
 .loc-item-query { flex: 1 1 220px; min-width: 0; padding: 6px 10px; font: inherit; color: var(--text); background: rgba(0, 0, 0, 0.45); border: 1px solid var(--gold-dim); border-radius: 4px; }
 .loc-item-filters { flex-wrap: wrap; gap: 4px 12px; }

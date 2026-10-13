@@ -8,8 +8,8 @@
   on the map; the map's Checks Filter can show the Important ones whatever their status, and
   **Reachable first** puts them first among checks of the same status. Kept with the game save.
 - **Locations › Item Search**: the checks whose item you know (Show found items), whatever their
-  province, searched by the item's name; filtered by status (Important too) and grouped by region
-  or not. Clicks, highlight and requirement as in Checks. **Give up…** shows every check's item
+  province, searched by the item's name; filtered by status (Important too), in game order or
+  reachable first, grouped by region or not. Clicks, highlight and requirement as in Checks. **Give up…** shows every check's item
   from the spoiler log after typing GIVE UP (until the page is reloaded or hidden again).
 - Options › Display › **Checks follow Link**: Checks shows the region of the room Link enters,
   also without the map on screen.

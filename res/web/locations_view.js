@@ -169,6 +169,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   const itemDetail = el("div", { className: "loc-item-detail" }); // a check's requirement there
   let itemQuery = "";
   let itemGroupByRegion = false;
+  let itemSortReachable = true; // Item Search: reachable first (else game order)
   const ITEM_FILTER_DEFAULT = ["reachable", "blocked", "unknown", "excluded", "important"];
   let itemFilter = new Set(ITEM_FILTER_DEFAULT);
   // Give up: every check's item from the spoiler log, found or not (this page only, until reloaded).
@@ -201,6 +202,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     sortReachable = localStorage.getItem("tracker.locSort") === "reachable";
     groupByArea = localStorage.getItem("tracker.locByArea") === "1";
     itemGroupByRegion = localStorage.getItem("tracker.itemGroup") === "1";
+    itemSortReachable = localStorage.getItem("tracker.itemSort") !== "game";
     const savedFilter = JSON.parse(localStorage.getItem("tracker.itemFilter") ?? "null");
     if (Array.isArray(savedFilter)) itemFilter = new Set(savedFilter);
   } catch {}
@@ -1039,7 +1041,15 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         } }),
         id === "important" ? el("span", { className: "loc-dot important", innerHTML: triforceSvg() }) : el("span", { className: `loc-row ${id} loc-item-swatch` }, el("span", { className: "loc-dot" })),
         ` ${label}`)));
-    head.append(el("div", { className: "loc-bar-row" }, query, group), filters);
+    const sort = el("label", { className: "loc-sort", title: "Order of the list" }, "Sort ",
+      el("select", { onchange: (e) => {
+        itemSortReachable = e.target.value === "reachable";
+        remember("tracker.itemSort", itemSortReachable ? null : "game");
+        renderItemSearch();
+      } },
+      el("option", { value: "game", textContent: "Game order", selected: !itemSortReachable }),
+      el("option", { value: "reachable", textContent: "Reachable first", selected: itemSortReachable })));
+    head.append(el("div", { className: "loc-bar-row" }, query, sort, group), filters);
     if (!getSeedView().show && !revealAll) {
       head.append(el("div", { className: "loc-bar-row" }, el("span", { className: "loc-note", textContent: "Show found items is off: turn it on to search the items you have found." }),
         el("button", { type: "button", className: "tool", textContent: "Show found items", onclick: async () => {
@@ -1063,7 +1073,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       if (!itemFilter.has(r) && !(imp && itemFilter.has("important"))) return;
       rows.push({ loc, item, r, imp, i });
     });
-    rows.sort((a, b) => (rank[a.r] ?? 1) - (rank[b.r] ?? 1) || (a.imp ? 0 : 1) - (b.imp ? 0 : 1) || a.i - b.i);
+    // Reachable first (the Important ones first within a status), or the game's order.
+    if (itemSortReachable) rows.sort((a, b) => (rank[a.r] ?? 1) - (rank[b.r] ?? 1) || (a.imp ? 0 : 1) - (b.imp ? 0 : 1) || a.i - b.i);
     const overrides = getOverrides();
     const row = (x) => checkRow(x.loc, overrides, { reqHost: itemDetail, item: x.item });
     if (itemGroupByRegion) {
