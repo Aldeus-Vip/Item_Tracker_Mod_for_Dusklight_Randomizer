@@ -4,7 +4,7 @@
 
 import yaml from "./vendor/js-yaml.mjs";
 import { World, Search, itemsFromState, routeSatisfied, routeEntrySatisfied, routeEntryLabel, trackerEntry, parseDisplay, atomLabel, BOSS_NAMES, REGION_TITLES, regionTitle } from "./logic.js";
-import { REGION_GROUPS, OTHER_GROUP, STAGE_NAMES, FlagReader, buildLocationList, buildRoomRegions, buildRoomNames, isObtained } from "./locations.js";
+import { REGION_GROUPS, OTHER_GROUP, STAGE_NAMES, FlagReader, buildLocationList, buildRoomRegions, buildRoomNames, isObtained, triforceSvg } from "./locations.js";
 import { TILE_ITEMS, OTHER_ITEM_GROUPS, DUNGEON_ICONS, isDungeonKey, dungeonKeyIcon } from "./layout.js";
 
 const DATA_FILES = [
@@ -127,7 +127,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {}, clickMode = () => "left-req", onFocusChanged = null }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {}, clickMode = () => "left-req", onFocusChanged = null, followLink = () => false }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -164,6 +164,18 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   let rowClickTimer = null; // a row's click, held back for a double-click
   let openMenu = null; // toolbar menu kept open across redraws ("regions", "req", "seed")
   let regionsScroll = 0; // scroll position of the Reachable regions menu
+  // Item Search tab: checks by the item found in them.
+  let itemHost = null; // its pane (Locations › Item Search)
+  const itemDetail = el("div", { className: "loc-item-detail" }); // a check's requirement there
+  let itemQuery = "";
+  let itemGroupByRegion = false;
+  const ITEM_FILTER_DEFAULT = ["reachable", "blocked", "unknown", "excluded", "important"];
+  let itemFilter = new Set(ITEM_FILTER_DEFAULT);
+  // Give up: every check's item from the spoiler log, found or not (this page only, until reloaded).
+  let revealAll = false;
+  let revealAsk = false;
+  // (Kept across redraws: the state updates every few seconds while it is typed in.)
+  const revealInput = el("input", { type: "text", className: "loc-giveup-input", placeholder: "GIVE UP", autocomplete: "off" });
 
   // Per-save entries of one kind ("map", "mark"), from the mod's state.
   const entriesOf = (kind) => (state?.found?.entries ?? []).filter((e) => e.startsWith(`${kind}:`)).map((e) => e.slice(kind.length + 1));
@@ -171,6 +183,10 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   // A region's map mark switched off: under its old names too.
   const mapOff = (region) => [`-map:${region}`, ...Object.keys(REGION_TITLES).filter((old) => REGION_TITLES[old] === region).map((old) => `-map:${old}`)];
   const markedChecked = () => new Set(entriesOf("mark"));
+  // Checks marked Important (right-click on the marker): kept with the save, shown while the check
+  // is still to be taken.
+  const markedImportant = () => new Set(entriesOf("imp"));
+  const isImportant = (name, r, marked = markedImportant()) => marked.has(name) && r !== "obtained" && r !== "checked";
 
   new ResizeObserver(() => root.classList.toggle("loc-narrow", root.clientWidth > 0 && root.clientWidth < NARROW_WIDTH))
     .observe(root);
@@ -184,6 +200,9 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     highlightedGroup = localStorage.getItem("tracker.locMark") || null;
     sortReachable = localStorage.getItem("tracker.locSort") === "reachable";
     groupByArea = localStorage.getItem("tracker.locByArea") === "1";
+    itemGroupByRegion = localStorage.getItem("tracker.itemGroup") === "1";
+    const savedFilter = JSON.parse(localStorage.getItem("tracker.itemFilter") ?? "null");
+    if (Array.isArray(savedFilter)) itemFilter = new Set(savedFilter);
   } catch {}
 
   // ---- Data ----
@@ -548,6 +567,32 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     if (!getMapFlags().includes(region)) saveEntries([`map:${region}`]).then(() => { evaluate(); render(); });
   }
 
+  // Options › Checks follow Link: the list shows the region of the room Link enters (its province
+  // and that region), without the map on screen.
+  let followedRegion = null;
+  function followCurrentRegion() {
+    if (!followLink() || !state?.inGame || !world) {
+      followedRegion = null;
+      return;
+    }
+    const region = roomRegion(state.stage, state.room);
+    if (!region || region === followedRegion) return;
+    followedRegion = region;
+    pickRegion(region);
+  }
+  // A region's checks in the list: its province opened and the region filter set (false: no check
+  // is in that region).
+  function pickRegion(region) {
+    const loc = locations.find((l) => regionOfLoc(l) === region);
+    if (!loc) return false;
+    const group = groupOf(loc);
+    selectedGroup = group;
+    highlightedGroup = group;
+    regionFilter = { group, region };
+    showChecks = true;
+    return true;
+  }
+
   function entryMet(entry) {
     return routeEntrySatisfied(search, entry, entryContext());
   }
@@ -560,7 +605,13 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
 
   // A check marked checked by hand (a shop item not worth buying, an item seen but out of reach).
   async function toggleChecked(name) {
-    await saveEntries([markedChecked().has(name) ? `-mark:${name}` : `mark:${name}`]);
+    // (Checked by hand: no longer Important.)
+    await saveEntries(markedChecked().has(name) ? [`-mark:${name}`] : [`mark:${name}`, `-imp:${name}`]);
+    evaluate();
+    render();
+  }
+  async function toggleImportant(name) {
+    await saveEntries([markedImportant().has(name) ? `-imp:${name}` : `imp:${name}`]);
     evaluate();
     render();
   }
@@ -648,28 +699,39 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
 
   // The marker left of a check. Clicking it marks a check you will not take (a shop item not worth
   // buying, an item seen but out of reach) as checked: it then shows the shop's red sold-out cross.
+  // Right-clicking it marks a check that holds something important you cannot take yet: a golden
+  // Triforce, bright while it is reachable.
   function checkDot(name, r) {
     const can = Boolean(state?.inGame) && r !== "obtained";
-    return el("span", {
-      className: "loc-dot" + (can ? " clickable" : ""),
-      title: !can ? "" : r === "checked" ? "Click: not checked any more" : "Click: mark as checked (kept with the game save)",
+    const important = isImportant(name, r);
+    const dot = el("span", {
+      className: "loc-dot" + (can ? " clickable" : "") + (important ? " important" : ""),
+      title: !can ? "" : (r === "checked" ? "Click: not checked any more" : "Click: mark as checked")
+        + (r === "checked" ? "" : important ? " · Right-click: not important any more" : " · Right-click: mark as important") + " (kept with the game save)",
       onclick: can ? (e) => {
         e.stopPropagation();
         toggleChecked(name);
       } : null,
+      oncontextmenu: can && r !== "checked" ? (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleImportant(name);
+      } : null,
     });
+    if (important) dot.innerHTML = triforceSvg();
+    return dot;
   }
 
   // A check of the list: its marker (click: checked by hand), name, the item found there and its
   // custom tag. Click: highlight and requirement; right-click: highlight only; double-click: on
   // the map.
-  function checkRow(loc, overrides) {
+  function checkRow(loc, overrides, { reqHost = null, item = null } = {}) {
     const r = results.get(loc.name) ?? "unknown";
-    const row = checkRowNode(loc, overrides, r);
+    const row = checkRowNode(loc, overrides, r, reqHost, item);
     hoverRow(row, loc.name);
     return row;
   }
-  function checkRowNode(loc, overrides, r) {
+  function checkRowNode(loc, overrides, r, reqHost = null, shownItem = null) {
     return el("button", {
       type: "button",
       className: `loc-row plate ${r}` + (loc.name === focused ? " selected" : ""),
@@ -681,12 +743,12 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         // requirement panel opening over the row.
         if (e.detail > 1) return;
         clearTimeout(rowClickTimer);
-        rowClickTimer = setTimeout(() => (clickMode() === "left-req" ? showRequirement(loc) : toggleHighlight(loc)), showOnMap ? 280 : 0);
+        rowClickTimer = setTimeout(() => (clickMode() === "left-req" ? showRequirement(loc, reqHost) : toggleHighlight(loc)), showOnMap ? 280 : 0);
       },
       oncontextmenu: (e) => {
         e.preventDefault();
         if (clickMode() === "left-req") toggleHighlight(loc);
-        else showRequirement(loc);
+        else showRequirement(loc, reqHost);
       },
       ondblclick: showOnMap ? () => {
         clearTimeout(rowClickTimer);
@@ -694,7 +756,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       } : null,
     }, checkDot(loc.name, r), el("span", { className: "loc-name", textContent: loc.name }),
     (() => {
-      const item = foundItem(loc);
+      const item = shownItem ?? foundItem(loc);
       return item ? el("span", { className: "loc-found", textContent: item, title: `Holds: ${item}` }) : null;
     })(),
     overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null);
@@ -707,9 +769,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     render();
   }
   // A check highlighted with its requirement shown.
-  function showRequirement(loc) {
+  function showRequirement(loc, reqHost = null) {
     setFocus(loc.name);
     onFocus(loc.name, true);
+    // (Item Search: under its list.)
+    if (reqHost) return mountDetail(reqHost, loc.name, { row: false });
     // Under the map while that is on screen (Checks + Map); otherwise the panel of the list.
     const host = editing?.host?.isConnected && editing.host.offsetParent !== null ? editing.host : null;
     if (host) mountDetail(host, loc.name, { row: editing.withRow });
@@ -720,8 +784,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   function areaOf(loc) {
     const fixed = regionTitle(getCheckAreas()[loc.name] ?? "");
     if (fixed) return fixed;
-    const key = checkName(loc);
-    const place = key ? placeOf(key) : null;
+    // (Where the presets put it, else the game files.)
+    const place = placeOf(checkName(loc) ?? `manual:${loc.name}`, loc.name);
     if (place) return roomRegion(place.stage, place.room) ?? roomRegion(place.stage, 0) ?? place.stage;
     const first = (v) => (Array.isArray(v) ? v[0] : v);
     const shop = first(loc.metadata.Shop);
@@ -861,9 +925,12 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     if (regionFilter.region) shown = shown.filter((l) => regionOfLoc(l) === regionFilter.region);
     if (sortReachable) {
       // Stable: reachable first, then not yet known, blocked, excluded, done.
+      // Within each, the Important ones first.
       const rank = { reachable: 0, unknown: 1, blocked: 2, excluded: 3, checked: 4, obtained: 5 };
+      const marked = markedImportant();
+      const imp = (l) => (isImportant(l.name, results.get(l.name), marked) ? 0 : 1);
       shown = shown.map((l, i) => [l, i]).sort(([a, i], [b, j]) =>
-        (rank[results.get(a.name)] ?? 1) - (rank[results.get(b.name)] ?? 1) || i - j).map(([l]) => l);
+        (rank[results.get(a.name)] ?? 1) - (rank[results.get(b.name)] ?? 1) || imp(a) - imp(b) || i - j).map(([l]) => l);
     }
     const visibleLocs = shown.filter((loc) => {
       const r = results.get(loc.name) ?? "unknown";
@@ -926,6 +993,142 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       }
     }
     if (searching) root.querySelector(".rule-search")?.focus();
+    renderItemSearch();
+  }
+
+  // ---- Item Search (Locations › Item Search) ----
+
+  // The checks whose item is known (Show found items: obtained, named, seen; every check once given
+  // up), searched by the item's name, filtered by status (Important: whatever the status), grouped
+  // by region or not. Clicks as in Checks (highlight shared, requirement under the list).
+  function renderItemSearch() {
+    if (!itemHost || itemHost.hidden) return;
+    const revealWasFocused = document.activeElement === revealInput;
+    const typing = document.activeElement?.classList.contains("loc-item-query") ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
+    const head = el("div", { className: "loc-toolbar loc-item-toolbar" });
+    const body = el("div", { className: "loc-item-list" });
+    const out = [head, body, itemDetail];
+    if (!world) {
+      itemHost.replaceChildren(el("p", { className: "empty", textContent: "Loading logic data…" }));
+      return;
+    }
+    if (!spoiler) {
+      itemHost.replaceChildren(el("p", { className: "empty", textContent: "No spoiler log found: Item Search shows the items of the seed's checks you have found (Seed ▾ in Checks)." }));
+      return;
+    }
+    const query = el("input", { type: "search", className: "loc-item-query", placeholder: "Item name (e.g. Clawshot)", value: itemQuery, autocomplete: "off",
+      oninput: (e) => {
+        itemQuery = e.target.value;
+        renderItemSearch();
+      } });
+    const group = el("label", { className: "loc-toggle", title: "Group the checks by their region" },
+      el("input", { type: "checkbox", checked: itemGroupByRegion, onchange: (e) => {
+        itemGroupByRegion = e.target.checked;
+        remember("tracker.itemGroup", itemGroupByRegion ? "1" : null);
+        renderItemSearch();
+      } }), " Group by region");
+    const statuses = [["reachable", "Reachable"], ["blocked", "Not reachable"], ["unknown", "Unknown"], ["excluded", "Excluded"],
+      ["important", "Important"], ["checked", "Checked"], ["obtained", "Obtained"]];
+    const filters = el("div", { className: "loc-bar-row loc-item-filters" }, ...statuses.map(([id, label]) =>
+      el("label", { className: `loc-toggle loc-item-filter ${id}` },
+        el("input", { type: "checkbox", checked: itemFilter.has(id), onchange: (e) => {
+          if (e.target.checked) itemFilter.add(id);
+          else itemFilter.delete(id);
+          remember("tracker.itemFilter", JSON.stringify([...itemFilter]));
+          renderItemSearch();
+        } }),
+        id === "important" ? el("span", { className: "loc-dot important", innerHTML: triforceSvg() }) : el("span", { className: `loc-row ${id} loc-item-swatch` }, el("span", { className: "loc-dot" })),
+        ` ${label}`)));
+    head.append(el("div", { className: "loc-bar-row" }, query, group), filters);
+    if (!getSeedView().show && !revealAll) {
+      head.append(el("div", { className: "loc-bar-row" }, el("span", { className: "loc-note", textContent: "Show found items is off: turn it on to search the items you have found." }),
+        el("button", { type: "button", className: "tool", textContent: "Show found items", onclick: async () => {
+          await saveSeedView({ ...getSeedView(), show: true });
+          render();
+        } })));
+    }
+    head.append(revealBar());
+
+    // The checks and the item each holds, as far as known.
+    const q = itemQuery.trim().toLowerCase();
+    const marked = markedImportant();
+    const rank = { reachable: 0, unknown: 1, blocked: 2, excluded: 3, checked: 4, obtained: 5 };
+    const rows = [];
+    locations.forEach((loc, i) => {
+      const item = revealAll ? spoiler.placements.get(loc.name) ?? null : foundItem(loc);
+      if (!item) return;
+      if (q && !item.toLowerCase().includes(q)) return;
+      const r = results.get(loc.name) ?? "unknown";
+      const imp = isImportant(loc.name, r, marked);
+      if (!itemFilter.has(r) && !(imp && itemFilter.has("important"))) return;
+      rows.push({ loc, item, r, imp, i });
+    });
+    rows.sort((a, b) => (rank[a.r] ?? 1) - (rank[b.r] ?? 1) || (a.imp ? 0 : 1) - (b.imp ? 0 : 1) || a.i - b.i);
+    const overrides = getOverrides();
+    const row = (x) => checkRow(x.loc, overrides, { reqHost: itemDetail, item: x.item });
+    if (itemGroupByRegion) {
+      const regionRank = new Map(mapGroups.flatMap((g) => g.regions).map((r, i) => [r, i]));
+      const byRegion = new Map();
+      for (const x of rows) {
+        const region = regionOfLoc(x.loc);
+        if (!byRegion.has(region)) byRegion.set(region, []);
+        byRegion.get(region).push(x);
+      }
+      const regions = [...byRegion.keys()].sort((a, b) => (regionRank.get(a) ?? 1e6) - (regionRank.get(b) ?? 1e6) || a.localeCompare(b));
+      for (const region of regions) {
+        body.append(el("div", { className: "loc-subhead", textContent: `${region} (${byRegion.get(region).length})` }));
+        for (const x of byRegion.get(region)) body.append(row(x));
+      }
+    } else {
+      for (const x of rows) body.append(row(x));
+    }
+    if (!rows.length) body.append(el("p", { className: "empty", textContent: q ? "No check found holds that item (with these filters)." : "No item known yet (with these filters)." }));
+    itemHost.replaceChildren(...out);
+    if (revealWasFocused) revealInput.focus();
+    if (typing) {
+      const input = itemHost.querySelector(".loc-item-query");
+      input.focus();
+      input.setSelectionRange(...typing);
+    }
+  }
+
+  // Give up: show every check's item. Asked twice (a click, then typing GIVE UP), as it spoils the
+  // seed; this page only, until it is reloaded or turned off.
+  function revealBar() {
+    if (revealAll) {
+      return el("div", { className: "loc-bar-row loc-reveal on" },
+        el("span", { className: "loc-note bad", textContent: "Every check's item is shown (spoiler)." }),
+        el("button", { type: "button", className: "tool", textContent: "Hide them again", onclick: () => {
+          revealAll = false;
+          renderItemSearch();
+        } }));
+    }
+    if (!revealAsk) {
+      return el("div", { className: "loc-bar-row loc-reveal" },
+        el("button", { type: "button", className: "tool loc-giveup", textContent: "Give up…", title: "Stuck? Show where every item is (spoils the seed)",
+          onclick: () => {
+            revealAsk = true;
+            renderItemSearch();
+            revealInput.focus();
+          } }));
+    }
+    const ok = () => revealInput.value.trim().toUpperCase() === "GIVE UP";
+    const go = el("button", { type: "button", className: "tool loc-giveup", textContent: "Show every item", disabled: !ok(), onclick: () => {
+      if (!ok()) return;
+      revealAll = true;
+      revealAsk = false;
+      revealInput.value = "";
+      renderItemSearch();
+    } });
+    revealInput.oninput = () => { go.disabled = !ok(); };
+    return el("div", { className: "loc-bar-row loc-reveal ask" },
+      el("span", { className: "loc-note", textContent: "This shows where every item of the seed is, found or not. Type GIVE UP to confirm:" }),
+      revealInput, go,
+      el("button", { type: "button", className: "tool", textContent: "Cancel", onclick: () => {
+        revealAsk = false;
+        revealInput.value = "";
+        renderItemSearch();
+      } }));
   }
 
   // ---- Custom requirement editor ----
@@ -1752,6 +1955,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       state = next;
       markCurrentRegion();
       markSeenShops();
+      followCurrentRegion();
       // A save of another seed was loaded: switch to it.
       const saved = next?.found?.seed;
       if (world && !loading && saved && saved !== seedHash && seeds.some((s) => s.hash === saved)) load();
@@ -1761,6 +1965,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     refresh() {
       // (The checks' places may be known now: areas' provinces counted again.)
       areaProvinceCache = null;
+      followCurrentRegion();
       evaluate();
       render();
     },
@@ -1772,6 +1977,12 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     entrances: () => entranceList,
     // The provinces in the order of the randomizer's world files (the game's order).
     provinceOrder: () => mapGroups.map((g) => g.title),
+    // Locations › Item Search: drawn into host while it is shown.
+    mountItemSearch(host) {
+      itemHost = host;
+      renderItemSearch();
+    },
+    refreshItemSearch: () => renderItemSearch(),
     // The provinces and their regions: [{ title, regions }] (the map data editor's Area choices).
     regionGroups: () => mapGroups.map((g) => ({ title: g.title, regions: [...g.regions] })),
     // Grottos built alike that share one room: [{ name, area }].
@@ -1804,11 +2015,13 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     // poe:; manual:<name> for those placed by the presets): [{ name, key, status }] with the status of the marker left of the check.
     mapChecks() {
       const out = [];
+      const marked = markedImportant();
       for (const loc of locations) {
         // Checks without a place in the game files (people, golden wolves, events) can be placed
         // on the map by hand.
         const key = checkName(loc) ?? `manual:${loc.name}`;
-        out.push({ name: loc.name, key, status: results.get(loc.name) ?? "unknown" });
+        const status = results.get(loc.name) ?? "unknown";
+        out.push({ name: loc.name, key, status, important: isImportant(loc.name, status, marked) });
       }
       return out;
     },
@@ -1838,12 +2051,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       if (!region || !world) return;
       const loc = locations.find((l) => regionOfLoc(l) === region);
       if (!loc) return;
-      const group = groupOf(loc);
-      if (selectedGroup === group && regionFilter.region === region) return;
-      selectedGroup = group;
-      highlightedGroup = group;
-      regionFilter = { group, region };
-      showChecks = true;
+      if (groupOf(loc) === selectedGroup && regionFilter.region === region) return;
+      pickRegion(region);
       render();
     },
     // Checks and Map linked: a check's requirement asked on the map, shown here too (its row

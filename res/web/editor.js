@@ -162,7 +162,7 @@ const locationsView = createLocationsView(hiddenList, {
   getSeedView: () => ({ hash: null, show: false }),
   saveSeedView: async () => {},
   setStatus: () => {},
-  placeOf: (key) => mapView?.placeOf(key) ?? null,
+  placeOf: (key, name) => mapView?.placeOf(key, name) ?? null,
   getCheckAreas: () => presets.checkAreas,
 });
 

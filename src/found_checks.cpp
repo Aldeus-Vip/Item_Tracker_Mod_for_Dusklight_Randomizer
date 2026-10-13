@@ -334,11 +334,11 @@ void add_from_page(const std::string& body) {
             std::string seed = line.substr(5);
             if (seed.size() <= 100) g_seed = std::move(seed);
         } else if (line.starts_with("-")) {
-            // Removal: "-<kind>:<key>" (map, mark and note entries are the page's to change).
+            // Removal: "-<kind>:<key>" (map, mark, important and note entries are the page's to change).
             const std::string key = line.substr(1);
-            if (key.starts_with("map:") || key.starts_with("mark:") || key.starts_with("note:")) remove(key);
+            if (key.starts_with("map:") || key.starts_with("mark:") || key.starts_with("imp:") || key.starts_with("note:")) remove(key);
         } else if (line.starts_with("loc:") || line.starts_with("told:") || line.starts_with("map:") ||
-                   line.starts_with("mark:")) {
+                   line.starts_with("mark:") || line.starts_with("imp:")) {
             add(std::move(line));
         } else if (line.starts_with("note:")) {
             // "note:<key>\t<text>" replaces the note of that key.

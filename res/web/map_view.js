@@ -5,7 +5,7 @@
 
 import { DUNGEON_ICONS } from "./layout.js";
 import yaml from "./vendor/js-yaml.mjs";
-import { STAGE_NAMES } from "./locations.js";
+import { STAGE_NAMES, triforceSvg } from "./locations.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, props = {}, ...children) => {
@@ -360,10 +360,11 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         const out = new Set(saved);
         if (!out.has("noicons")) out.add("icons");
         if (!out.has("noentrances")) out.add("entrances");
+        if (!out.has("noimportant")) out.add("important");
         return out;
       }
     } catch { /* default */ }
-    return new Set(["reachable", "blocked", "unknown", "icons", "entrances"]);
+    return new Set(["reachable", "blocked", "unknown", "important", "icons", "entrances"]);
   }
 
   function loadFollow() {
@@ -631,6 +632,19 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     }
     updateProgress();
   }
+
+  // The checks' places also while the map is not on screen: the check list's areas and regions
+  // use them (and the presets' places), asked for until the mod has read the game files.
+  async function preloadPlaces() {
+    if (places?.done) return;
+    if (!visible && getState()?.inGame) {
+      try {
+        await fetchPlaces();
+      } catch { /* the mod is busy or older: later */ }
+    }
+    setTimeout(preloadPlaces, FIELD_MS);
+  }
+  setTimeout(preloadPlaces, 1000);
 
   // While the mod reads the game files for the checks' places: a bar over the map.
   function progressBar() {
@@ -1274,6 +1288,20 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
           updateChecks();
         } }),
         el("span", { className: "map-check " + status }, el("span", { className: "loc-dot" })), label)),
+      // Important checks: shown whatever their status's box says.
+      el("label", { className: "map-filter-item important" },
+        el("input", { type: "checkbox", checked: checkFilter.has("important"), onchange: (e) => {
+          if (e.target.checked) {
+            checkFilter.add("important");
+            checkFilter.delete("noimportant");
+          } else {
+            checkFilter.delete("important");
+            checkFilter.add("noimportant");
+          }
+          try { localStorage.setItem(FILTER_KEY, JSON.stringify([...checkFilter])); } catch { /* not kept */ }
+          updateChecks();
+        } }),
+        el("span", { className: "map-check reachable" }, el("span", { className: "loc-dot important", innerHTML: triforceSvg() })), "Important"),
       ...[["icons", "Map icons (monkeys, Sols...)"], ["entrances", "Entrances"]].map(([kind, label]) =>
         el("label", { className: "map-filter-item icons" },
           el("input", { type: "checkbox", checked: checkFilter.has(kind), onchange: (e) => {
@@ -1982,7 +2010,7 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
       const leftReq = (checkSource.clickMode?.() ?? "left-req") === "left-req";
       // On hover, a plate with its name (as an entrance's), and what the clicks do.
       const node = el("button", { type: "button", className: `map-check ${info.status}`, ariaLabel: info.name },
-        el("span", { className: "loc-dot" }),
+        markerDot(info.important),
         el("span", { className: "map-entrance-card map-check-card" },
           el("span", { className: "map-entrance-name", textContent: plateName(info.name) })));
       node.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -2031,8 +2059,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
         if (reqName !== info.name) highlight();
         checkSource.jump(info.name);
       });
-      node.hidden = !checkFilter.has(info.status);
-      out.push({ node, at: { x: place.x, y: place.z }, name: info.name, status: info.status });
+      out.push({ node, at: { x: place.x, y: place.z }, name: info.name, status: info.status, important: !!info.important });
+      node.hidden = !checkShown(out[out.length - 1]);
     }
     return out;
   }
@@ -2062,17 +2090,31 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     }
   }
 
+  // A check's marker: a dot colored by its status, or a Triforce when it is Important.
+  function markerDot(important) {
+    return el("span", { className: "loc-dot" + (important ? " important" : ""), innerHTML: important ? triforceSvg() : "" });
+  }
+  // Whether the filter shows a check: its status ticked, or Important ticked and it is.
+  function checkShown(c) {
+    return checkFilter.has(c.status) || (c.important && checkFilter.has("important"));
+  }
   // Statuses change as items come in: the markers follow, and the filter hides or shows them.
   function updateChecks() {
     if (!scene?.checks?.length) return updatePick();
-    const status = new Map(checkSource.list().map((c) => [c.name, c.status]));
+    const infos = new Map(checkSource.list().map((c) => [c.name, c]));
     for (const c of scene.checks) {
-      const now = status.get(c.name) ?? "unknown";
+      const info = infos.get(c.name);
+      const now = info?.status ?? "unknown";
       if (now !== c.status) {
         c.node.classList.replace(c.status, now);
         c.status = now;
       }
-      c.node.hidden = !checkFilter.has(c.status);
+      const important = !!info?.important;
+      if (important !== c.important) {
+        c.important = important;
+        c.node.querySelector(".loc-dot")?.replaceWith(markerDot(important));
+      }
+      c.node.hidden = !checkShown(c);
     }
     const focusedName = checkSource.focused();
     for (const c of scene.checks) c.node.classList.toggle("selected", c.name === focusedName || c.name === reqName);
@@ -2948,7 +2990,8 @@ export function createMapView(root, { getState, regionName, roomName = null, roo
     },
     showCheck,
     // Where the game places a check (stage and room), once the game files are read.
-    placeOf: (key) => placeFor(key),
+    // (name: the check's, for a place the presets give it.)
+    placeOf: (key, name = null) => placeFor(key, name ?? (key.startsWith("manual:") ? key.slice(7) : null)),
     // Checks closed the requirement it showed: the map's goes too.
     hideReq(name) {
       hideReqView(name);

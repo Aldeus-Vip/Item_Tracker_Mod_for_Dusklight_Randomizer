@@ -54,7 +54,7 @@ English: [README.md](README.md)
 | Items / Dungeons | アイコンを右クリック | アイコン編集を開く(下記) |
 | Items | **Golden Bugs** をクリック | 黄金の虫をすべて表示(ゲームの虫の画面と同じ並び、オス・メス別)。Agitha に渡した虫には蝶のマーク。虫や蝶を右クリックでアイコン編集 |
 | Items | **Edit** | 並び替え。2 つの枠をクリック、またはドラッグで入れ替え、行の追加・削除、最後に **Confirm** |
-| 全タブ | **Options** | Display(Simple / Advanced、Link Checks and Map、Share highlight between pages(ハイライトを全ページで共有)、Clicks on a check、フォント)、Theme(Twilight / Midna / Hyrule / Shadow)、背景画像、Item Background(色・不透明度・光)、Map(背景の有無・地形の不透明度)。もう一度ボタンを押すか枠外をクリックで閉じる |
+| 全タブ | **Options** | Display(Simple / Advanced、Link Checks and Map、Share highlight between pages(ハイライトを全ページで共有)、Checks follow Link(リンクのいる地域を Checks に表示)、Clicks on a check、フォント)、Theme(Twilight / Midna / Hyrule / Shadow)、背景画像、Item Background(色・不透明度・光)、Map(背景の有無・地形の不透明度)。もう一度ボタンを押すか枠外をクリックで閉じる |
 | Locations | 地域をクリック | その地域のチェック一覧を表示。幅が狭いときは一覧に切り替わり、**‹ Back** で戻る |
 | Locations | チェックをクリック | 必要条件を表示(and は横、or は縦に並び、満たしている項目は緑の枠)。Options › Clicks on a check でクリックと右クリックを入れ替え可能 |
 | Locations | チェックにカーソルを置く | 横に必要条件を表示 |
@@ -63,7 +63,7 @@ English: [README.md](README.md)
 | Locations | チェックを選んで **Ctrl+C**、別のチェックを選んで **Ctrl+V** | 自分で設定した条件を別のチェックにコピー。貼り付ける内容を確認するポップアップが出る(OK にフォーカスがあるので **Enter** で貼り付け、**Esc** で取り消し) |
 | Locations | 右クリック | チェックや地域を強調する |
 | Locations | **Logic ON/OFF** | 到達判定の ON/OFF |
-| Locations | **Checks / Map / Checks + Map** | チェック一覧・リンクのいる場所の地図・その両方(横並び、幅900px以上)を切り替え |
+| Locations | **Checks / Map / Checks + Map / Item Search** | チェック一覧・リンクのいる場所の地図・その両方(横並び、幅900px以上)・見つけたアイテムの検索(下記)を切り替え |
 | Map | クリック / 右クリック / ドラッグ | 拡大・縮小・移動([地図](#地図)を参照) |
 | Locations | **Reachable Regions ▾** | ロジックの地域を地方ごとに表示し、「到達可能」を ON/OFF(リンクが入ると自動で ON)。地方ごとに **All on / All off** も可能。自分で設定した条件の Map 項目で使い、セーブデータと一緒に保存 |
 | Locations | **Requirements ▾** | 自分で設定した条件の **Export / Import Custom Requirements**(JSON)、**Load Preset Custom Requirements**、**Use Randomizer Logic for All**(自分で設定した条件をすべて削除) |
@@ -71,6 +71,7 @@ English: [README.md](README.md)
 | Locations | **Show found items** | 初期値は OFF。見つけたチェックの中身を表示(下記)。それ以外のシードの中身は表示しない |
 | Locations | **Sort** | ゲーム順、または取れるチェックを上に |
 | Locations | チェック左端のマークをクリック | 取らないチェックを「済み」にする(買う価値のないショップ、見えるけど取れないものなど)。売り切れの札になり、取得済みと同じ扱い。もう一度クリックで解除。セーブデータと一緒に保存 |
+| Locations | チェック左端のマークを右クリック | 重要なチェック(今は取れない大事なアイテムなど)に「Important」の印。金色のトライフォースになり、取れるときは明るく光る。地図のフィルターと Item Search でも絞り込め、**Reachable first** では同じ状態の中で先頭に並ぶ。もう一度右クリックで解除。セーブデータと一緒に保存 |
 
 ### 地図
 
@@ -159,6 +160,12 @@ Mod に同梱しており(`res/web/map_presets.json`)、全員同じです。
 | Time | Day、Night | ゲーム内の時計がその時間帯(夜は 19:00〜6:00) |
 | Rand Settings | Faron Twilight Cleared、Open Door of Time などの ON/OFF 設定 | 設定が ON。3 つの Twilight はセーブデータからも読むので、プレイでクリアした場合も満たす |
 | Map Reachable | Randomizer のロジックの地域(Faron Woods、North Eldin など) | 「到達可能」になっている。ゲームでその地域に入ると自動で ON になり、**Reachable Regions ▾** やチェックの必要条件にある Map 項目のクリックでも切り替えられる。セーブデータと一緒に保存されるので、セーブ(シード)ごとに別 |
+
+### Item Search
+
+**Locations › Item Search** は、中身が分かっているチェック(**Show found items** で表示されるもの)を地方に関係なく一覧にします。アイテム名を入力すると、そのアイテムがどこにあるか探せます。表示する状態をチェックボックスで選べます(初期値はまだ取っていないチェックと Important)。**Group by region** で地域ごとにまとめます。クリックの動作は Checks と同じです(強調・下に必要条件。地図や他のページとの共有は Options の設定どおり)。
+
+**Give up…** は、見つけたかどうかに関係なく、スポイラーログからすべてのチェックの中身を表示します。最初に確認があり(GIVE UP と入力)、ページを再読み込みするか **Hide them again** を押すまで続きます。
 
 ### 見つけたチェックの中身
 

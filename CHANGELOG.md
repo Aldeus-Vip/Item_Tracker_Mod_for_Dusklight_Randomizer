@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.0 — unreleased
+
+### New
+- **Important** checks: right-click the marker left of a check to mark it (an item you need but
+  cannot take yet). It shows a golden Triforce, bright while the check is reachable, in Checks and
+  on the map; the map's Checks Filter can show the Important ones whatever their status, and
+  **Reachable first** puts them first among checks of the same status. Kept with the game save.
+- **Locations › Item Search**: the checks whose item you know (Show found items), whatever their
+  province, searched by the item's name; filtered by status (Important too) and grouped by region
+  or not. Clicks, highlight and requirement as in Checks. **Give up…** shows every check's item
+  from the spoiler log after typing GIVE UP (until the page is reloaded or hidden again).
+- Options › Display › **Checks follow Link**: Checks shows the region of the room Link enters,
+  also without the map on screen.
+
+### Fixed
+- The mod's map data (checks' places and Areas) applied to the check list only once the map had
+  been opened: the checks' places are now read in the background, and the presets' places count
+  for a check's area (By area, provinces).
+
 ## 1.2.2 — 2026-10-11
 
 ### Upgrading from 1.2.x

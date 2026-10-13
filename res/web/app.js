@@ -507,6 +507,8 @@ const DEFAULT_SETTINGS = {
   linkMap: true,
   // The check highlighted on one page, highlighted on every page (another browser, OBS) too.
   shareHighlight: false,
+  // Checks shows the region of the room Link enters (without the map on screen).
+  checksFollowLink: false,
   // The map's look: its dark backdrop shown or not, and how opaque its ground is (0.1 to 1), to lay
   // it over the game in OBS.
   mapLook: { backdrop: true, ground: 1 },
@@ -553,6 +555,7 @@ function normalizeSettings(raw) {
   if (ff && typeof ff === "object") out.frameFill.glow = Math.max(0, Math.min(1, Number.isFinite(Number(ff.glow)) ? Number(ff.glow) : 1));
   out.linkMap = raw?.linkMap !== false;
   out.shareHighlight = raw?.shareHighlight === true;
+  out.checksFollowLink = raw?.checksFollowLink === true;
   const ml = raw?.mapLook;
   if (ml && typeof ml === "object") {
     out.mapLook.backdrop = ml.backdrop !== false;
@@ -663,6 +666,7 @@ function applySettings() {
   document.getElementById("font-upload").hidden = fo.family !== "custom";
   document.getElementById("link-map").checked = settings.linkMap;
   document.getElementById("share-highlight").checked = settings.shareHighlight;
+  document.getElementById("checks-follow").checked = settings.checksFollowLink;
   // The map's look.
   document.body.classList.toggle("map-no-backdrop", !settings.mapLook.backdrop);
   document.body.style.setProperty("--map-ground", String(settings.mapLook.ground));
@@ -784,6 +788,11 @@ document.getElementById("font-family").addEventListener("change", (e) => {
 document.getElementById("link-map").addEventListener("change", (e) => {
   settings.linkMap = e.target.checked;
   saveSettings();
+});
+document.getElementById("checks-follow").addEventListener("change", (e) => {
+  settings.checksFollowLink = e.target.checked;
+  saveSettings();
+  locationsView.refresh();
 });
 document.getElementById("share-highlight").addEventListener("change", (e) => {
   settings.shareHighlight = e.target.checked;
@@ -1141,7 +1150,7 @@ function renderDungeons(dungeons) {
       row.title = `Open ${d.name}'s map`;
       const open = () => {
         showView("locations");
-        if (locTab === "checks") showLocTab("map");
+        if (locTab === "checks" || locTab === "items") showLocTab("map");
         mapView?.showDungeon(stage);
       };
       row.addEventListener("click", (e) => { if (!editing) open(); });
@@ -1156,15 +1165,18 @@ function renderDungeons(dungeons) {
 // ---- Locations view ----
 
 // Locations has sub-tabs: the checks, the map, or both side by side (when the page is wide enough).
-const LOC_TABS = [["checks", "Checks"], ["map", "Map"], ["both", "Checks + Map"]];
+const LOC_TABS = [["checks", "Checks"], ["map", "Map"], ["both", "Checks + Map"], ["items", "Item Search"]];
 const BOTH_MIN_WIDTH = 900;
 const locChecks = document.createElement("div");
 locChecks.className = "loc-checks-pane";
 const locMap = document.createElement("div");
 locMap.className = "loc-map-pane";
+// Locations › Item Search: the checks by the item found in them.
+const locItems = document.createElement("div");
+locItems.className = "loc-items-pane";
 const locSplit = document.createElement("div");
 locSplit.className = "loc-split";
-locSplit.append(locChecks, locMap);
+locSplit.append(locChecks, locMap, locItems);
 const locTabBar = document.createElement("nav");
 locTabBar.className = "loc-subtabs";
 locTabBar.setAttribute("role", "tablist");
@@ -1198,12 +1210,15 @@ function showLocTab(name) {
     return button;
   }));
   locSplit.dataset.tab = shown;
-  locChecks.hidden = shown === "map";
-  locMap.hidden = shown === "checks";
-  mapView?.setVisible(!views.locations.hidden && shown !== "checks");
+  locChecks.hidden = shown === "map" || shown === "items";
+  locMap.hidden = shown === "checks" || shown === "items";
+  locItems.hidden = shown !== "items";
+  mapView?.setVisible(!views.locations.hidden && (shown === "map" || shown === "both"));
+  if (shown === "items") locationsView?.refreshItemSearch();
 }
 new ResizeObserver(() => {
-  if (!views.locations.hidden) showLocTab(locTab);
+  if (!views.locations.hidden) locationsView.mountItemSearch(locItems);
+showLocTab(locTab);
   document.documentElement.style.setProperty("--loc-sub-h", `${locTabBar.offsetHeight}px`);
 }).observe(views.locations);
 
@@ -1229,7 +1244,7 @@ const locationsView = createLocationsView(locChecks, {
   saveEntries,
   setStatus,
   // The map knows where the game places each check (for grouping by area) and shows them.
-  placeOf: (key) => mapView?.placeOf(key) ?? null,
+  placeOf: (key, name) => mapView?.placeOf(key, name) ?? null,
   // Checks and Map linked (Options): a region picked in Checks opens its map.
   onRegionPicked(region) {
     if (settings.linkMap) mapView?.showRegion(region);
@@ -1244,12 +1259,13 @@ const locationsView = createLocationsView(locChecks, {
   // The presets' Areas of checks (By area, region filter).
   getCheckAreas: () => mapPresets.checkAreas,
   showOnMap(name) {
-    if (locSplit.dataset.tab === "checks") showLocTab("map");
+    if (locSplit.dataset.tab === "checks" || locSplit.dataset.tab === "items") showLocTab("map");
     // (Only shown and highlighted: no requirement.)
     mapView?.showCheck(name, false);
   },
   clickMode: () => settings.clickMode,
   onFocusChanged: (name) => shareHighlight(name),
+  followLink: () => settings.checksFollowLink,
 });
 mapView = createMapView(locMap, {
   getState: () => state,

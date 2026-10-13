@@ -1,0 +1,14 @@
+<!doctype html><html><head><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="tp-ui.css"></head>
+<body data-theme="twilight" style="padding:20px;width:600px">
+<div id="v-locations"><div class="loc-list" id="list"></div></div>
+<script type="module">
+import { triforceSvg } from "./locations.js";
+const list = document.getElementById("list");
+for (const [st, label] of [["reachable","Reachable + Important"],["blocked","Not reachable + Important"],["unknown","Unknown + Important"],["reachable","Reachable (normal)"],["blocked","Not reachable (normal)"]]) {
+  const imp = label.includes("Important");
+  list.insertAdjacentHTML("beforeend", `<button class="loc-row plate ${st}"><span class="loc-dot clickable${imp ? " important" : ""}">${imp ? triforceSvg() : ""}</span><span class="loc-name">${label}</span></button>`);
+}
+const m = document.createElement("div"); m.style.cssText = "position:relative;height:60px;margin-top:20px;background:#123;display:flex;gap:40px;padding:10px";
+m.innerHTML = `<span class="map-check reachable" style="position:relative;width:22px;height:22px"><span class="loc-dot important">${triforceSvg()}</span></span><span class="map-check blocked" style="position:relative;width:22px;height:22px"><span class="loc-dot important">${triforceSvg()}</span></span><span class="map-check reachable" style="position:relative;width:22px;height:22px"><span class="loc-dot"></span></span>`;
+document.body.append(m);
+</script></body></html>

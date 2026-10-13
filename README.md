@@ -57,7 +57,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Items / Dungeons | Right-click an icon | Open the icon editor (see below) |
 | Items | Click **Golden Bugs** | Show every golden bug (male and female of each kind, as on the game's insect screen), with Agitha's butterfly on the bugs given to her; right-click a bug or the butterfly to change its icon |
 | Items | **Edit** | Rearrange tiles: click two slots or drag one onto another to swap them, add or remove rows, then **Confirm** |
-| Any tab | **Options** | Display (Simple / Advanced, Link Checks and Map, Share highlight between pages, Clicks on a check, font), Theme (Twilight, Midna, Hyrule, Shadow), Background image, Item Background (color, opacity, glow), Map (backdrop, ground opacity). Click the button again or outside to close |
+| Any tab | **Options** | Display (Simple / Advanced, Link Checks and Map, Share highlight between pages, Checks follow Link, Clicks on a check, font), Theme (Twilight, Midna, Hyrule, Shadow), Background image, Item Background (color, opacity, glow), Map (backdrop, ground opacity). Click the button again or outside to close |
 | Locations | Click a region | Show its checks. In a narrow window the region list and the check list are shown one at a time; use **‹ Back** to return |
 | Locations | Click a check | Show its requirement: parts joined by "and" side by side, alternatives stacked, met parts outlined (Options › Clicks on a check can swap click and right-click) |
 | Locations | Rest the pointer on a check | Its requirement beside it |
@@ -66,7 +66,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | Select a check, **Ctrl+C**; select another, **Ctrl+V** | Copy a custom requirement to another check. A popup shows it first; OK has the focus, so **Enter** pastes and **Esc** cancels |
 | Locations | Right-click | Highlight a check or region |
 | Locations | **Logic ON/OFF** | Turn reachability on or off |
-| Locations | **Checks / Map / Checks + Map** | Switch between the check list, the map of where Link is, or both side by side (needs a window at least 900 px wide) |
+| Locations | **Checks / Map / Checks + Map / Item Search** | Switch between the check list, the map of where Link is, both side by side (needs a window at least 900 px wide), or the search of found items (see [Item Search](#item-search)) |
 | Map | Click / right-click / drag | Zoom in, zoom out, move; see [Map](#map) |
 | Locations | **Reachable Regions ▾** | The logic regions by province, each marked reachable or not (marked when Link enters it). Switch one, or a whole province with **All on / All off**. Used by Map entries of custom requirements; kept with the game save |
 | Locations | **Requirements ▾** | **Export / Import Custom Requirements** as JSON, **Load Preset Custom Requirements**, or **Use Randomizer Logic for All** (removes every custom requirement) |
@@ -74,6 +74,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Locations | **Show found items** | Off by default. Show what a found check held (see below). Nothing else of the seed is shown |
 | Locations | **Sort** | Game order, or reachable checks first |
 | Locations | Click the marker left of a check | Mark a check you will not take (a shop item not worth buying, an item you can see but not reach): it shows a sold-out sign and counts as done. Click again to undo; kept with the game save |
+| Locations | Right-click the marker left of a check | Mark it **Important** (an item you need but cannot take yet): a golden Triforce, bright while the check is reachable. The map's Checks Filter and Item Search can show only those, and **Reachable first** puts them first among checks of the same status. Right-click again to undo; kept with the game save |
 
 ### Map
 
@@ -171,6 +172,12 @@ it opens in the panel). The window closes when you press **Save**.
 | Time | Day, Night | The game's clock shows that time (night is 19:00–6:00) |
 | Rand Settings | On/off settings such as Faron Twilight Cleared or Open Door of Time | The setting is on. The three twilights are also read from your save, so a twilight you cleared counts |
 | Map Reachable | Regions of the randomizer logic (Faron Woods, North Eldin, …) | The region is marked reachable. It is marked when you enter it in the game; switch it in **Reachable Regions ▾** or by clicking a Map entry in a check's requirement. Marks are kept with the game save, so each save (and seed) has its own |
+
+### Item Search
+
+**Locations › Item Search** lists the checks whose item you know (as **Show found items** shows them), whatever their province: type an item's name to find where it is. Tick the statuses to list (by default every check still to take, and the Important ones), and **Group by region** to group them. Clicks are as in Checks (highlight, requirement under the list, shared with the map and other pages as set in Options).
+
+**Give up…** shows every check's item from the spoiler log, found or not. It asks first (type GIVE UP), and lasts until the page is reloaded or **Hide them again**.
 
 ### Found items
 

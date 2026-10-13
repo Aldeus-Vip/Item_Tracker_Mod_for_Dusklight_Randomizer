@@ -256,3 +256,13 @@ export function isObtained(location, reader) {
   }
   return false;
 }
+
+// The Important mark of a check (right-click on its marker): a golden Triforce (original drawing),
+// bright when the check is reachable, dim when not.
+let triforceId = 0;
+export function triforceSvg() {
+  const id = `tf${triforceId++}`;
+  return `<svg class="triforce" viewBox="0 0 20 18" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" style="stop-color:var(--tf-hi)"/><stop offset="1" style="stop-color:var(--tf-lo)"/></linearGradient></defs>` +
+    `<path d="M10 0.8L14.6 9H5.4ZM5 9.8L9.6 17.2H0.4ZM15 9.8L19.6 17.2H10.4Z" style="fill:url(#${id});stroke:var(--tf-edge)" stroke-width="0.9" stroke-linejoin="round"/></svg>`;
+}

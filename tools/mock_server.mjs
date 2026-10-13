@@ -272,7 +272,7 @@ createServer(async (req, res) => {
       else if (line.startsWith("-")) {
         // Same rules as the mod (src/found_checks.cpp): page entries can be removed...
         const key = line.slice(1);
-        if (/^(map|mark|note):/.test(key)) state.found.entries = state.found.entries.filter((e) => e !== key && !e.startsWith(key + "\t"));
+        if (/^(map|mark|imp|note):/.test(key)) state.found.entries = state.found.entries.filter((e) => e !== key && !e.startsWith(key + "\t"));
       } else if (line.startsWith("note:")) {
         // ...and a note replaces the note of its key.
         const tab = line.indexOf("\t");
@@ -280,7 +280,7 @@ createServer(async (req, res) => {
         const key = line.slice(0, tab);
         state.found.entries = state.found.entries.filter((e) => !e.startsWith(key + "\t"));
         if (tab + 1 < line.length) state.found.entries.push(line);
-      } else if (/^(loc|told|map|mark):/.test(line) && !state.found.entries.includes(line)) state.found.entries.push(line);
+      } else if (/^(loc|told|map|mark|imp):/.test(line) && !state.found.entries.includes(line)) state.found.entries.push(line);
     }
     res.writeHead(200, { "Content-Type": TYPES[".json"] });
     return res.end('{"ok":true}');
