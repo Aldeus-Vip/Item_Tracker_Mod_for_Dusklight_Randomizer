@@ -127,7 +127,7 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {}, clickMode = () => "left-req", onFocusChanged = null, followLink = () => false }) {
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {}, clickMode = () => "left-req", onFocusChanged = null }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -569,11 +569,13 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     if (!getMapFlags().includes(region)) saveEntries([`map:${region}`]).then(() => { evaluate(); render(); });
   }
 
-  // Options › Checks follow Link: the list shows the region of the room Link enters (its province
-  // and that region), without the map on screen.
+  // Follow Link (the check list's banner, as the map's; kept in this browser): the list shows the
+  // region of the room Link enters (its province and that region), without the map on screen.
+  let followOn = false;
+  try { followOn = localStorage.getItem("tracker.checksFollow") === "1"; } catch {}
   let followedRegion = null;
   function followCurrentRegion() {
-    if (!followLink() || !state?.inGame || !world) {
+    if (!followOn || !state?.inGame || !world) {
       followedRegion = null;
       return;
     }
@@ -967,6 +969,15 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         } },
         el("option", { value: "", textContent: "All regions", selected: !regionFilter.region }),
         ...regionsHere.map((r) => el("option", { value: r, textContent: r, selected: r === regionFilter.region }))) : null,
+      el("label", { className: "map-follow loc-follow", title: "Show the region of the room Link enters (also when the map is not on screen)" },
+        el("input", { type: "checkbox", checked: followOn, onchange: (e) => {
+          followOn = e.target.checked;
+          remember("tracker.checksFollow", followOn ? "1" : null);
+          // On Link's region right away.
+          followedRegion = null;
+          followCurrentRegion();
+          render();
+        } }), "Follow Link"),
       el("label", { className: "loc-by-area", title: "Group the checks by the area they are in (the places the map shows)" },
         el("input", { type: "checkbox", checked: groupByArea, onchange: (e) => {
           groupByArea = e.target.checked;

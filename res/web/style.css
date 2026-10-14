@@ -1292,6 +1292,7 @@ body.map-no-backdrop .map-frame { background: transparent; box-shadow: none; }
 .map-caption { margin: 2px 0 0; font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; text-align: center; }
 .map-follow { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .map-follow:hover { color: var(--text); }
+.loc-banner .loc-follow { margin-left: 8px; }
 /* Province and Hyrule views: dark, with the place (or province) under the cursor lit, as on the
    game's map screen */
 .map-svg.field-select .map-shapes { filter: none; }

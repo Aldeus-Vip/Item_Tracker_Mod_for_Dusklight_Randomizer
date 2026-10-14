@@ -507,8 +507,6 @@ const DEFAULT_SETTINGS = {
   linkMap: true,
   // The check highlighted on one page, highlighted on every page (another browser, OBS) too.
   shareHighlight: false,
-  // Checks shows the region of the room Link enters (without the map on screen).
-  checksFollowLink: false,
   // The map's look: its dark backdrop shown or not, and how opaque its ground is (0.1 to 1), to lay
   // it over the game in OBS.
   mapLook: { backdrop: true, ground: 1 },
@@ -555,7 +553,6 @@ function normalizeSettings(raw) {
   if (ff && typeof ff === "object") out.frameFill.glow = Math.max(0, Math.min(1, Number.isFinite(Number(ff.glow)) ? Number(ff.glow) : 1));
   out.linkMap = raw?.linkMap !== false;
   out.shareHighlight = raw?.shareHighlight === true;
-  out.checksFollowLink = raw?.checksFollowLink === true;
   const ml = raw?.mapLook;
   if (ml && typeof ml === "object") {
     out.mapLook.backdrop = ml.backdrop !== false;
@@ -666,7 +663,6 @@ function applySettings() {
   document.getElementById("font-upload").hidden = fo.family !== "custom";
   document.getElementById("link-map").checked = settings.linkMap;
   document.getElementById("share-highlight").checked = settings.shareHighlight;
-  document.getElementById("checks-follow").checked = settings.checksFollowLink;
   // The map's look.
   document.body.classList.toggle("map-no-backdrop", !settings.mapLook.backdrop);
   document.body.style.setProperty("--map-ground", String(settings.mapLook.ground));
@@ -788,11 +784,6 @@ document.getElementById("font-family").addEventListener("change", (e) => {
 document.getElementById("link-map").addEventListener("change", (e) => {
   settings.linkMap = e.target.checked;
   saveSettings();
-});
-document.getElementById("checks-follow").addEventListener("change", (e) => {
-  settings.checksFollowLink = e.target.checked;
-  saveSettings();
-  locationsView.refresh();
 });
 document.getElementById("share-highlight").addEventListener("change", (e) => {
   settings.shareHighlight = e.target.checked;
@@ -1265,7 +1256,6 @@ const locationsView = createLocationsView(locChecks, {
   },
   clickMode: () => settings.clickMode,
   onFocusChanged: (name) => shareHighlight(name),
-  followLink: () => settings.checksFollowLink,
 });
 mapView = createMapView(locMap, {
   getState: () => state,
