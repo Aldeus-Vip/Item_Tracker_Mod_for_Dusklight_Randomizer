@@ -43,12 +43,6 @@
           <button type="button" class="swatch mode" data-mode="advanced" title="Everything: custom requirements, reachable regions, seeds, placing checks by hand, renaming places, details">Advanced</button>
         </div>
         <div class="opt-row">
-          <label title="The map shows the region picked in Checks, and Checks the region of the place the map shows"><input type="checkbox" id="link-map"> Link Checks and Map</label>
-        </div>
-        <div class="opt-row">
-          <label title="A check highlighted on one page is highlighted on every page open (another browser, OBS)"><input type="checkbox" id="share-highlight"> Share highlight between pages</label>
-        </div>
-        <div class="opt-row">
           <span class="opt-label">Clicks on a check</span>
           <select id="click-mode" aria-label="Clicks on a check" title="In Checks and on the map: which mouse button shows a check's requirement and which only highlights it (right-click does the other)">
             <option value="left-req" title="Click: requirement · Right-click: highlight">Click = requirement</option>
@@ -67,6 +61,18 @@
             <option value="all">All text</option>
           </select>
           <label class="tool" id="font-upload" title="A TrueType, OpenType or WOFF font (a Hylian font, ...)">Upload font…<input type="file" id="font-file" accept=".ttf,.otf,.woff,.woff2,font/*" hidden></label>
+        </div>
+      </section>
+      <section class="opt-group">
+        <h3 class="opt-title"><span>Locations Link</span></h3>
+        <div class="opt-row">
+          <label title="The map shows the region picked in Checks, and Checks the region of the place the map shows"><input type="checkbox" id="link-map"> Link Checks and Map</label>
+        </div>
+        <div class="opt-row">
+          <label title="Checks shows the region of the room Link enters, also when the map is not on screen (the map has its own Follow Link)"><input type="checkbox" id="checks-follow"> Checks follow Link</label>
+        </div>
+        <div class="opt-row">
+          <label title="A check highlighted on one page is highlighted on every page open (another browser, OBS)"><input type="checkbox" id="share-highlight"> Share highlight between pages</label>
         </div>
       </section>
       <section class="opt-group">

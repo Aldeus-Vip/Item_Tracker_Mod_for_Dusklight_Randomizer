@@ -11,8 +11,13 @@
   province, searched by the item's name; filtered by status (Important too), in game order or
   reachable first, grouped by region or not. Clicks, highlight and requirement as in Checks. **Give up…** shows every check's item
   from the spoiler log after typing GIVE UP (until the page is reloaded or hidden again).
-- **Follow Link** in Checks (beside Sort, as the map's): the list shows the region of the
-  room Link enters, also without the map on screen.
+- Options › **Locations Link**: the settings that tie Checks, the map and other pages together in
+  one place — Link Checks and Map, Share highlight between pages (from Display) and the new
+  **Checks follow Link** (the list shows the region of the room Link enters, also without the map
+  on screen).
+
+### Changed
+- A check with a custom requirement shows a small golden quill instead of the "custom" label.
 
 ### Fixed
 - The mod's map data (checks' places and Areas) applied to the check list only once the map had

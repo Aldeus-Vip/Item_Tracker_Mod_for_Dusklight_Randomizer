@@ -127,7 +127,10 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {}, clickMode = () => "left-req", onFocusChanged = null }) {
+// A quill (original drawing): the mark of a check whose requirement is written by hand.
+const QUILL_SVG = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M14.6 1.2c-4.1.4-7.6 2.8-9.4 6.6L4 10.6l1.3.4 1.1-1.6c2.4-.2 4.4-1.3 5.6-3.2-1.1.2-2.1.1-3-.3 1.6-.3 3-1.2 4-2.5-.8.1-1.6 0-2.2-.3 1.5-.4 2.9-1 3.8-1.9z" fill="currentColor"/><path d="M5.3 11 2 14.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`;
+
+export function createLocationsView(root, { getOverrides, getPresetOverrides, saveOverrides, getLogic, saveLogic, saveEntries, getLayoutSections, makeIcon, getSeedView, saveSeedView, setStatus, placeOf = () => null, showOnMap = null, getCheckAreas = () => ({}), onRegionPicked = () => {}, onFocus = () => {}, onReqClosed = () => {}, clickMode = () => "left-req", onFocusChanged = null, followLink = () => false }) {
   let world = null;
   let locations = [];
   let pickableItems = [];
@@ -569,13 +572,11 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     if (!getMapFlags().includes(region)) saveEntries([`map:${region}`]).then(() => { evaluate(); render(); });
   }
 
-  // Follow Link (the toolbar, as the map's; kept in this browser): the list shows the
-  // region of the room Link enters (its province and that region), without the map on screen.
-  let followOn = false;
-  try { followOn = localStorage.getItem("tracker.checksFollow") === "1"; } catch {}
+  // Options › Locations Link › Checks follow Link: the list shows the region of the room Link
+  // enters (its province and that region), without the map on screen.
   let followedRegion = null;
   function followCurrentRegion() {
-    if (!followOn || !state?.inGame || !world) {
+    if (!followLink() || !state?.inGame || !world) {
       followedRegion = null;
       return;
     }
@@ -763,7 +764,12 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       const item = shownItem ?? foundItem(loc);
       return item ? el("span", { className: "loc-found", textContent: item, title: `Holds: ${item}` }) : null;
     })(),
-    overrides[loc.name] ? el("span", { className: "loc-tag", textContent: "custom" }) : null);
+    overrides[loc.name] ? customMark() : null);
+  }
+
+  // A check whose requirement is written by hand (custom): a small golden quill.
+  function customMark() {
+    return el("span", { className: "loc-custom", title: "Custom requirement", ariaLabel: "Custom requirement", innerHTML: QUILL_SVG });
   }
 
   // A check highlighted (again: no longer), and the map told (Checks and Map linked).
@@ -849,15 +855,6 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
           },
         }, ...seeds.map((s) => el("option", { value: s.hash, textContent: s.hash, selected: s.hash === seedHash })))
         : el("span", { className: "loc-note", textContent: "No spoiler log found" }));
-    const follow = el("label", { className: "loc-toggle", title: "Show the region of the room Link enters (also when the map is not on screen); kept in this browser" },
-      el("input", { type: "checkbox", checked: followOn, onchange: (e) => {
-        followOn = e.target.checked;
-        remember("tracker.checksFollow", followOn ? "1" : null);
-        // On Link's region right away.
-        followedRegion = null;
-        followCurrentRegion();
-        render();
-      } }), " Follow Link");
     const sort = el("label", { className: "loc-sort", title: logic ? "Order of the check list" : "Turn Logic on to sort by reachable" }, "Sort ",
       el("select", {
         disabled: !logic,
@@ -893,7 +890,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         el("b", { textContent: String(total.remaining) }), " remaining"),
         regionsMenu()),
       el("div", { className: "loc-bar-row" }, logicSwitch, reqMenu, seedMenu),
-      el("div", { className: "loc-bar-row" }, sort, hide, found, follow),
+      el("div", { className: "loc-bar-row" }, sort, hide, found),
     );
     if (settingsNote && logic) toolbar.append(el("span", { className: "loc-note", textContent: settingsNote }));
     if (!state) toolbar.append(el("span", { className: "loc-note", textContent: "Waiting for the game…" }));
@@ -1277,7 +1274,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       el("h3", { textContent: name }),
       el("span", { className: `loc-status ${status}`, textContent: { obtained: "Obtained", checked: "Marked checked", reachable: "Reachable", blocked: "Not reachable", excluded: "Excluded", unknown: "Logic off" }[status] })));
     if (custom) {
-      panel.append(el("h4", {}, "Requirement ", el("span", { className: "loc-tag", textContent: "custom" })),
+      panel.append(el("h4", {}, "Requirement ", el("span", { className: "loc-custom-label" }, customMark(), "Custom")),
         el("div", { className: "req-tree" }, renderReq(routesTree(custom))));
     } else {
       panel.append(el("h4", { textContent: "Requirement" }), ...randomizerReq(access));
@@ -1341,7 +1338,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     if (editing.edit && !popup) {
       req.append(renderEditor());
     } else if (custom) {
-      req.append(el("h4", {}, "Requirement ", el("span", { className: "loc-tag", textContent: "custom" })),
+      req.append(el("h4", {}, "Requirement ", el("span", { className: "loc-custom-label" }, customMark(), "Custom")),
         el("div", { className: "req-tree" }, renderReq(routesTree(custom))),
         el("details", { className: "loc-rando" }, el("summary", { textContent: "Randomizer logic" }), ...randomizerReq(access)),
         editActions(custom));
