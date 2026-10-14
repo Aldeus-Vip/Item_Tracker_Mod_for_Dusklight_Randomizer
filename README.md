@@ -187,7 +187,7 @@ With **Show found items** on, a check shows what it holds once you have found it
 |---|---|
 | Collecting it | The check is obtained |
 | A hint | You read a "They say that the reward for … is …" hint about it |
-| Seeing it | A freestanding item (or a boss's heart container, the Ordon Shield, the Ordon Sword, the Zora Armor on its stand) is near Link and in his sight (not under a boulder or behind a wall, nor under an enemy standing on it) |
+| Seeing it | A freestanding item (or a boss's heart container, a golden wolf's item, the Ordon Shield, the Ordon Sword, the Zora Armor on its stand) is near Link and in his sight (not under a boulder or behind a wall, nor under an enemy standing on it) |
 | A shop | You entered the shop |
 | An NPC | Charlo names his reward when you enter Castle Town West |
 

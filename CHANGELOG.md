@@ -25,8 +25,8 @@
   The grotto is now told by the story layer Link entered with (sent by the mod in the state), as
   the map does — which also holds with entrances shuffled — else by where he came from; when it
   cannot be told, nothing changes.
-- Show found items: the Ordon Shield, the Ordon Sword and the Zora Armor on its stand were not
-  noted when seen (only items lying around were watched); they are now, like those.
+- Show found items: the Ordon Shield, the Ordon Sword, the Zora Armor on its stand and the item a
+  golden wolf leaves were not noted when seen (only items lying around were watched); they are now, like those.
 - Show found items: an item under an enemy standing on it (the Forest Temple's Big Baba Key under
   its Deku Like) counted as seen before the enemy was gone. An enemy within 120 of an item now
   hides it (debug.html: Enemy over it).

@@ -447,6 +447,8 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
   // check's item: "ordon_shield") -> locations, from their metadata.
   function checkLocations(check) {
     if (SHOWN_CHECKS[check]) return [SHOWN_CHECKS[check]];
+    // A golden wolf's item: "golden_wolf:<event flag>", as checkName gives it.
+    if (check.startsWith("golden_wolf:")) return locations.filter((l) => checkName(l) === check).map((l) => l.name);
     const [type, stage, bit] = check.split(":");
     const flag = type === "boss" ? 0x9f : Number(bit);
     const out = [];

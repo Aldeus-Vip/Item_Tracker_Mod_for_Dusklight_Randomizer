@@ -145,7 +145,9 @@ constexpr std::string_view kShownChecks[] = {ITEM_CHECK_ORDON_SHIELD, ITEM_CHECK
 bool on_check_resolved(ModContext*, const ItemCheckInfo* info, ItemCheckResolution*, void*) {
     if (info == nullptr || info->name == nullptr || info->giver_actor == nullptr) return false;
     const std::string_view name{info->name};
+    // (The item a golden wolf leaves lies in the world too: "golden_wolf:<event flag>".)
     if (!name.starts_with(ITEM_CHECK_FREESTANDING_PREFIX) && !name.starts_with(ITEM_CHECK_BOSS_PREFIX) &&
+        !name.starts_with(ITEM_CHECK_GOLDEN_WOLF_PREFIX) &&
         std::find(std::begin(kShownChecks), std::end(kShownChecks), name) == std::end(kShownChecks)) {
         return false;
     }
