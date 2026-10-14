@@ -528,6 +528,10 @@ std::string build_state_json() {
         w.member("stage", dComIfGp_getStartStageName());
         // Room Link is in (the page marks the logic region it belongs to as reachable).
         w.member("room", dComIfGp_roomControl_getStayNo());
+        // The story layer the stage was entered with (the entrance's State): grottos built alike
+        // share one room and differ only by it, so it tells which one Link is in (also with
+        // entrances shuffled: the destination's own State is used).
+        w.member("layer", static_cast<int>(dComIfGp_getStartStageLayer()));
         write_items(w);
         write_inventory(w);
         write_flags(w);

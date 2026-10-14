@@ -569,10 +569,34 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     return Boolean(c.expr && search) && routeEntrySatisfied(search, { item: c.expr });
   }
 
+  // The logic region of the room Link is in. Grottos built alike share one room: which one he is in
+  // is told by the story layer he entered with (the entrance's State; with entrances shuffled the
+  // game still enters with the destination's own), else by the place he came from. null when it
+  // cannot be told (better than another grotto's region).
+  let herePlace = null;
+  let cameFrom = null;
+  function notePlace() {
+    if (!state?.inGame || !state.stage) return;
+    if (herePlace && herePlace.stage === state.stage && herePlace.room === state.room) return;
+    cameFrom = herePlace;
+    herePlace = { stage: state.stage, room: state.room };
+  }
+  function linkRegion() {
+    const variants = roomVariants(state.stage, state.room) ?? [];
+    if (variants.length < 2) return roomRegion(state.stage, state.room);
+    const areas = new Set(variants.map((v) => v.area));
+    const here = (s) => s?.stage === state.stage && s.room === state.room;
+    let e = Number.isInteger(state.layer) && state.layer >= 0
+      ? entranceList.find((x) => here(x.fwd) && x.fwd.state === state.layer && areas.has(x.to)) : null;
+    if (!e && cameFrom) e = entranceList.find((x) => here(x.fwd) && areas.has(x.to) && x.back?.stage === cameFrom.stage && x.back.room === cameFrom.room);
+    const region = e ? world?.areas.get(e.to)?.region : null;
+    return region && region !== "None" ? regionTitle(region) : null;
+  }
+
   // Marks the region Link has just entered as reachable (hand marks stay as they are otherwise).
   function markCurrentRegion() {
     if (!state?.inGame || !world) return;
-    const region = roomRegion(state.stage, state.room);
+    const region = linkRegion();
     if (!region || region === lastRegion) return;
     lastRegion = region;
     if (!getMapFlags().includes(region)) saveEntries([`map:${region}`]).then(() => { evaluate(); render(); });
@@ -586,7 +610,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       followedRegion = null;
       return;
     }
-    const region = roomRegion(state.stage, state.room);
+    const region = linkRegion();
     if (!region || region === followedRegion) return;
     followedRegion = region;
     pickRegion(region);
@@ -1978,6 +2002,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       // Another save (or the title screen): its marks are its own.
       if (!next?.inGame || next.found?.seed !== state?.found?.seed) lastRegion = null;
       state = next;
+      notePlace();
       markCurrentRegion();
       markSeenShops();
       followCurrentRegion();

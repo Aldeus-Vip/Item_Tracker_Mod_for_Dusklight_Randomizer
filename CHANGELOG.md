@@ -20,6 +20,11 @@
 - A check with a custom requirement shows a small golden quill instead of the "custom" label.
 
 ### Fixed
+- Checks follow Link and the region marked reachable on entering: in a grotto built like others
+  (they share one room) the list went to another grotto's region (Ordon's to Beside Castle Town's).
+  The grotto is now told by the story layer Link entered with (sent by the mod in the state), as
+  the map does — which also holds with entrances shuffled — else by where he came from; when it
+  cannot be told, nothing changes.
 - Show found items: the Ordon Shield, the Ordon Sword and the Zora Armor on its stand were not
   noted when seen (only items lying around were watched); they are now, like those.
 - Show found items: an item under an enemy standing on it (the Forest Temple's Big Baba Key under
