@@ -127,6 +127,10 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
+// Objects showing their check's item in the world (mods/items.h names, as the randomizer's
+// tools.cpp maps them to locations), seen like items lying around.
+const SHOWN_CHECKS = { ordon_shield: "Ordon Shield", ordon_sword: "Ordon Sword", zora_armor: "Rutelas Blessing" };
+
 // A quill (original drawing): the mark of a check whose requirement is written by hand.
 const QUILL_SVG = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M14.6 1.2c-4.1.4-7.6 2.8-9.4 6.6L4 10.6l1.3.4 1.1-1.6c2.4-.2 4.4-1.3 5.6-3.2-1.1.2-2.1.1-3-.3 1.6-.3 3-1.2 4-2.5-.8.1-1.6 0-2.2-.3 1.5-.4 2.9-1 3.8-1.9z" fill="currentColor"/><path d="M5.3 11 2 14.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`;
 
@@ -439,8 +443,10 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     return map;
   }
 
-  // Item check names ("freestanding:<stage>:<bit>", "boss:<stage>") -> locations, from their metadata.
+  // Item check names ("freestanding:<stage>:<bit>", "boss:<stage>", or an object showing its
+  // check's item: "ordon_shield") -> locations, from their metadata.
   function checkLocations(check) {
+    if (SHOWN_CHECKS[check]) return [SHOWN_CHECKS[check]];
     const [type, stage, bit] = check.split(":");
     const flag = type === "boss" ? 0x9f : Number(bit);
     const out = [];

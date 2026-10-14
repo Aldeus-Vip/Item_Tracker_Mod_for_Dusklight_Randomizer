@@ -20,6 +20,8 @@
 - A check with a custom requirement shows a small golden quill instead of the "custom" label.
 
 ### Fixed
+- Show found items: the Ordon Shield, the Ordon Sword and the Zora Armor on its stand were not
+  noted when seen (only items lying around were watched); they are now, like those.
 - The mod's map data (checks' places and Areas) applied to the check list only once the map had
   been opened: the checks' places are now read in the background, and the presets' places count
   for a check's area (By area, provinces).

@@ -10,6 +10,9 @@
 #include <mods/svc/resource.h>
 #include <mods/svc/save.h>
 
+#include <algorithm>
+#include <iterator>
+
 #include "JSystem/JMessage/control.h"
 #include "d/d_bg_s_lin_chk.h"
 #include "d/d_com_inf_game.h"
@@ -132,12 +135,20 @@ void on_save_written(ModContext*, uint32_t, void*) { write_blob(); }
 
 // ---- Freestanding items ----
 
+// Items shown in the world by an object of their own, which shows the check's item when it is
+// created (the game's DUSK_ITEM_CHECK_PREVIEW): the Ordon Shield on its wall, the Ordon Sword in
+// Rusl's house, the Zora Armor on its stand.
+constexpr std::string_view kShownChecks[] = {ITEM_CHECK_ORDON_SHIELD, ITEM_CHECK_ORDON_SWORD, ITEM_CHECK_ZORA_ARMOR};
+
 // Watches every item check as it is resolved (never changes the result): an item actor lying in
 // the world resolves its check when it is created, which is when it can first be seen.
 bool on_check_resolved(ModContext*, const ItemCheckInfo* info, ItemCheckResolution*, void*) {
     if (info == nullptr || info->name == nullptr || info->giver_actor == nullptr) return false;
     const std::string_view name{info->name};
-    if (!name.starts_with(ITEM_CHECK_FREESTANDING_PREFIX) && !name.starts_with(ITEM_CHECK_BOSS_PREFIX)) return false;
+    if (!name.starts_with(ITEM_CHECK_FREESTANDING_PREFIX) && !name.starts_with(ITEM_CHECK_BOSS_PREFIX) &&
+        std::find(std::begin(kShownChecks), std::end(kShownChecks), name) == std::end(kShownChecks)) {
+        return false;
+    }
     if (has_check(std::string{name})) return false;
     const fpc_ProcID id = fopAcM_GetID(info->giver_actor);
     for (const Watched& w : g_watched) {
