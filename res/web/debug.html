@@ -27,8 +27,8 @@
 <h1>Tracker debug</h1>
 
 <h2>Items lying around being watched (this stage)</h2>
-<p>Updates every second. <b>clear</b>: one digit per point on the item (above it, higher, toward Link, farther toward Link, toward the camera, farther toward the camera); 1 = both Link's eyes and the camera see it. Seen needs a 1, <b>inView</b> and a distance up to 3000. <b>No sight</b>: listed in the mod's seen_without_sight.txt — the 1 is not needed.</p>
-<table><thead><tr><th>Check</th><th>Distance</th><th>inView</th><th>clear</th><th>No sight</th><th>Seen</th></tr></thead><tbody id="seen"></tbody></table>
+<p>Updates every second. <b>clear</b>: one digit per point on the item (above it, higher, toward Link, farther toward Link, toward the camera, farther toward the camera); 1 = both Link's eyes and the camera see it. Seen needs a 1, <b>inView</b> and a distance up to 3000. <b>No sight</b>: listed in the mod's seen_without_sight.txt — the 1 is not needed. <b>Enemy over it</b>: an enemy stands on the item (within 120): not seen until it moves or is defeated.</p>
+<table><thead><tr><th>Check</th><th>Distance</th><th>inView</th><th>clear</th><th>No sight</th><th>Enemy over it</th><th>Seen</th></tr></thead><tbody id="seen"></tbody></table>
 
 <h2>Checks with no place on the map</h2>
 <p>Every check of the list the map cannot place (not in the game files, not placed by hand, no preset), with why. Kept up to date by the tracker page open in this browser (Locations › Map, once the game files are read).</p>
@@ -54,7 +54,7 @@
       const list = await (await fetch("game-textures/seen/", { cache: "no-store" })).json();
       document.getElementById("seen").replaceChildren(...(list.length ? list : [{ check: "(none)" }]).map((w) => {
         const tr = document.createElement("tr");
-        for (const [v, cls] of [[w.check], [w.distance ?? ""], [w.inView ?? "", w.inView ? "ok" : "bad"], [w.clear ?? ""], [w.noSight ? "yes" : ""], [w.seen ?? "", w.seen ? "ok" : "bad"]]) {
+        for (const [v, cls] of [[w.check], [w.distance ?? ""], [w.inView ?? "", w.inView ? "ok" : "bad"], [w.clear ?? ""], [w.noSight ? "yes" : ""], [w.covered ? "yes" : ""], [w.seen ?? "", w.seen ? "ok" : "bad"]]) {
           const td = document.createElement("td");
           td.textContent = String(v);
           if (cls && w.distance !== undefined) td.className = cls;

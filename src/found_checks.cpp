@@ -158,6 +158,30 @@ bool on_check_resolved(ModContext*, const ItemCheckInfo* info, ItemCheckResoluti
     return false;
 }
 
+// An enemy standing on an item covers it (the Deku Like over the Forest Temple's Big Baba Key):
+// not seen while one is this close (game units, about centimeters; the line of sight tests only
+// level collision, not the enemies').
+constexpr f32 kCoverRadius = 120.0f;
+constexpr f32 kCoverHeight = 200.0f;
+
+struct CoverSearch {
+    cXyz pos;
+    const fopAc_ac_c* item;
+};
+void* find_cover(void* actor, void* data) {
+    auto* a = static_cast<fopAc_ac_c*>(actor);
+    const auto* search = static_cast<const CoverSearch*>(data);
+    if (a == nullptr || a == search->item || fopAcM_GetGroup(a) != fopAc_ENEMY_e) return nullptr;
+    const f32 dx = a->current.pos.x - search->pos.x;
+    const f32 dz = a->current.pos.z - search->pos.z;
+    const f32 dy = a->current.pos.y - search->pos.y;
+    return dx * dx + dz * dz <= kCoverRadius * kCoverRadius && dy > -kCoverHeight && dy < kCoverHeight ? a : nullptr;
+}
+bool covered_by_enemy(const fopAc_ac_c* item) {
+    CoverSearch search{item->current.pos, item};
+    return fopAcM_Search(find_cover, &search) != nullptr;
+}
+
 // True when level or object collision lies between the two points.
 bool blocked(cXyz from, cXyz to, fopAc_ac_c* self) {
     dBgS_LinChk line;
@@ -234,13 +258,15 @@ void check_watched() {
         // Listed checks: near enough and in view is enough (an invisible wall blocks the lines).
         if (!g_noSightRead) read_no_sight();
         const bool noSight = g_noSight.count(w.check) != 0;
-        seen = (seen || noSight) && inView && distance <= kSeeDistance;
+        const bool covered = covered_by_enemy(actor);
+        seen = (seen || noSight) && inView && distance <= kSeeDistance && !covered;
         debug.beginObject();
         debug.member("check", w.check);
         debug.member("distance", static_cast<int>(distance));
         debug.member("inView", inView);
         debug.member("clear", clear);
         debug.member("noSight", noSight);
+        debug.member("covered", covered);
         debug.member("seen", seen);
         debug.endObject();
         if (!seen) return false;

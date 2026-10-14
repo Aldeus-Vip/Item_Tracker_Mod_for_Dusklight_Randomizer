@@ -22,6 +22,9 @@
 ### Fixed
 - Show found items: the Ordon Shield, the Ordon Sword and the Zora Armor on its stand were not
   noted when seen (only items lying around were watched); they are now, like those.
+- Show found items: an item under an enemy standing on it (the Forest Temple's Big Baba Key under
+  its Deku Like) counted as seen before the enemy was gone. An enemy within 120 of an item now
+  hides it (debug.html: Enemy over it).
 - The mod's map data (checks' places and Areas) applied to the check list only once the map had
   been opened: the checks' places are now read in the background, and the presets' places count
   for a check's area (By area, provinces).
