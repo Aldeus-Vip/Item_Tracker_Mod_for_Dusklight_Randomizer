@@ -127,9 +127,60 @@ function crc32(bytes, previous = 0) {
   return ~crc >>> 0;
 }
 
-// Objects showing their check's item in the world (mods/items.h names, as the randomizer's
-// tools.cpp maps them to locations), seen like items lying around.
-const SHOWN_CHECKS = { ordon_shield: "Ordon Shield", ordon_sword: "Ordon Sword", zora_armor: "Rutelas Blessing" };
+// Checks known by a name of their own (mods/items.h), as the randomizer's tools.cpp maps them to
+// locations: an item one of them drops in the world (a Goron's reward on the bridge, a key a boss
+// drops) or an object showing it (the Ordon Shield) is seen like items lying around.
+const NAMED_CHECKS = {
+  "archery_reward:F_SP109": "Talo Sharpshooting",
+  "ashei_sketch": "Ashei Sketch",
+  "auru_memo": "Auru Gift To Fyer",
+  "ball_and_chain:D_MN11": "Snowpeak Ruins Ball and Chain",
+  "bulblin_key:D_MN09": "Hyrule Castle King Bulblin Key",
+  "coral_earring": "Gift From Ralis",
+  "coro_bottle": "Coro Bottle",
+  "coro_gate_key": "Coro Gate Key",
+  "coro_lantern": "Coro Lantern",
+  "dungeon_map:D_MN11": "Snowpeak Ruins Mansion Map",
+  "dungeon_reward:D_MN01": "Lakebed Temple Dungeon Reward",
+  "dungeon_reward:D_MN04": "Goron Mines Dungeon Reward",
+  "dungeon_reward:D_MN05": "Forest Temple Dungeon Reward",
+  "dungeon_reward:D_MN06": "Temple of Time Dungeon Reward",
+  "dungeon_reward:D_MN07": "City in the Sky Dungeon Reward",
+  "dungeon_reward:D_MN10": "Arbiters Grounds Dungeon Reward",
+  "dungeon_reward:D_MN11": "Snowpeak Ruins Dungeon Reward",
+  "fairy_reward:D_SB01": "Cave of Ordeals Great Fairy Reward",
+  "fishing_bottle": "Fishing Hole Bottle",
+  "fishing_heart_piece": "Fishing Hole Heart Piece",
+  "goats_reward": "Herding Goats Reward",
+  "goron_reward:F_SP113": "Zoras Domain Underwater Goron",
+  "goron_springwater_rush": "Goron Springwater Rush",
+  "ilia_charm": "Ilia Charm",
+  "ilia_memory": "Ilia Memory Reward",
+  "iza_reward_1": "Iza Helping Hand",
+  "iza_reward_2": "Iza Raging Rapids Minigame",
+  "jovani_reward_1": "Jovani 20 Poe Soul Reward",
+  "jovani_reward_2": "Jovani 60 Poe Soul Reward",
+  "key_shard_1:D_MN04": "Goron Mines Gor Amato Key Shard",
+  "key_shard_2:D_MN04": "Goron Mines Gor Ebizo Key Shard",
+  "key_shard_3:D_MN04": "Goron Mines Gor Liggs Key Shard",
+  "master_sword": "Sacred Grove Pedestal Master Sword",
+  "ordon_shield": "Ordon Shield",
+  "ordon_sword": "Ordon Sword",
+  "plumm_minigame_reward": "Plumm Fruit Balloon Minigame",
+  "prayer_reward": "Charlo Donation Blessing",
+  "renado_letter": "Renados Letter",
+  "sera_reward": "Ordon Cat Rescue",
+  "shad_dominion_rod": "Shad Dominion Rod",
+  "shadow_crystal": "Sacred Grove Pedestal Shadow Crystal",
+  "skybook": "Skybook From Impaz",
+  "snowboard_race_reward": "Snowboard Racing Prize",
+  "star_reward_1": "STAR Prize 1",
+  "star_reward_2": "STAR Prize 2",
+  "telma_invoice": "Telma Invoice",
+  "uli_cradle_reward": "Uli Cradle Delivery",
+  "wood_statue": "Wooden Statue",
+  "zora_armor": "Rutelas Blessing",
+};
 
 // A quill (original drawing): the mark of a check whose requirement is written by hand.
 const QUILL_SVG = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M14.6 1.2c-4.1.4-7.6 2.8-9.4 6.6L4 10.6l1.3.4 1.1-1.6c2.4-.2 4.4-1.3 5.6-3.2-1.1.2-2.1.1-3-.3 1.6-.3 3-1.2 4-2.5-.8.1-1.6 0-2.2-.3 1.5-.4 2.9-1 3.8-1.9z" fill="currentColor"/><path d="M5.3 11 2 14.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`;
@@ -443,10 +494,10 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     return map;
   }
 
-  // Item check names ("freestanding:<stage>:<bit>", "boss:<stage>", or an object showing its
-  // check's item: "ordon_shield") -> locations, from their metadata.
+  // Item check names ("freestanding:<stage>:<bit>", "boss:<stage>", "golden_wolf:<flag>", or a
+  // check's own name: "ordon_shield") -> locations.
   function checkLocations(check) {
-    if (SHOWN_CHECKS[check]) return [SHOWN_CHECKS[check]];
+    if (NAMED_CHECKS[check]) return [NAMED_CHECKS[check]];
     // A golden wolf's item: "golden_wolf:<event flag>", as checkName gives it.
     if (check.startsWith("golden_wolf:")) return locations.filter((l) => checkName(l) === check).map((l) => l.name);
     const [type, stage, bit] = check.split(":");

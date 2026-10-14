@@ -140,14 +140,17 @@ void on_save_written(ModContext*, uint32_t, void*) { write_blob(); }
 // Rusl's house, the Zora Armor on its stand.
 constexpr std::string_view kShownChecks[] = {ITEM_CHECK_ORDON_SHIELD, ITEM_CHECK_ORDON_SWORD, ITEM_CHECK_ZORA_ARMOR};
 
-// Watches every item check as it is resolved (never changes the result): an item actor lying in
-// the world resolves its check when it is created, which is when it can first be seen.
+// Watches every item check as it is resolved (never changes the result): an item lying in the world
+// resolves its check when it is created, which is when it can first be seen. That is an item actor
+// (freestanding items, and those dropped under a check's own name: a boss's heart container, a
+// golden wolf's item, the Goron's Springwater Rush reward on the bridge...) or one of the objects
+// above.
 bool on_check_resolved(ModContext*, const ItemCheckInfo* info, ItemCheckResolution*, void*) {
     if (info == nullptr || info->name == nullptr || info->giver_actor == nullptr) return false;
     const std::string_view name{info->name};
-    // (The item a golden wolf leaves lies in the world too: "golden_wolf:<event flag>".)
-    if (!name.starts_with(ITEM_CHECK_FREESTANDING_PREFIX) && !name.starts_with(ITEM_CHECK_BOSS_PREFIX) &&
-        !name.starts_with(ITEM_CHECK_GOLDEN_WOLF_PREFIX) &&
+    const s16 proc = fopAcM_GetName(const_cast<void*>(info->giver_actor));
+    const bool lying = proc == fpcNm_ITEM_e || proc == fpcNm_Obj_LifeContainer_e;
+    if (!lying && !name.starts_with(ITEM_CHECK_FREESTANDING_PREFIX) && !name.starts_with(ITEM_CHECK_BOSS_PREFIX) &&
         std::find(std::begin(kShownChecks), std::end(kShownChecks), name) == std::end(kShownChecks)) {
         return false;
     }
