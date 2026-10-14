@@ -59,7 +59,7 @@ them locally. The Locations tab needs them; the rest of the tracker works offlin
 | Items | **Edit** | Rearrange tiles: click two slots or drag one onto another to swap them, add or remove rows, then **Confirm** |
 | Any tab | **Options** | Display (Simple / Advanced, Link Checks and Map, Share highlight between pages, Clicks on a check, font), Theme (Twilight, Midna, Hyrule, Shadow), Background image, Item Background (color, opacity, glow), Map (backdrop, ground opacity). Click the button again or outside to close |
 | Locations | Click a region | Show its checks. In a narrow window the region list and the check list are shown one at a time; use **‹ Back** to return |
-| Locations | **Follow Link** (above the check list) | Show the region of the room Link enters, also when the map is not on screen (as the map's Follow Link); kept in this browser |
+| Locations | **Follow Link** (beside Sort) | Show the region of the room Link enters, also when the map is not on screen (as the map's Follow Link); kept in this browser |
 | Locations | Click a check | Show its requirement: parts joined by "and" side by side, alternatives stacked, met parts outlined (Options › Clicks on a check can swap click and right-click) |
 | Locations | Rest the pointer on a check | Its requirement beside it |
 | Locations | **Customize** / **Edit** | Replace the randomizer logic for that check with your own routes (see below) |

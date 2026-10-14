@@ -569,7 +569,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     if (!getMapFlags().includes(region)) saveEntries([`map:${region}`]).then(() => { evaluate(); render(); });
   }
 
-  // Follow Link (the check list's banner, as the map's; kept in this browser): the list shows the
+  // Follow Link (the toolbar, as the map's; kept in this browser): the list shows the
   // region of the room Link enters (its province and that region), without the map on screen.
   let followOn = false;
   try { followOn = localStorage.getItem("tracker.checksFollow") === "1"; } catch {}
@@ -849,6 +849,15 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
           },
         }, ...seeds.map((s) => el("option", { value: s.hash, textContent: s.hash, selected: s.hash === seedHash })))
         : el("span", { className: "loc-note", textContent: "No spoiler log found" }));
+    const follow = el("label", { className: "loc-toggle", title: "Show the region of the room Link enters (also when the map is not on screen); kept in this browser" },
+      el("input", { type: "checkbox", checked: followOn, onchange: (e) => {
+        followOn = e.target.checked;
+        remember("tracker.checksFollow", followOn ? "1" : null);
+        // On Link's region right away.
+        followedRegion = null;
+        followCurrentRegion();
+        render();
+      } }), " Follow Link");
     const sort = el("label", { className: "loc-sort", title: logic ? "Order of the check list" : "Turn Logic on to sort by reachable" }, "Sort ",
       el("select", {
         disabled: !logic,
@@ -884,7 +893,7 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         el("b", { textContent: String(total.remaining) }), " remaining"),
         regionsMenu()),
       el("div", { className: "loc-bar-row" }, logicSwitch, reqMenu, seedMenu),
-      el("div", { className: "loc-bar-row" }, sort, hide, found),
+      el("div", { className: "loc-bar-row" }, sort, hide, found, follow),
     );
     if (settingsNote && logic) toolbar.append(el("span", { className: "loc-note", textContent: settingsNote }));
     if (!state) toolbar.append(el("span", { className: "loc-note", textContent: "Waiting for the game…" }));
@@ -969,15 +978,6 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
         } },
         el("option", { value: "", textContent: "All regions", selected: !regionFilter.region }),
         ...regionsHere.map((r) => el("option", { value: r, textContent: r, selected: r === regionFilter.region }))) : null,
-      el("label", { className: "map-follow loc-follow", title: "Show the region of the room Link enters (also when the map is not on screen)" },
-        el("input", { type: "checkbox", checked: followOn, onchange: (e) => {
-          followOn = e.target.checked;
-          remember("tracker.checksFollow", followOn ? "1" : null);
-          // On Link's region right away.
-          followedRegion = null;
-          followCurrentRegion();
-          render();
-        } }), "Follow Link"),
       el("label", { className: "loc-by-area", title: "Group the checks by the area they are in (the places the map shows)" },
         el("input", { type: "checkbox", checked: groupByArea, onchange: (e) => {
           groupByArea = e.target.checked;

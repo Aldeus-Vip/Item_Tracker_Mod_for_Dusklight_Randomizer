@@ -11,7 +11,7 @@
   province, searched by the item's name; filtered by status (Important too), in game order or
   reachable first, grouped by region or not. Clicks, highlight and requirement as in Checks. **Give up…** shows every check's item
   from the spoiler log after typing GIVE UP (until the page is reloaded or hidden again).
-- **Follow Link** in Checks (above the check list, as the map's): the list shows the region of the
+- **Follow Link** in Checks (beside Sort, as the map's): the list shows the region of the
   room Link enters, also without the map on screen.
 
 ### Fixed
