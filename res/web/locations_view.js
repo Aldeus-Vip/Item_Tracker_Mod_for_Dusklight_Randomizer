@@ -1067,7 +1067,10 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
     const checks = el("div", { className: "loc-checks" }, banner, list);
     const body = el("div", { className: "loc-body" + (showChecks ? " show-checks" : "") }, groups, checks);
     const searching = document.activeElement?.classList.contains("rule-search") && root.contains(document.activeElement);
+    // (Redrawn in place: the page stays where it was scrolled, a check marked near the bottom too.)
+    const scrollY = window.scrollY;
     root.replaceChildren(toolbar, body);
+    if (window.scrollY !== scrollY) window.scrollTo(0, scrollY);
     toolbarSize.disconnect();
     toolbarSize.observe(toolbar);
     if (editing && !editing.host) root.append(renderDetail());
@@ -1185,7 +1188,9 @@ export function createLocationsView(root, { getOverrides, getPresetOverrides, sa
       for (const x of rows) body.append(row(x));
     }
     if (!rows.length) body.append(el("p", { className: "empty", textContent: q ? "No check found holds that item (with these filters)." : "No item known yet (with these filters)." }));
+    const scrollY = window.scrollY;
     itemHost.replaceChildren(...out);
+    if (window.scrollY !== scrollY) window.scrollTo(0, scrollY);
     if (revealWasFocused) revealInput.focus();
     if (typing) {
       const input = itemHost.querySelector(".loc-item-query");

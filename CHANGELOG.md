@@ -20,6 +20,8 @@
 - A check with a custom requirement shows a small golden quill instead of the "custom" label.
 
 ### Fixed
+- Checks: marking a check (its marker, Important) moved the page up the list; the list is redrawn
+  in place now, as is Item Search.
 - Checks follow Link and the region marked reachable on entering: in a grotto built like others
   (they share one room) the list went to another grotto's region (Ordon's to Beside Castle Town's).
   The grotto is now told by the story layer Link entered with (sent by the mod in the state), as
