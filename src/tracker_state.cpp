@@ -102,6 +102,12 @@ constexpr u16 kEventShowedAsheisSketch = 0x3B80;
 bool have(u8 item) {
     return checkItemGet(item, 1) != 0;
 }
+// Obtained, for the items whose check the randomizer makes say no in some places (so they are
+// handed out again): the Ordon Pumpkin and Cheese in Snowpeak Ruins, the shields in Kakariko's
+// Malo Mart. Their game check is just the save's "obtained" bit, read here directly.
+bool have_saved(u8 item) {
+    return dComIfGs_isItemFirstBit(item) != 0;
+}
 
 bool is_current_save_table(int saveId) {
     stage_stag_info_class* stagInfo = dComIfGp_getStageStagInfo();
@@ -284,9 +290,9 @@ void write_items(JsonWriter& w) {
     w.key("items").beginObject();
     // Progressive equipment
     w.member("Progressive Sword", count_swords());
-    w.member("Ordon Shield", have(dItemNo_WOOD_SHIELD_e) ? 1 : 0);
-    w.member("Wooden Shield", have(dItemNo_SHIELD_e) ? 1 : 0);
-    w.member("Hylian Shield", have(dItemNo_HYLIA_SHIELD_e) ? 1 : 0);
+    w.member("Ordon Shield", have_saved(dItemNo_WOOD_SHIELD_e) ? 1 : 0);
+    w.member("Wooden Shield", have_saved(dItemNo_SHIELD_e) ? 1 : 0);
+    w.member("Hylian Shield", have_saved(dItemNo_HYLIA_SHIELD_e) ? 1 : 0);
     w.member("Zora Armor", have(dItemNo_WEAR_ZORA_e) ? 1 : 0);
     w.member("Magic Armor", have(dItemNo_ARMOR_e) ? 1 : 0);
     w.member("Progressive Wallet", static_cast<int>(dComIfGs_getWalletSize()));
@@ -324,8 +330,8 @@ void write_items(JsonWriter& w) {
     w.member("Faron Woods Coro Key", dComIfGs_isStageSwitch(kFaronSaveId, kCoroGateFlag) ? 1 : 0);
     w.member("Gate Keys", have(dItemNo_BOSSRIDER_KEY_e) ? 1 : 0);
     w.member("Goron Mines Key Shard", count_key_shards());
-    w.member("Ordon Pumpkin", have(dItemNo_TOMATO_PUREE_e) ? 1 : 0);
-    w.member("Ordon Cheese", have(dItemNo_TASTE_e) ? 1 : 0);
+    w.member("Ordon Pumpkin", have_saved(dItemNo_TOMATO_PUREE_e) ? 1 : 0);
+    w.member("Ordon Cheese", have_saved(dItemNo_TASTE_e) ? 1 : 0);
     w.member("Gerudo Desert Bulblin Camp Key",
         keys_found(kBulblinCampSaveId, &kBulblinCampKeyDoorFlag, 1));
     // Story progress

@@ -20,6 +20,9 @@
 - A check with a custom requirement shows a small golden quill instead of the "custom" label.
 
 ### Fixed
+- The Ordon Pumpkin and Ordon Cheese (Dungeons) showed as missing while Link was in Snowpeak
+  Ruins, and the shields in Kakariko's Malo Mart: the randomizer answers "not obtained" there (so
+  the item is handed out again). The mod now also reads the save's obtained bit.
 - Checks: marking a check (its marker, Important) moved the page up the list; the list is redrawn
   in place now, as is Item Search.
 - Checks follow Link and the region marked reachable on entering: in a grotto built like others
