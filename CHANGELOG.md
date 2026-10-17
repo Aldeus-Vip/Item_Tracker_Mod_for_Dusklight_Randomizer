@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### New
+- **Texture replacements**: while Dusklight's Texture Replacements setting is on, the item icons,
+  map icons and dungeon map backgrounds the mod builds from your game use the replacements in
+  Dusklight's `texture_replacements` folder (`tex1_…` `.png` / `.dds` files), as the game shows
+  them. Switching the setting is picked up by reloading the page. Replacements shipped inside
+  other mods are not used.
+
 ## 1.3.0 — 2026-10-17
 
 ### Upgrading from 1.2.x

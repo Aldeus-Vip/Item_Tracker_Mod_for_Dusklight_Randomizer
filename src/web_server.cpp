@@ -72,7 +72,7 @@ void send_text(Client& client, std::string_view text) {
 }
 
 void send_response(Client& client, std::string_view status, std::string_view contentType,
-    std::string_view body, std::string_view cacheControl = "no-cache") {
+    std::string_view body, std::string_view cacheControl = "no-cache", std::string_view extraHeader = {}) {
     std::string head;
     head.reserve(256);
     head += "HTTP/1.1 ";
@@ -83,6 +83,10 @@ void send_response(Client& client, std::string_view status, std::string_view con
     head += std::to_string(body.size());
     head += "\r\nCache-Control: ";
     head += cacheControl;
+    if (!extraHeader.empty()) {
+        head += "\r\n";
+        head += extraHeader;
+    }
     head += "\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n";
     send_text(client, head);
     send_text(client, body);
@@ -210,8 +214,24 @@ bool is_safe_icon_name(std::string_view name) {
 
 std::string_view image_type(std::string_view data);
 
+// Images built from the game's textures change when Dusklight's texture replacements are switched:
+// the browser asks again each time (no-cache) and gets 304 while the content (ETag) is the same.
+void send_game_image(Client& client, std::string_view ifNoneMatch, const std::string& png) {
+    uint64_t hash = 0xCBF29CE484222325ull;  // FNV-1a
+    for (const unsigned char c : png) hash = (hash ^ c) * 0x100000001B3ull;
+    static constexpr char kHex[] = "0123456789abcdef";
+    std::string etag = "\"";
+    for (int shift = 60; shift >= 0; shift -= 4) etag += kHex[hash >> shift & 0xF];
+    etag += '"';
+    if (ifNoneMatch == etag) {
+        send_response(client, "304 Not Modified", "image/png", {}, "no-cache", "ETag: " + etag);
+        return;
+    }
+    send_response(client, "200 OK", "image/png", png, "no-cache", "ETag: " + etag);
+}
+
 // /game-icons/<item number>.png: icon built from the game's own item icon archive.
-void serve_game_icon(Client& client, std::string_view name) {
+void serve_game_icon(Client& client, std::string_view name, std::string_view ifNoneMatch) {
     int itemNo = -1;
     if (name.ends_with(".png")) {
         const std::string_view digits = name.substr(0, name.size() - 4);
@@ -225,12 +245,12 @@ void serve_game_icon(Client& client, std::string_view name) {
         send_error(client, "404 Not Found");
         return;
     }
-    send_response(client, "200 OK", "image/png", body, "max-age=3600");
+    send_game_image(client, ifNoneMatch, body);
 }
 
 // /game-textures/<archive>/          -> JSON list of the archive's textures
 // /game-textures/<archive>/<name>.png -> one texture ("<file>.bti" or "#<index>") as PNG
-void serve_game_texture(Client& client, std::string_view rest) {
+void serve_game_texture(Client& client, std::string_view rest, std::string_view ifNoneMatch) {
     const size_t slash = rest.find('/');
     std::string archive{rest.substr(0, slash)};
     const bool archiveOk = !archive.empty() && archive.size() <= 16 &&
@@ -257,7 +277,7 @@ void serve_game_texture(Client& client, std::string_view rest) {
         send_error(client, "404 Not Found");
         return;
     }
-    send_response(client, "200 OK", "image/png", png, "max-age=3600");
+    send_game_image(client, ifNoneMatch, png);
 }
 
 void serve_icon(Client& client, std::string_view encodedName) {
@@ -294,6 +314,7 @@ struct Request {
     std::string_view host;
     std::string_view origin;
     std::string_view contentType;
+    std::string_view ifNoneMatch;
     size_t contentLength = 0;
     size_t headerBytes = 0;  // Request line + headers + blank line
     std::string_view body;
@@ -333,6 +354,8 @@ bool parse_request(std::string_view req, Request& out) {
                 out.origin = value;
             } else if (name == "content-type") {
                 out.contentType = value;
+            } else if (name == "if-none-match") {
+                out.ifNoneMatch = value;
             } else if (name == "content-length") {
                 out.contentLength = std::strtoull(std::string{value}.c_str(), nullptr, 10);
             }
@@ -784,11 +807,11 @@ bool handle_request(Client& client, const Request& req) {
         return false;
     }
     if (target.starts_with("/game-textures/")) {
-        serve_game_texture(client, target.substr(15));
+        serve_game_texture(client, target.substr(15), req.ifNoneMatch);
         return false;
     }
     if (target.starts_with("/game-icons/")) {
-        serve_game_icon(client, target.substr(12));
+        serve_game_icon(client, target.substr(12), req.ifNoneMatch);
         return false;
     }
     if (target.starts_with("/icons/")) {

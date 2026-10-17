@@ -24,6 +24,9 @@ using Color = std::array<uint8_t, 4>;  // r, g, b, a
 // are relative to its start. Returns an empty image for unsupported formats or bad sizes.
 Image decode_timg(const uint8_t* data, size_t size);
 
+// Bytes of the base level of a texture (whole blocks); 0 for unsupported formats.
+size_t timg_image_size(uint8_t format, int width, int height);
+
 // One J2DPicture layer as the item menu draws it.
 struct Layer {
     Image texture;

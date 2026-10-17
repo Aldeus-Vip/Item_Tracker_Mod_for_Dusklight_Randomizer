@@ -25,7 +25,9 @@ English: [README.md](README.md)
 - **Map**:ゲーム自身の地図データから、リンクのいる場所の地図を表示します。チェック、入口、
   ダンジョンの扉も地図上に表示します([地図](#地図)を参照)。Checks と Map は横並びにでき、互いに連動します。
 - **ゲームから作るアイコン**:Mod がプレイ中に、各自のゲームデータからアイテムアイコン、地図のアイコン、
-  ダンジョンの紋章を作ります。Mod にゲームの画像は入っていません。
+  ダンジョンの紋章を作ります。Mod にゲームの画像は入っていません。Dusklight の Texture Replacements
+  設定が ON のときは、`texture_replacements` フォルダの差し替え(`tex1_…` の `.png` / `.dds`)も
+  反映します(他の Mod に入っている差し替えは対象外)。設定を切り替えたらページを再読み込みしてください。
 - **名前の自動調整**:Items タブで長いアイテム名は、枠に収まるよう文字が自動で小さくなります。
 - **カスタマイズ**:並び替え、テーマ、背景画像、アイテムの背景と光、フォント(自分のフォントも可)、
   アイコンを変更できます。**Simple** 表示は主な機能だけ、**Advanced** はすべての機能(チェックの条件を自分で書く機能、地図の詳細)を表示します。
@@ -130,6 +132,9 @@ Mod に同梱しており(`res/web/map_presets.json`)、全員同じです。
 ページのフォントは [Nunito](https://github.com/googlefonts/nunito)(Vernon Adams ほか、SIL Open Font License 1.1、
 `res/web/fonts/Nunito-OFL.txt`)です。Options の Old English フォントは [UnifrakturMaguntia](https://github.com/google/fonts/tree/main/ofl/unifrakturmaguntia)
 (SIL Open Font License 1.1、`res/web/fonts/UnifrakturMaguntia-OFL.txt`)です。
+
+差し替え画像の読み込みには [stb_image](https://github.com/nothings/stb)(パブリックドメイン / MIT)と
+[bcdec](https://github.com/iOrange/bcdec)(MIT / Unlicense)を使っています(`src/third_party/`)。
 
 ### 自分で設定する条件
 

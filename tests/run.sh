@@ -12,6 +12,9 @@ build() {
 build "$root/tests/web_server_test.cpp" "$root/src/web_server.cpp" -o "$root/build/web_server_test"
 build "$root/tests/rando_data_test.cpp" "$root/src/rando_data.cpp" -o "$root/build/rando_data_test"
 build "$root/tests/gx_texture_test.cpp" "$root/src/gx_texture.cpp" -o "$root/build/gx_texture_test"
+build "$root/tests/texture_replacement_test.cpp" "$root/src/texture_replacement.cpp" "$root/src/gx_texture.cpp" \
+    -o "$root/build/texture_replacement_test"
 "$root/build/web_server_test"
 "$root/build/rando_data_test"
 "$root/build/gx_texture_test"
+"$root/build/texture_replacement_test"

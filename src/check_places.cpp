@@ -1,6 +1,7 @@
 #include "check_places.hpp"
 
 #include "gx_texture.hpp"
+#include "texture_replacement.hpp"
 #include "json_writer.hpp"
 #include "tracker_state.hpp"
 
@@ -772,6 +773,7 @@ bool step_read() {
 
 std::map<std::string, std::string> g_art;  // stage -> PNG ("" = could not be read)
 std::map<std::string, std::string> g_artWhy;  // stage -> why it could not be read
+uint64_t g_artRevision = 0;  // texrep::revision() the backgrounds were decoded with
 std::vector<std::string> g_artQueue;
 DVDFileInfo g_artFile;
 bool g_artOpen = false;
@@ -792,7 +794,7 @@ void finish_art(const std::string& stage) {
         if (!yaz0_decode(raw, file)) file = std::move(raw);
         if (file.size() < 0x20) break;
         gx::Layer layer;
-        layer.texture = gx::decode_timg(file.data(), file.size());
+        layer.texture = texrep::decode(file.data(), file.size());
         layer.alphaEnabled = file[1] != 0;
         const gx::Image image = gx::compose({layer});
         if (image.width) png = gx::encode_png(image);
@@ -1281,6 +1283,12 @@ std::string dungeon_art(const std::string& stage) {
     if (stage.size() != 6 || stage.compare(0, 4, "D_MN") != 0 || !std::isdigit(static_cast<unsigned char>(stage[4])) ||
         !std::isdigit(static_cast<unsigned char>(stage[5]))) {
         return {};
+    }
+    if (const uint64_t revision = texrep::revision(); revision != g_artRevision) {
+        // Texture replacements switched: read the backgrounds again.
+        g_art.clear();
+        g_artWhy.clear();
+        g_artRevision = revision;
     }
     if (const auto it = g_art.find(stage); it != g_art.end()) return it->second;
     if (std::find(g_artQueue.begin(), g_artQueue.end(), stage) == g_artQueue.end()) g_artQueue.push_back(stage);

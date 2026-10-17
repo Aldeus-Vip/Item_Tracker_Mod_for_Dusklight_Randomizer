@@ -2,6 +2,7 @@
 
 #include "gx_texture.hpp"
 #include "json_writer.hpp"
+#include "texture_replacement.hpp"
 
 #include "JSystem/JKernel/JKRArchive.h"
 #include "d/d_com_inf_game.h"
@@ -47,6 +48,7 @@ bool is_file(const JKRArchive::SDIFileEntry& e) {
 }
 
 std::map<std::string, std::string> g_cache;  // "<archive>/<name>" -> PNG ("" = failed)
+uint64_t g_cacheRevision = 0;  // texrep::revision() the cache was built with
 
 }  // namespace
 
@@ -69,6 +71,10 @@ std::string texture_png(const std::string& archive, const std::string& name) {
     JKRArchive* arc = find_archive(archive);
     if (arc == nullptr || name.empty() || name.size() > 64) return {};
     const std::string key = archive + "/" + name;
+    if (const uint64_t revision = texrep::revision(); revision != g_cacheRevision) {
+        g_cache.clear();
+        g_cacheRevision = revision;
+    }
     if (const auto it = g_cache.find(key); it != g_cache.end()) return it->second;
 
     static std::vector<u8> buffer(4 * 1024 * 1024);
@@ -87,7 +93,7 @@ std::string texture_png(const std::string& archive, const std::string& name) {
     std::string png;
     if (size >= 0x20 && size <= buffer.size()) {
         gx::Layer layer;  // neutral colors: the texture as stored
-        layer.texture = gx::decode_timg(buffer.data(), size);
+        layer.texture = texrep::decode(buffer.data(), size);
         layer.alphaEnabled = buffer[1] != 0;
         const gx::Image image = gx::compose({layer});
         if (image.width) png = gx::encode_png(image);

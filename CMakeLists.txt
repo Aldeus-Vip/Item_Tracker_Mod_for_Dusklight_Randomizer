@@ -27,6 +27,7 @@ add_mod(dusklight_item_tracker
             src/game_icons.cpp
             src/game_textures.cpp
             src/gx_texture.cpp
+            src/texture_replacement.cpp
             src/mod.cpp
             src/rando_data.cpp
             src/tracker_state.cpp

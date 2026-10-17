@@ -272,6 +272,17 @@ int main() {
     tracker::web::set_game_icons([](int itemNo) { return itemNo == 72 ? std::string{"\x89PNG-lantern"} : std::string{}; });
     const std::string lantern = request(http("GET", "/game-icons/72.png"));
     check(status_is(lantern, "200") && lantern.ends_with("\x89PNG-lantern"), "GET /game-icons/<n>.png");
+    {
+        // Revalidated every time (texture replacements can change the image), 304 while unchanged.
+        const size_t tagAt = lantern.find("ETag: ");
+        check(tagAt != std::string::npos && lantern.find("Cache-Control: no-cache") != std::string::npos,
+            "game icon has an ETag and no-cache");
+        const std::string tag = tagAt == std::string::npos ? "" : lantern.substr(tagAt + 6, lantern.find("\r\n", tagAt) - tagAt - 6);
+        check(status_is(request(http("GET", "/game-icons/72.png", "", "If-None-Match: " + tag + "\r\n")), "304"),
+            "unchanged game icon is 304");
+        check(status_is(request(http("GET", "/game-icons/72.png", "", "If-None-Match: \"0\"\r\n")), "200"),
+            "changed game icon is sent again");
+    }
     check(status_is(request(http("GET", "/game-icons/73.png")), "404"), "missing game icon is 404");
     check(status_is(request(http("GET", "/game-icons/..%2F72.png")), "404"), "non-numeric game icon name is rejected");
 

@@ -81,6 +81,12 @@ void decode_cmpr_sub(Image& img, const uint8_t* p, int x0, int y0) {
 
 }  // namespace
 
+size_t timg_image_size(uint8_t format, int width, int height) {
+    BlockInfo bi{};
+    if (!block_info(format, bi) || width <= 0 || height <= 0) return 0;
+    return static_cast<size_t>((width + bi.bw - 1) / bi.bw) * ((height + bi.bh - 1) / bi.bh) * bi.bytes;
+}
+
 Image decode_timg(const uint8_t* data, size_t size) {
     Image img;
     if (size < 0x20) return img;
@@ -89,7 +95,7 @@ Image decode_timg(const uint8_t* data, size_t size) {
     const uint8_t paletteFormat = data[9];
     const int numColors = be16(data + 0xA);
     const uint32_t paletteOffset = be32(data + 0xC);
-    const uint32_t imageOffset = be32(data + 0x1C);
+    const uint32_t imageOffset = be32(data + 0x1C) ? be32(data + 0x1C) : 0x20;  // as JUTTexture reads it
     BlockInfo bi{};
     if (!block_info(format, bi) || width <= 0 || height <= 0 || width > 1024 || height > 1024) return img;
     const int bx = (width + bi.bw - 1) / bi.bw, by = (height + bi.bh - 1) / bi.bh;

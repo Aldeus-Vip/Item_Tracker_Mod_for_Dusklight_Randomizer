@@ -28,7 +28,9 @@ a Browser Source. You don't need to install any separate application.
   entrance and dungeon door on it (see [Map](#map)). Checks and Map can be shown side by side and
   follow each other.
 - **Icons from your game**: the mod builds item icons, map icons and dungeon emblems from your own
-  game data while the game runs. The mod ships no game images.
+  game data while the game runs. The mod ships no game images. With Dusklight's Texture
+  Replacements setting on, they use your `texture_replacements` folder too (`tex1_…` `.png` /
+  `.dds` files; not the replacements inside other mods). Reload the page after switching it.
 - **Fitted names**: long item names in the Items tab shrink to fit their tile.
 - **Customizable**: rearrange tiles; pick a theme, a background image, the item background and
   glow, a font (or upload your own); change any icon. **Simple** display shows the main things
@@ -141,6 +143,9 @@ The page font is [Nunito](https://github.com/googlefonts/nunito) by Vernon Adams
 SIL Open Font License 1.1 (`res/web/fonts/Nunito-OFL.txt`). The Old English font (Options › Font) is
 [UnifrakturMaguntia](https://github.com/google/fonts/tree/main/ofl/unifrakturmaguntia), also under the SIL Open Font License 1.1
 (`res/web/fonts/UnifrakturMaguntia-OFL.txt`).
+
+Texture replacement files are read with [stb_image](https://github.com/nothings/stb) (public
+domain / MIT) and [bcdec](https://github.com/iOrange/bcdec) (MIT / Unlicense), in `src/third_party/`.
 
 ### Custom requirements
 

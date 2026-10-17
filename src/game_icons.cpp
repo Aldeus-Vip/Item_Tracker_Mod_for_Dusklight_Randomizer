@@ -1,6 +1,7 @@
 #include "game_icons.hpp"
 
 #include "gx_texture.hpp"
+#include "texture_replacement.hpp"
 
 #include "JSystem/J2DGraph/J2DPicture.h"
 #include "JSystem/JKernel/JKRArchive.h"
@@ -29,7 +30,7 @@ bool load_layer(JKRArchive* arc, s16 index, const J2DPicture& pic, gx::Layer& ou
     alignas(32) static u8 buffer[0x4000];
     const u32 size = arc->readIdxResource(buffer, sizeof(buffer), static_cast<u32>(index));
     if (size < 0x20 || size > sizeof(buffer)) return false;
-    out.texture = gx::decode_timg(buffer, size);
+    out.texture = texrep::decode(buffer, size);
     if (out.texture.width == 0) return false;
     out.alphaEnabled = buffer[1] != 0;
     out.black = color(pic.getBlack());
@@ -81,11 +82,16 @@ std::string build(u8 itemNo) {
 }
 
 std::map<u8, std::string> g_cache;
+uint64_t g_cacheRevision = 0;  // texrep::revision() the cache was built with
 
 }  // namespace
 
 std::string item_icon_png(uint8_t itemNo) {
     if (itemNo == dItemNo_NONE_e) return {};
+    if (const uint64_t revision = texrep::revision(); revision != g_cacheRevision) {
+        g_cache.clear();
+        g_cacheRevision = revision;
+    }
     if (const auto it = g_cache.find(itemNo); it != g_cache.end()) return it->second;
     std::string png = build(itemNo);
     // Only cache once the archive exists, so an early request is retried later.

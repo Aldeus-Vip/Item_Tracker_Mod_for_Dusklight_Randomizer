@@ -28,6 +28,10 @@ the mod's panel). Only loopback clients can connect, and requests whose `Host` h
 | POST | `/found` | `text/plain`: an optional first line `seed\t<hash>`, then entry lines: `loc:<location>` (shop seen), `told:<location>` (an NPC named the item), `map:<region>` (marked reachable), `mark:<location>` (marked checked), `imp:<location>` (marked Important), `note:<key>\t<text>` (replaces that key's note), or `-map:…` / `-mark:…` / `-imp:…` / `-note:<key>` to remove one. Kept with the game save (see `found` in the state) |
 | POST | `/highlight` | `application/json`, one line: `{"name": <check or null>, "from": <page id>}`, the check a page highlighted (Options › Share highlight). Kept in memory and sent to every event stream as `event: highlight`, and to each new one when it opens |
 
+Game images (`/game-icons/`, `/game-textures/`) use the user's Dusklight texture replacements while
+that setting is on, so they are sent with `Cache-Control: no-cache` and an `ETag`; a request with
+the same `If-None-Match` gets `304 Not Modified`.
+
 Writes are accepted only from the tracker page's own origin (or without `Origin`, e.g. curl) and
 only with `Content-Type: application/json` (layout, settings) or `image/*` (background). These
 content types make cross-site pages send a CORS preflight, which the server never approves, so

@@ -17,6 +17,7 @@
 #include "game_icons.hpp"
 #include "game_textures.hpp"
 #include "rando_data.hpp"
+#include "texture_replacement.hpp"
 #include "tracker_state.hpp"
 #include "web_server.hpp"
 
@@ -133,6 +134,8 @@ void init_data_dir() {
     tracker::web::set_data_dir(dataDir);
     tracker::rando::init(dataDir);
     tracker::places::set_cache_file((std::filesystem::path{dataDir} / "check_places.txt").string());
+    // <config>/mod_data/<mod id>: Dusklight's texture_replacements folder is in <config>.
+    tracker::texrep::set_config_dir(std::filesystem::path{dataDir}.parent_path().parent_path());
     tracker::web::set_game_icons(
         [](int itemNo) { return tracker::icons::item_icon_png(static_cast<uint8_t>(itemNo)); });
     tracker::web::set_game_textures(
