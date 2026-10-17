@@ -1,6 +1,11 @@
 # Changelog
 
-## 1.3.0 — unreleased
+## 1.3.0 — 2026-10-17
+
+### Upgrading from 1.2.x
+- Install over 1.2.x: settings, layout, custom requirements and what each save has found are kept.
+- Link Checks and Map and Share highlight between pages moved from Options › Display to the new
+  Options › **Locations Link**, with the same values.
 
 ### New
 - **Important** checks: right-click the marker left of a check to mark it (an item you need but
@@ -9,8 +14,9 @@
   **Reachable first** puts them first among checks of the same status. Kept with the game save.
 - **Locations › Item Search**: the checks whose item you know (Show found items), whatever their
   province, searched by the item's name; filtered by status (Important too), in game order or
-  reachable first, grouped by region or not. Clicks, highlight and requirement as in Checks. **Give up…** shows every check's item
-  from the spoiler log after typing GIVE UP (until the page is reloaded or hidden again).
+  reachable first, grouped by region or not. Clicks, highlight and requirement as in Checks.
+  **Give up…** shows every check's item from the spoiler log after typing GIVE UP (until the page
+  is reloaded or hidden again).
 - Options › **Locations Link**: the settings that tie Checks, the map and other pages together in
   one place — Link Checks and Map, Share highlight between pages (from Display) and the new
   **Checks follow Link** (the list shows the region of the room Link enters, also without the map
